@@ -4,7 +4,7 @@ function Home() { // <- Capital 'H'
   return (
     <div>
 <h1>
-    Gemzyne
+    Gemzyne seller 
     </h1>
 
     </div>
