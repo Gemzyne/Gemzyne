@@ -1,5 +1,9 @@
 import React, { useEffect } from "react";
 import "./HomePage.css";
+import Header from "../../Components/Header";
+import Footer from "../../Components/Footer";
+
+
 
 const HomePage = () => {
 
@@ -188,22 +192,7 @@ const HomePage = () => {
     <div className="home-container">
       <div id="particles-js"></div>
 
-      <header id="header">
-        <div className="logo">LUX GEMS</div>
-        <nav className="nav-links">
-          <a href="#">Home</a>
-          <a href="#">Collection</a>
-          <a href="#">About</a>
-          <a href="#">Certification</a>
-          <a href="#">Contact</a>
-        </nav>
-        <div className="header-actions">
-          <i className="fas fa-search"></i>
-          <i className="fas fa-user"></i>
-          <i className="fas fa-shopping-bag"></i>
-          <button className="btn">View Collection</button>
-        </div>
-      </header>
+      <Header/>
 
       {/* Hero */}
       <section className="hero">
@@ -276,34 +265,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer>
-        <div className="footer-grid">
-          <div className="footer-col">
-            <h3>LUX GEMS</h3>
-            <p>Discover the world's most exceptional gemstones, curated for discerning collectors.</p>
-          </div>
-          <div className="footer-col">
-            <h3>Collections</h3>
-            <ul>
-              {["Sapphires","Rubies","Emeralds","Diamonds","Rare Gems"].map((c,i)=>(
-                <li key={i}><a href="#"><i className="fas fa-gem"></i> {c}</a></li>
-              ))}
-            </ul>
-          </div>
-          <div className="footer-col">
-            <h3>Contact</h3>
-            <ul>
-              <li>Email: contact@luxgems.com</li>
-              <li>Phone: +1 234 567 890</li>
-              <li>Address: 123 Gem Street, New York</li>
-            </ul>
-          </div>
-        </div>
-        <div className="footer-bottom">
-          &copy; 2025 Lux Gems. All rights reserved.
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };
