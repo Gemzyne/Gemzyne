@@ -1,13 +1,14 @@
 // backend/app.js
 const express = require('express');
 const mongoose = require('mongoose');
+const router = require('./Routes/UserRoutes');
 
 const app = express();
 
 //middleware
-app.use("/",(req, res, next) => {
-    res.send("Welcome to the backend server!");
-});
+app.use(express.json());
+app.use("/users",router);
+
 
 // Connect to MongoDB
 mongoose.connect('mongodb+srv://gemzyneAdmin:ApeKama_Gemzyne2025@cluster0.icchtnm.mongodb.net/')
@@ -20,4 +21,4 @@ mongoose.connect('mongodb+srv://gemzyneAdmin:ApeKama_Gemzyne2025@cluster0.icchtn
 // Handle connection errors
 .catch(err => {
     console.error("Database connection error:", err);
-});
+}); 
