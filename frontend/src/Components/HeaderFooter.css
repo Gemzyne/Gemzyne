@@ -80,25 +80,6 @@ header.scrolled {
     color: #d4af37;
 }
 
-.btn {
-    padding: 12px 28px;
-    background: linear-gradient(45deg, #d4af37, #f9f295);
-    border: none;
-    border-radius: 30px;
-    color: #0a0a0a;
-    font-weight: 600;
-    cursor: pointer;
-    transition: 0.4s;
-    font-size: 16px;
-    letter-spacing: 0.5px;
-    box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
-}
-
-.btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(212, 175, 55, 0.4);
-}
-
 /* Footer */
 footer {
     background: #0a0a0a;

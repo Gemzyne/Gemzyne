@@ -1,0 +1,366 @@
+ * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            color: #f5f5f5;
+            overflow-x: hidden;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+         /* Auth Container */
+        .auth-container {
+            display: flex;
+            min-height: 100vh;
+            padding: 100px 5% 50px;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .auth-gem {
+            flex: 1;
+            height: 600px;
+            position: relative;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            background: rgba(20, 20, 20, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .auth-content {
+            flex: 1;
+            max-width: 500px;
+            padding: 50px;
+            background: rgba(26, 26, 26, 0.7);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(212, 175, 55, 0.1);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            margin-left: 50px;
+        }
+        
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .auth-tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #b0b0b0;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .auth-tab.active {
+            color: #d4af37;
+        }
+        
+        .auth-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(to right, #d4af37, #f9f295);
+            border-radius: 3px;
+        }
+        
+        .auth-form {
+            display: none;
+        }
+        
+        .auth-form.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #d4af37;
+            font-weight: 500;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 15px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: #f5f5f5;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #d4af37;
+            box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+        }
+        
+        .input-with-icon {
+            position: relative;
+        }
+        
+        .input-with-icon i {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #b0b0b0;
+        }
+        
+        .forgot-password {
+            display: block;
+            text-align: right;
+            margin-bottom: 25px;
+            color: #d4af37;
+            text-decoration: none;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+        
+        .forgot-password:hover {
+            text-decoration: underline;
+        }
+        
+        .auth-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(45deg, #d4af37, #f9f295);
+            border: none;
+            border-radius: 10px;
+            color: #0a0a0a;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.4s;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .auth-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(212, 175, 55, 0.4);
+        }
+        
+        .auth-alt {
+            text-align: center;
+            margin-top: 30px;
+            color: #b0b0b0;
+        }
+        
+        .auth-alt a {
+            color: #d4af37;
+            text-decoration: none;
+            font-weight: 500;
+            transition: 0.3s;
+        }
+        
+        .auth-alt a:hover {
+            text-decoration: underline;
+        }
+        
+        .social-auth {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .social-btn {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: #f5f5f5;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .social-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .social-btn.google i {
+            color: #DB4437;
+        }
+        
+        .social-btn.facebook i {
+            color: #4267B2;
+        }
+        
+        .otp-container {
+            margin-bottom: 25px;
+        }
+        
+        .otp-input {
+            width: 100%;
+            padding: 15px 20px;
+            text-align: center;
+            font-size: 18px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: #f5f5f5;
+            transition: all 0.3s ease;
+        }
+        
+        .otp-input:focus {
+            outline: none;
+            border-color: #d4af37;
+            box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+        }
+        
+        .resend-otp {
+            text-align: center;
+            margin-top: 20px;
+            color: #b0b0b0;
+            font-size: 14px;
+        }
+        
+        .resend-otp a {
+            color: #d4af37;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .resend-otp a:hover {
+            text-decoration: underline;
+        }
+
+         /* Particle Background */
+        #particles-js {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Make the golden CTA button render even if a reset removed defaults */
+button.auth-btn {
+  display: block;
+  width: 100%;
+  padding: 15px;
+  background: linear-gradient(45deg, #d4af37, #f9f295) !important;
+  border: none !important;
+  border-radius: 10px;
+  color: #0a0a0a !important;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.4s;
+  margin-bottom: 20px;
+  box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
+}
+button.auth-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(212, 175, 55, 0.4);
+}
+
+/* Tabs are buttons now, not links */
+button.auth-tab {
+  background: transparent;
+  border: none;
+  padding: 15px 30px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #b0b0b0;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+/* “Forgot password?” is also a button now */
+button.forgot-password {
+  background: transparent;
+  border: none;
+  color: #d4af37;
+  text-align: right;
+  margin-bottom: 25px;
+  font-size: 14px;
+  cursor: pointer;
+}
+button.forgot-password:hover {
+  text-decoration: underline;
+}
+
+/* If a global reset zeroed buttons, force pointer cursor */
+button { cursor: pointer; }
+
+.auth-alt button {
+  background: transparent;
+  border: none;
+  color: #d4af37;
+  font-weight: 500;
+}
+.auth-alt button:hover { text-decoration: underline; }
+
+        
+        /* Responsive */
+        @media (max-width: 992px) {
+            .auth-container {
+                flex-direction: column;
+                padding: 100px 5% 50px;
+            }
+            
+            .auth-gem {
+                width: 100%;
+                height: 300px;
+                margin-bottom: 30px;
+            }
+            
+            .auth-content {
+                margin-left: 0;
+                width: 100%;
+                max-width: 100%;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .auth-content {
+                padding: 30px;
+            }
+            
+            .auth-tab {
+                padding: 12px 20px;
+                font-size: 14px;
+            }
+            
+            .social-auth {
+                flex-direction: column;
+            }
+            
+            .otp-input {
+                padding: 12px;
+                font-size: 16px;
+            }
+        }

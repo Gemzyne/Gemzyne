@@ -1,3 +1,4 @@
+
 {
   "name": "frontend",
   "version": "0.1.0",
@@ -12,6 +13,7 @@
     "react-router": "^7.8.0",
     "react-router-dom": "^7.8.0",
     "react-scripts": "^5.0.1",
+    "three": "^0.179.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
@@ -38,4 +40,5 @@
       "last 1 safari version"
     ]
   }
+  
 }
