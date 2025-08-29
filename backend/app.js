@@ -1,24 +1,43 @@
 // backend/app.js
+require('dotenv').config(); // <--- load .env first
+console.log('ENV check -> USE_ETHEREAL:', process.env.USE_ETHEREAL, 'SMTP_HOST:', process.env.SMTP_HOST);
 const express = require('express');
 const mongoose = require('mongoose');
-const router = require('./Routes/UserRoutes');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+
+const authRoutes = require('./Routes/AuthRoutes');
+const meRoutes = require('./Routes/MeRoutes');
+const adminUsersRoutes = require('./Routes/AdminUsersRoutes');
+const adminOverviewRoutes = require('./Routes/AdminOverviewRoutes');      // <-- add
+const adminComplaintsRoutes = require('./Routes/AdminComplaintsRoutes');  // <-- add
 
 const app = express();
 
 //middleware
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001'], // CRA default is 3000
+  credentials: true,
+}));
 app.use(express.json());
-app.use("/users",router);
+app.use(cookieParser());
+
+app.use("/users",meRoutes);
+app.use("/auth",authRoutes);
+//admin routes
+app.use("/admin/overview",adminOverviewRoutes);
+app.use("/admin/complaints",adminComplaintsRoutes);
+app.use("/admin/users",adminUsersRoutes);
 
 
-// Connect to MongoDB
-mongoose.connect('mongodb+srv://gemzyneAdmin:ApeKama_Gemzyne2025@cluster0.icchtnm.mongodb.net/')
-.then(()=> console.log("Connected to MongoDB"))
-.then(()=>{
-    app.listen(5000, () => {
-        console.log("Server is running on port 5000");
+// --- Connect DB + Start Server
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("Connected to MongoDB");
+    app.listen(process.env.PORT, () => {
+      console.log(`Server is running on port ${process.env.PORT}`);
     });
-})
-// Handle connection errors
-.catch(err => {
+  })
+  .catch(err => {
     console.error("Database connection error:", err);
-}); 
+  });
