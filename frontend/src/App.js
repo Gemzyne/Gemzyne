@@ -6,8 +6,14 @@ import "./App.css";
 import HomePage from "./pages/HomePage/HomePage";
 import LoginPage from "./pages/LoginPage/LoginPage";
 import UserDashboard from "./pages/DashBoards/UserDashboard";
-import AdminDashboard from "./pages/DashBoards/AdminDashboard"; // NEW
+import AdminDashboard from "./pages/DashBoards/AdminDashboard";
 import AdminUsersPage from "./pages/AdminUsers/AdminUsersPage";
+import SellerDashboard from "./pages/DashBoards/SellerDashboard";
+import UserSettings from "./pages/Settings/UserSettings";
+import SellerSettings from "./pages/Settings/SellerSettings";
+import AdminSettings from "./pages/Settings/AdminSettings";
+import AdminUserDetailPage from "./pages/AdminUsers/AdminUserDetails";
+import AdminUserCreatePage from "./pages/AdminUsers/AdminUserCreatePage";
 
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem("accessToken");
@@ -41,6 +47,15 @@ export default function App() {
         }
       />
 
+      <Route
+        path="/settings"
+        element={
+          <RequireAuth>
+            <UserSettings />
+          </RequireAuth>
+        }
+      />
+
       {/* Admin */}
       <Route
         path="/admin-dashboard"
@@ -53,7 +68,7 @@ export default function App() {
         }
       />
 
-       <Route
+      <Route
         path="/admin/users"
         element={
           <RequireAuth>
@@ -64,8 +79,66 @@ export default function App() {
         }
       />
 
-      <Route path="*" element={<div style={{ padding: 32 }}>404 – Page not found</div>} />
+      <Route
+        path="/admin/settings"
+        element={
+          <RequireAuth>
+            <RequireRole role="admin">
+              <AdminSettings />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/admin/users/:id"
+        element={
+          <RequireAuth>
+            <RequireRole role="admin">
+              <AdminUserDetailPage />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/admin/users/new"
+        element={
+          <RequireAuth>
+            <RequireRole role="admin">
+              <AdminUserCreatePage />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      {/* Seller */}
+      <Route
+        path="/seller-dashboard"
+        element={
+          <RequireAuth>
+            <RequireRole role="seller">
+              <SellerDashboard />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/seller/settings"
+        element={
+          <RequireAuth>
+            <RequireRole role="seller">
+              <SellerSettings />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="*"
+        element={<div style={{ padding: 32 }}>404 – Page not found</div>}
+      />
     </Routes>
   );
 }
-

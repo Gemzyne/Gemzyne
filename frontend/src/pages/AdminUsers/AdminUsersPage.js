@@ -1,3 +1,4 @@
+// src/pages/Settings/AdminUsersPage.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Header";
@@ -10,6 +11,9 @@ export default function AdminUsersPage() {
   const [tab, setTab] = useState("all"); // all | buyer | seller | admin
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // NEW: track which user we’re deleting (optional, nicer UX than one global flag)
+  const [deletingId, setDeletingId] = useState(null);
 
   // guard
   useEffect(() => {
@@ -28,12 +32,22 @@ export default function AdminUsersPage() {
           shape: { type: "circle" },
           opacity: { value: 0.3, random: true },
           size: { value: 3, random: true },
-          line_linked: { enable: true, distance: 150, color: "#d4af37", opacity: 0.1, width: 1 },
+          line_linked: {
+            enable: true,
+            distance: 150,
+            color: "#d4af37",
+            opacity: 0.1,
+            width: 1,
+          },
           move: { enable: true, speed: 1 },
         },
         interactivity: {
           detect_on: "canvas",
-          events: { onhover: { enable: true, mode: "repulse" }, onclick: { enable: true, mode: "push" }, resize: true },
+          events: {
+            onhover: { enable: true, mode: "repulse" },
+            onclick: { enable: true, mode: "push" },
+            resize: true,
+          },
         },
         retina_detect: true,
       });
@@ -66,7 +80,11 @@ export default function AdminUsersPage() {
       const params = {};
       if (roleFilter && roleFilter !== "all") params.role = roleFilter;
       const r = await api.admin.listUsers(params);
-      const list = Array.isArray(r?.users) ? r.users : (Array.isArray(r) ? r : []);
+      const list = Array.isArray(r?.users)
+        ? r.users
+        : Array.isArray(r)
+        ? r
+        : [];
       setUsers(list);
     } catch (e) {
       console.error("listUsers error", e);
@@ -76,9 +94,36 @@ export default function AdminUsersPage() {
     }
   };
 
-  useEffect(() => { loadUsers(tab === "all" ? undefined : (tab === "buyer" ? "buyer" : tab === "seller" ? "seller" : "admin")); }, [tab]);
+  useEffect(() => {
+    loadUsers(
+      tab === "all"
+        ? undefined
+        : tab === "buyer"
+        ? "buyer"
+        : tab === "seller"
+        ? "seller"
+        : "admin"
+    );
+  }, [tab]);
 
   const visible = useMemo(() => users, [users]);
+
+  // NEW: delete handler
+  const deleteUser = async (id) => {
+    const yes = window.confirm("Delete this user?");
+    if (!yes) return;
+    try {
+      setDeletingId(id);
+      await api.admin.deleteUser(id);
+      // Refresh the list OR optimistically remove the user
+      setUsers((prev) => prev.filter((u) => u._id !== id));
+    } catch (e) {
+      console.error("deleteUser error", e);
+      alert(e.message || "Failed to delete user");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <>
@@ -92,14 +137,39 @@ export default function AdminUsersPage() {
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">User Management</h3>
-              <button className="btn">Add New User</button>
+              <button
+                className="btn"
+                onClick={() => navigate("/admin/users/new")}
+              >
+                Add New User
+              </button>
             </div>
 
             <div className="tabs">
-              <div className={`tab ${tab === "all" ? "active" : ""}`} onClick={() => setTab("all")}>All Users</div>
-              <div className={`tab ${tab === "buyer" ? "active" : ""}`} onClick={() => setTab("buyer")}>Buyers</div>
-              <div className={`tab ${tab === "seller" ? "active" : ""}`} onClick={() => setTab("seller")}>Sellers</div>
-              <div className={`tab ${tab === "admin" ? "active" : ""}`} onClick={() => setTab("admin")}>Admins</div>
+              <div
+                className={`tab ${tab === "all" ? "active" : ""}`}
+                onClick={() => setTab("all")}
+              >
+                All Users
+              </div>
+              <div
+                className={`tab ${tab === "buyer" ? "active" : ""}`}
+                onClick={() => setTab("buyer")}
+              >
+                Buyers
+              </div>
+              <div
+                className={`tab ${tab === "seller" ? "active" : ""}`}
+                onClick={() => setTab("seller")}
+              >
+                Sellers
+              </div>
+              <div
+                className={`tab ${tab === "admin" ? "active" : ""}`}
+                onClick={() => setTab("admin")}
+              >
+                Admins
+              </div>
             </div>
 
             <div className="table-responsive">
@@ -117,30 +187,60 @@ export default function AdminUsersPage() {
                 </thead>
                 <tbody>
                   {loading && (
-                    <tr><td colSpan="7" style={{ color: "#b0b0b0" }}>Loading users…</td></tr>
-                  )}
-
-                  {!loading && visible.map((u) => (
-                    <tr key={u._id}>
-                      <td>#{u._id?.slice?.(-6)?.toUpperCase?.()}</td>
-                      <td>{u.fullName || u.name || "—"}</td>
-                      <td>{u.email}</td>
-                      <td>{u.role}</td>
-                      <td>
-                        <span className={`status ${u.status === "active" ? "status-active" : "status-inactive"}`}>
-                          {u.status === "active" ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}</td>
-                      <td>
-                        <button className="action-btn btn-view">View</button>
-                        <button className="action-btn btn-edit">Edit</button>
+                    <tr>
+                      <td colSpan="7" style={{ color: "#b0b0b0" }}>
+                        Loading users…
                       </td>
                     </tr>
-                  ))}
+                  )}
+
+                  {!loading &&
+                    visible.map((u) => (
+                      <tr key={u._id}>
+                        <td>#{u._id?.slice?.(-6)?.toUpperCase?.()}</td>
+                        <td>{u.fullName || u.name || "—"}</td>
+                        <td>{u.email}</td>
+                        <td>{u.role}</td>
+                        <td>
+                          <span
+                            className={`status ${
+                              u.status === "active"
+                                ? "status-active"
+                                : "status-inactive"
+                            }`}
+                          >
+                            {u.status === "active" ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td>
+                          {u.createdAt
+                            ? new Date(u.createdAt).toLocaleDateString()
+                            : "—"}
+                        </td>
+                        <td>
+                          <button
+                            className="action-btn btn-view"
+                            onClick={() => navigate(`/admin/users/${u._id}`)}
+                          >
+                            View
+                          </button>
+                          <button
+                            className="action-btn btn-delete"
+                            onClick={() => deleteUser(u._id)}
+                            disabled={deletingId === u._id}
+                          >
+                            {deletingId === u._id ? "…" : "Delete"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
 
                   {!loading && !visible.length && (
-                    <tr><td colSpan="7" style={{ color: "#b0b0b0" }}>No users found.</td></tr>
+                    <tr>
+                      <td colSpan="7" style={{ color: "#b0b0b0" }}>
+                        No users found.
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>

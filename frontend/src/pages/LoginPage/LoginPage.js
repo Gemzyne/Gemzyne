@@ -1,3 +1,4 @@
+// src/pages/Auth/LoginPage.jsx
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import * as THREE from "three";
@@ -7,9 +8,11 @@ import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
 import { api } from "../../api";
 import "./LoginPage.css";
+import { useUser } from "../../context/UserContext";
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { setMe } = useUser();
 
   // which form is visible
   const [activeForm, setActiveForm] = useState("login"); // login | register | otp | forgot | reset
@@ -34,7 +37,12 @@ const LoginPage = () => {
   });
   const [otpForm, setOtpForm] = useState({ email: "", code: "" });
   const [forgotForm, setForgotForm] = useState({ email: "" });
-  const [resetForm, setResetForm] = useState({ email: "", code: "", newPassword: "", confirm: "" });
+  const [resetForm, setResetForm] = useState({
+    email: "",
+    code: "",
+    newPassword: "",
+    confirm: "",
+  });
 
   // UI feedback
   const [loading, setLoading] = useState(false);
@@ -43,7 +51,10 @@ const LoginPage = () => {
 
   const authGemRef = useRef(null);
 
-  const resetAlerts = () => { setMsg(null); setErr(null); };
+  const resetAlerts = () => {
+    setMsg(null);
+    setErr(null);
+  };
 
   // === Particles background ===
   useEffect(() => {
@@ -58,14 +69,24 @@ const LoginPage = () => {
             shape: { type: "circle" },
             opacity: { value: 0.3, random: true },
             size: { value: 3, random: true },
-            line_linked: { enable: true, distance: 150, color: "#d4af37", opacity: 0.1, width: 1 },
+            line_linked: {
+              enable: true,
+              distance: 150,
+              color: "#d4af37",
+              opacity: 0.1,
+              width: 1,
+            },
             move: { enable: true, speed: 1 },
           },
           interactivity: {
             detect_on: "canvas",
-            events: { onhover: { enable: true, mode: "repulse" }, onclick: { enable: true, mode: "push" }, resize: true }
+            events: {
+              onhover: { enable: true, mode: "repulse" },
+              onclick: { enable: true, mode: "push" },
+              resize: true,
+            },
           },
-          retina_detect: true
+          retina_detect: true,
         });
       }
     };
@@ -177,13 +198,37 @@ const LoginPage = () => {
         identifier: loginForm.identifier.trim(),
         password: loginForm.password,
       });
+
       if (res?.user) localStorage.setItem("user", JSON.stringify(res.user));
-      if (res?.accessToken) localStorage.setItem("accessToken", res.accessToken);
+      if (res?.accessToken)
+        localStorage.setItem("accessToken", res.accessToken);
+
+      if (res?.user) {
+        setMe(res.user);
+      }
 
       setMsg("Logged in!");
-      if (res?.user) localStorage.setItem("user", JSON.stringify(res.user));
-      navigate("/mainhome"); // go home; your profile icon can route by role
+      navigate("/mainhome"); // unchanged
     } catch (error) {
+      // handle unverified user
+      if (error.status === 403 && error?.data?.verifyRequired) {
+        const email = loginForm.identifier.trim();
+        setErr("Please verify your email to continue.");
+        setOtpForm({ email, code: "" });
+        setActiveForm("otp");
+
+        // auto-resend a fresh code (you said this endpoint exists)
+        try {
+          await api.resendVerify(email);
+          setMsg("We sent you a new verification code.");
+        } catch {
+          // it's fine if resend fails silently; user can still enter an existing code
+        }
+
+        setLoading(false);
+        return;
+      }
+
       setErr(error.message || "Login failed");
     } finally {
       setLoading(false);
@@ -220,7 +265,10 @@ const LoginPage = () => {
     resetAlerts();
     setLoading(true);
     try {
-      await api.verifyEmail({ email: otpForm.email.trim(), code: otpForm.code.trim() });
+      await api.verifyEmail({
+        email: otpForm.email.trim(),
+        code: otpForm.code.trim(),
+      });
       setMsg("Email verified! Please log in.");
       setLoginForm((s) => ({ ...s, identifier: otpForm.email.trim() }));
       setActiveForm("login");
@@ -228,6 +276,16 @@ const LoginPage = () => {
       setErr(error.message || "Invalid or expired code");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    resetAlerts();
+    try {
+      await api.resendVerify(otpForm.email.trim());
+      setMsg("Verification code re-sent.");
+    } catch (error) {
+      setErr(error.message || "Could not resend code");
     }
   };
 
@@ -291,14 +349,22 @@ const LoginPage = () => {
               <button
                 type="button"
                 className={`auth-tab ${activeForm === "login" ? "active" : ""}`}
-                onClick={() => { setActiveForm("login"); resetAlerts(); }}
+                onClick={() => {
+                  setActiveForm("login");
+                  resetAlerts();
+                }}
               >
                 Login
               </button>
               <button
                 type="button"
-                className={`auth-tab ${activeForm === "register" ? "active" : ""}`}
-               onClick={() => { setActiveForm("register"); resetAlerts(); }}
+                className={`auth-tab ${
+                  activeForm === "register" ? "active" : ""
+                }`}
+                onClick={() => {
+                  setActiveForm("register");
+                  resetAlerts();
+                }}
               >
                 Register
               </button>
@@ -306,8 +372,12 @@ const LoginPage = () => {
           )}
 
           {/* Alerts */}
-          {err && <div style={{ color: "#ff6b6b", marginBottom: 12 }}>{err}</div>}
-          {msg && <div style={{ color: "#6bff95", marginBottom: 12 }}>{msg}</div>}
+          {err && (
+            <div style={{ color: "#ff6b6b", marginBottom: 12 }}>{err}</div>
+          )}
+          {msg && (
+            <div style={{ color: "#6bff95", marginBottom: 12 }}>{msg}</div>
+          )}
 
           {/* LOGIN */}
           {activeForm === "login" && (
@@ -319,7 +389,9 @@ const LoginPage = () => {
                   className="form-control"
                   placeholder="Enter email or phone"
                   value={loginForm.identifier}
-                  onChange={(e) => setLoginForm({ ...loginForm, identifier: e.target.value })}
+                  onChange={(e) =>
+                    setLoginForm({ ...loginForm, identifier: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -331,11 +403,15 @@ const LoginPage = () => {
                     className="form-control"
                     placeholder="Enter your password"
                     value={loginForm.password}
-                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                    onChange={(e) =>
+                      setLoginForm({ ...loginForm, password: e.target.value })
+                    }
                     required
                   />
                   <i
-                    className={`fas ${showPassword.login ? "fa-eye-slash" : "fa-eye"}`}
+                    className={`fas ${
+                      showPassword.login ? "fa-eye-slash" : "fa-eye"
+                    }`}
                     onClick={() => togglePassword("login")}
                     role="button"
                     aria-label="Toggle password visibility"
@@ -370,7 +446,12 @@ const LoginPage = () => {
                   type="text"
                   className="form-control"
                   value={registerForm.fullName}
-                  onChange={(e) => setRegisterForm({ ...registerForm, fullName: e.target.value })}
+                  onChange={(e) =>
+                    setRegisterForm({
+                      ...registerForm,
+                      fullName: e.target.value,
+                    })
+                  }
                   required
                 />
               </div>
@@ -380,7 +461,9 @@ const LoginPage = () => {
                   type="email"
                   className="form-control"
                   value={registerForm.email}
-                  onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                  onChange={(e) =>
+                    setRegisterForm({ ...registerForm, email: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -390,7 +473,9 @@ const LoginPage = () => {
                   type="tel"
                   className="form-control"
                   value={registerForm.phone}
-                  onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
+                  onChange={(e) =>
+                    setRegisterForm({ ...registerForm, phone: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -401,11 +486,18 @@ const LoginPage = () => {
                     type={showPassword.register ? "text" : "password"}
                     className="form-control"
                     value={registerForm.password}
-                    onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                    onChange={(e) =>
+                      setRegisterForm({
+                        ...registerForm,
+                        password: e.target.value,
+                      })
+                    }
                     required
                   />
                   <i
-                    className={`fas ${showPassword.register ? "fa-eye-slash" : "fa-eye"}`}
+                    className={`fas ${
+                      showPassword.register ? "fa-eye-slash" : "fa-eye"
+                    }`}
                     onClick={() => togglePassword("register")}
                     role="button"
                     aria-label="Toggle password visibility"
@@ -419,11 +511,18 @@ const LoginPage = () => {
                     type={showPassword.registerConfirm ? "text" : "password"}
                     className="form-control"
                     value={registerForm.confirm}
-                    onChange={(e) => setRegisterForm({ ...registerForm, confirm: e.target.value })}
+                    onChange={(e) =>
+                      setRegisterForm({
+                        ...registerForm,
+                        confirm: e.target.value,
+                      })
+                    }
                     required
                   />
                   <i
-                    className={`fas ${showPassword.registerConfirm ? "fa-eye-slash" : "fa-eye"}`}
+                    className={`fas ${
+                      showPassword.registerConfirm ? "fa-eye-slash" : "fa-eye"
+                    }`}
                     onClick={() => togglePassword("registerConfirm")}
                     role="button"
                     aria-label="Toggle password visibility"
@@ -435,7 +534,9 @@ const LoginPage = () => {
               </button>
               <div className="auth-alt">
                 Already have an account?{" "}
-                <button type="button" onClick={() => setActiveForm("login")}>Login</button>
+                <button type="button" onClick={() => setActiveForm("login")}>
+                  Login
+                </button>
               </div>
             </form>
           )}
@@ -443,9 +544,12 @@ const LoginPage = () => {
           {/* VERIFY OTP */}
           {activeForm === "otp" && (
             <form className="auth-form active" onSubmit={handleVerifyOtp}>
-              <h3 style={{ textAlign: "center", color: "#d4af37" }}>Verify Your Email</h3>
+              <h3 style={{ textAlign: "center", color: "#d4af37" }}>
+                Verify Your Email
+              </h3>
               <p style={{ textAlign: "center", color: "#b0b0b0" }}>
-                We&apos;ve sent a verification code to <b>{otpForm.email || registerForm.email}</b>
+                We&apos;ve sent a verification code to{" "}
+                <b>{otpForm.email || registerForm.email}</b>
               </p>
               <div className="form-group">
                 <label>Verification Code</label>
@@ -455,9 +559,27 @@ const LoginPage = () => {
                   placeholder="Enter 6-digit code"
                   maxLength={6}
                   value={otpForm.code}
-                  onChange={(e) => setOtpForm({ ...otpForm, code: e.target.value })}
+                  onChange={(e) =>
+                    setOtpForm({ ...otpForm, code: e.target.value })
+                  }
                   required
                 />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "center",
+                  marginBottom: 8,
+                }}
+              >
+                <button
+                  type="button"
+                  className="forgot-password"
+                  onClick={handleResendOtp}
+                >
+                  Resend code
+                </button>
               </div>
               <button type="submit" className="auth-btn" disabled={loading}>
                 {loading ? "Verifying..." : "Verify & Continue"}
@@ -468,8 +590,12 @@ const LoginPage = () => {
           {/* FORGOT PASSWORD */}
           {activeForm === "forgot" && (
             <form className="auth-form active" onSubmit={handleForgot}>
-              <h3 style={{ textAlign: "center", color: "#d4af37" }}>Reset Your Password</h3>
-              <p style={{ textAlign: "center", color: "#b0b0b0" }}>Enter your email to receive a reset code</p>
+              <h3 style={{ textAlign: "center", color: "#d4af37" }}>
+                Reset Your Password
+              </h3>
+              <p style={{ textAlign: "center", color: "#b0b0b0" }}>
+                Enter your email to receive a reset code
+              </p>
               <div className="form-group">
                 <label>Email Address</label>
                 <input
@@ -485,7 +611,9 @@ const LoginPage = () => {
               </button>
               <div className="auth-alt">
                 Remember your password?{" "}
-                <button type="button" onClick={() => setActiveForm("login")}>Back to Login</button>
+                <button type="button" onClick={() => setActiveForm("login")}>
+                  Back to Login
+                </button>
               </div>
             </form>
           )}
@@ -493,7 +621,9 @@ const LoginPage = () => {
           {/* RESET PASSWORD */}
           {activeForm === "reset" && (
             <form className="auth-form active" onSubmit={handleReset}>
-              <h3 style={{ textAlign: "center", color: "#d4af37" }}>Create New Password</h3>
+              <h3 style={{ textAlign: "center", color: "#d4af37" }}>
+                Create New Password
+              </h3>
               <div className="form-group">
                 <label>Code (from email)</label>
                 <input
@@ -501,7 +631,9 @@ const LoginPage = () => {
                   className="form-control"
                   maxLength={6}
                   value={resetForm.code}
-                  onChange={(e) => setResetForm({ ...resetForm, code: e.target.value })}
+                  onChange={(e) =>
+                    setResetForm({ ...resetForm, code: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -512,11 +644,18 @@ const LoginPage = () => {
                     type={showPassword.reset ? "text" : "password"}
                     className="form-control"
                     value={resetForm.newPassword}
-                    onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })}
+                    onChange={(e) =>
+                      setResetForm({
+                        ...resetForm,
+                        newPassword: e.target.value,
+                      })
+                    }
                     required
                   />
                   <i
-                    className={`fas ${showPassword.reset ? "fa-eye-slash" : "fa-eye"}`}
+                    className={`fas ${
+                      showPassword.reset ? "fa-eye-slash" : "fa-eye"
+                    }`}
                     onClick={() => togglePassword("reset")}
                     role="button"
                     aria-label="Toggle password visibility"
@@ -530,11 +669,15 @@ const LoginPage = () => {
                     type={showPassword.resetConfirm ? "text" : "password"}
                     className="form-control"
                     value={resetForm.confirm}
-                    onChange={(e) => setResetForm({ ...resetForm, confirm: e.target.value })}
+                    onChange={(e) =>
+                      setResetForm({ ...resetForm, confirm: e.target.value })
+                    }
                     required
                   />
                   <i
-                    className={`fas ${showPassword.resetConfirm ? "fa-eye-slash" : "fa-eye"}`}
+                    className={`fas ${
+                      showPassword.resetConfirm ? "fa-eye-slash" : "fa-eye"
+                    }`}
                     onClick={() => togglePassword("resetConfirm")}
                     role="button"
                     aria-label="Toggle password visibility"

@@ -1,13 +1,37 @@
+// frontend/src/Components/SellerSidebar.js
 import React, { useEffect, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useNavigate, NavLink } from "react-router-dom";
 import { api } from "../api";
 import { useUser } from "../context/UserContext";
-import "../pages/DashBoards/AdminDashboard.css"; // reuse same styles
+import "../pages/DashBoards/SellerDashboard.css"; // reuse same style
 
-export default function AdminSidebar() {
-  const navigate = useNavigate();
-  const { me } = useUser();
+export default function SellerSidebar() {
+  const { me, setMe } = useUser(); // just read from context
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setErr(null);
+      try {
+        const data = await api.getMe(); // { user: {...} }
+        if (!cancelled) setMe(data?.user || null);
+      } catch (e) {
+        if (!cancelled) {
+          setErr(e?.message || "Failed to load profile");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const doLogout = async () => {
     try {
@@ -18,60 +42,48 @@ export default function AdminSidebar() {
     navigate("/login", { replace: true });
   };
 
-  const roleLabel = (me?.role || "admin").toString();
-  const rolePretty = roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1);
-
   return (
     <>
       <aside className="dashboard-sidebar">
         <div className="user-profile">
           <div className="user-avatar">
-            <i className="fas fa-user-shield"></i>
+            <i className="fas fa-user"></i>
           </div>
-          <h3 className="user-name">{me?.fullName || me?.name || "Admin"}</h3>
-          <p className="user-email">{me?.email || ""}</p>
-          <span className="user-role">{rolePretty}</span>
+          <h3 className="user-name">
+            {loading ? "Loading..." : me?.fullName || "—"}
+          </h3>
+          <p className="user-email">{loading ? "" : me?.email || ""}</p>
+          <span className="user-role">Seller</span>
+          {err && (
+            <p style={{ color: "#ff6b6b", fontSize: 12, marginTop: 6 }}>
+              {err}
+            </p>
+          )}
         </div>
 
         <ul className="dashboard-menu">
           <li>
-            <NavLink
-              to="/admin-dashboard"
-              end
-              className={({ isActive }) => (isActive ? "active" : "")}
-            >
+            <NavLink to="/seller-dashboard">
               <i className="fas fa-th-large"></i> Dashboard
             </NavLink>
           </li>
           <li>
-            <NavLink
-              to="/admin/users"
-              className={({ isActive }) => (isActive ? "active" : "")}
-            >
-              <i className="fas fa-users"></i> User Management
-            </NavLink>
+            <a href="#">
+              <i className="fas fa-gem"></i> Gems
+            </a>
           </li>
           <li>
-            <NavLink
-              to="/admin/complaints"
-              className={({ isActive }) => (isActive ? "active" : "")}
-            >
-              <i className="fas fa-exclamation-circle"></i> Complaints
-            </NavLink>
+            <a href="#">
+              <i className="fas fa-shopping-bag"></i> Orders
+            </a>
           </li>
           <li>
-            <NavLink
-              to="/admin/analytics"
-              className={({ isActive }) => (isActive ? "active" : "")}
-            >
-              <i className="fas fa-chart-bar"></i> Analytics
-            </NavLink>
+            <a href="#">
+              <i className="fas fa-star"></i> Reviews
+            </a>
           </li>
           <li>
-            <NavLink
-              to="/admin/settings"
-              className={({ isActive }) => (isActive ? "active" : "")}
-            >
+            <NavLink to="/seller/settings">
               <i className="fas fa-cog"></i> Settings
             </NavLink>
           </li>
@@ -89,7 +101,7 @@ export default function AdminSidebar() {
         </ul>
       </aside>
 
-      {/* Logout Confirmation Modal (reuses your modal styles) */}
+      {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className="modal-overlay active">
           <div className="modal">

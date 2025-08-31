@@ -1,31 +1,15 @@
-// src/pages/DashBoards/UserDashboard.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Header";
-import { api } from "../../api";
 import "./UserDashboard.css";
+import UserSidebar from "../../Components/UserSidebar";
 
 const UserDashboard = () => {
   const navigate = useNavigate();
 
-  // profile state
-  const [me, setMe] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState(null);
-
-  // ===== init particles + header scroll
+  // particles + sticky header (unchanged)
   useEffect(() => {
-    // load particles.js if not present
-    if (!window.particlesJS) {
-      const s = document.createElement("script");
-      s.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
-      s.onload = initParticles;
-      document.body.appendChild(s);
-      return () => document.body.removeChild(s);
-    }
-    initParticles();
-
-    function initParticles() {
+    const initParticles = () => {
       window.particlesJS &&
         window.particlesJS("particles-js", {
           particles: {
@@ -53,7 +37,16 @@ const UserDashboard = () => {
           },
           retina_detect: true,
         });
+    };
+
+    if (!window.particlesJS) {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
+      s.onload = initParticles;
+      document.body.appendChild(s);
+      return () => document.body.removeChild(s);
     }
+    initParticles();
 
     const handleScroll = () => {
       const header = document.getElementById("header");
@@ -61,41 +54,17 @@ const UserDashboard = () => {
       if (window.scrollY > 100) header.classList.add("scrolled");
       else header.classList.remove("scrolled");
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // ===== fetch /users/me on mount
+  // protect route if token missing/expired (simple check)
   useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      setLoading(true);
-      setErr(null);
-      try {
-        const data = await api.getMe(); // { user: {...} }
-        if (!cancelled) setMe(data.user);
-      } catch (e) {
-        if (!cancelled) {
-          setErr(e.message || "Failed to load profile");
-          // if token invalid/expired, send to login
-          if (String(e.message).toLowerCase().includes("invalid") || String(e.message).includes("401")) {
-            localStorage.removeItem("accessToken");
-            localStorage.removeItem("user");
-            navigate("/login", { replace: true });
-          }
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    run();
-    return () => { cancelled = true; };
+    const token = localStorage.getItem("accessToken");
+    if (!token) navigate("/login", { replace: true });
   }, [navigate]);
 
-  // ===== payment modal toggle (kept as-is, just null checks)
+  // payment modal wiring (unchanged)
   useEffect(() => {
     const addPaymentBtn = document.getElementById("add-payment-btn");
     const paymentModal = document.getElementById("payment-modal");
@@ -119,104 +88,21 @@ const UserDashboard = () => {
     };
   }, []);
 
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
-
-const confirmLogout = async () => {
-  try {
-    await api.logout();
-  } catch {}
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("user");
-  navigate("/login", { replace: true });
-};
-
-
   return (
     <>
-      {/* Particle Background */}
       <div id="particles-js"></div>
-
-      {/* Header */}
       <Header />
 
-      {/* Dashboard Container */}
       <div className="dashboard-container">
-        {/* Sidebar */}
-        <aside className="dashboard-sidebar">
-          <div className="user-profile">
-            <div className="user-avatar">
-              <i className="fas fa-user"></i>
-            </div>
+        {/* === separated sidebar === */}
+        <UserSidebar />
 
-            {/* Use backend data if available; keep styles the same */}
-            <h3 className="user-name">
-              {loading ? "Loading..." : me?.fullName || "—"}
-            </h3>
-            <p className="user-email">
-              {loading ? "" : me?.email || ""}
-            </p>
-
-            {/* Optional small error text */}
-            {err && (
-              <p style={{ color: "#ff6b6b", fontSize: 12, marginTop: 6 }}>
-                {err}
-              </p>
-            )}
-          </div>
-
-          <ul className="dashboard-menu">
-            <li>
-              <a href="#" className="active">
-                <i className="fas fa-th-large"></i> Dashboard
-              </a>
-            </li>
-            <li>
-              <a href="#">
-                <i className="fas fa-shopping-bag"></i> Orders
-              </a>
-            </li>
-            <li>
-              <a href="#">
-                <i className="fas fa-credit-card"></i> Payments
-              </a>
-            </li>
-            <li>
-              <a href="#">
-                <i className="fas fa-gavel"></i> Auctions
-              </a>
-            </li>
-            <li>
-              <a href="#">
-                <i className="fas fa-star"></i> Reviews
-              </a>
-            </li>
-            <li>
-              <a href="#">
-                <i className="fas fa-heart"></i> Wishlist
-              </a>
-            </li>
-            <li>
-              <a href="#">
-                <i className="fas fa-cog"></i> Settings
-              </a>
-            </li>
-            <li>
-              <a href="#" onClick={(e) => { e.preventDefault(); setShowLogoutModal(true); }}>
-                <i className="fas fa-sign-out-alt"></i> Logout
-  </a>
-</li>
-
-          </ul>
-        </aside>
-
-        {/* Main Content (unchanged styles) */}
+        {/* Main Content (unchanged) */}
         <main className="dashboard-content">
           <div className="dashboard-header">
             <h2 className="dashboard-title">Dashboard</h2>
-            
           </div>
 
-          {/* keep your demo content as-is */}
           {/* Stats Overview */}
           <div className="stats-grid">
             <div className="stat-card">
@@ -261,9 +147,10 @@ const confirmLogout = async () => {
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Recent Orders</h3>
-              <a href="#" className="view-all">View All</a>
+              <a href="#" className="view-all">
+                View All
+              </a>
             </div>
-
             <div className="table-responsive">
               <table className="orders-table">
                 <thead>
@@ -282,24 +169,44 @@ const confirmLogout = async () => {
                     <td>12 Oct 2023</td>
                     <td>Royal Blue Sapphire</td>
                     <td>$8,450</td>
-                    <td><span className="status status-delivered">Delivered</span></td>
-                    <td><a href="#" className="view-all">View</a></td>
+                    <td>
+                      <span className="status status-delivered">Delivered</span>
+                    </td>
+                    <td>
+                      <a href="#" className="view-all">
+                        View
+                      </a>
+                    </td>
                   </tr>
                   <tr>
                     <td className="order-id">#GZ78932</td>
                     <td>08 Oct 2023</td>
                     <td>Emerald Cut Diamond</td>
                     <td>$15,200</td>
-                    <td><span className="status status-processing">Processing</span></td>
-                    <td><a href="#" className="view-all">View</a></td>
+                    <td>
+                      <span className="status status-processing">
+                        Processing
+                      </span>
+                    </td>
+                    <td>
+                      <a href="#" className="view-all">
+                        View
+                      </a>
+                    </td>
                   </tr>
                   <tr>
                     <td className="order-id">#GZ78891</td>
                     <td>03 Oct 2023</td>
                     <td>Tanzanite, 2.1ct</td>
                     <td>$3,750</td>
-                    <td><span className="status status-pending">Pending</span></td>
-                    <td><a href="#" className="view-all">View</a></td>
+                    <td>
+                      <span className="status status-pending">Pending</span>
+                    </td>
+                    <td>
+                      <a href="#" className="view-all">
+                        View
+                      </a>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -310,14 +217,17 @@ const confirmLogout = async () => {
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Payment Methods</h3>
-              <button className="btn" id="add-payment-btn">Add New</button>
+              <button className="btn" id="add-payment-btn">
+                Add New
+              </button>
             </div>
-
             <div className="payment-methods">
               <div className="payment-card default">
                 <div className="payment-card-header">
                   <div className="payment-type">
-                    <div className="payment-icon"><i className="fab fa-cc-visa"></i></div>
+                    <div className="payment-icon">
+                      <i className="fab fa-cc-visa"></i>
+                    </div>
                     <div className="payment-name">Visa</div>
                   </div>
                   <span className="default-badge">Default</span>
@@ -335,7 +245,9 @@ const confirmLogout = async () => {
               <div className="payment-card">
                 <div className="payment-card-header">
                   <div className="payment-type">
-                    <div className="payment-icon"><i className="fab fa-cc-mastercard"></i></div>
+                    <div className="payment-icon">
+                      <i className="fab fa-cc-mastercard"></i>
+                    </div>
                     <div className="payment-name">MasterCard</div>
                   </div>
                 </div>
@@ -355,15 +267,18 @@ const confirmLogout = async () => {
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Active Auctions</h3>
-              <a href="#" className="view-all">View All</a>
+              <a href="#" className="view-all">
+                View All
+              </a>
             </div>
-
             <div className="auction-grid">
-              {/* … your demo items unchanged … */}
               <div className="auction-item">
                 <div className="auction-image">
                   <div className="auction-timer">2d 14h left</div>
-                  <i className="fas fa-gem" style={{ fontSize: "48px", color: "#d4af37" }}></i>
+                  <i
+                    className="fas fa-gem"
+                    style={{ fontSize: "48px", color: "#d4af37" }}
+                  ></i>
                 </div>
                 <div className="auction-info">
                   <h4 className="auction-title">Rare Alexandrite 2.8ct</h4>
@@ -375,11 +290,13 @@ const confirmLogout = async () => {
                   <button className="auction-action">Increase Bid</button>
                 </div>
               </div>
-
               <div className="auction-item">
                 <div className="auction-image">
                   <div className="auction-timer">1d 06h left</div>
-                  <i className="fas fa-gem" style={{ fontSize: "48px", color: "#3498db" }}></i>
+                  <i
+                    className="fas fa-gem"
+                    style={{ fontSize: "48px", color: "#3498db" }}
+                  ></i>
                 </div>
                 <div className="auction-info">
                   <h4 className="auction-title">Paraiba Tourmaline 1.5ct</h4>
@@ -391,11 +308,13 @@ const confirmLogout = async () => {
                   <button className="auction-action">Increase Bid</button>
                 </div>
               </div>
-
               <div className="auction-item">
                 <div className="auction-image">
                   <div className="auction-timer">3d 08h left</div>
-                  <i className="fas fa-gem" style={{ fontSize: "48px", color: "#2ecc71" }}></i>
+                  <i
+                    className="fas fa-gem"
+                    style={{ fontSize: "48px", color: "#2ecc71" }}
+                  ></i>
                 </div>
                 <div className="auction-info">
                   <h4 className="auction-title">Colombian Emerald 3.2ct</h4>
@@ -414,33 +333,39 @@ const confirmLogout = async () => {
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Recent Reviews</h3>
-              <a href="#" className="view-all">View All</a>
+              <a href="#" className="view-all">
+                View All
+              </a>
             </div>
-
             <div className="reviews-list">
-              {/* … your demo reviews unchanged … */}
               <div className="review-item">
                 <div className="review-header">
                   <div className="review-gem">Royal Blue Sapphire</div>
                   <div className="review-date">October 15, 2023</div>
                 </div>
                 <div className="review-rating">
-                  <i className="fas fa-star"></i><i className="fas fa-star"></i><i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i><i className="fas fa-star"></i>
+                  <i className="fas fa-star"></i>
+                  <i className="fas fa-star"></i>
+                  <i className="fas fa-star"></i>
+                  <i className="fas fa-star"></i>
+                  <i className="fas fa-star"></i>
                 </div>
                 <p className="review-text">
-                  Absolutely stunning sapphire! The color is even more vibrant in person…
+                  Absolutely stunning sapphire! The color is even more vibrant
+                  in person…
                 </p>
               </div>
-
               <div className="review-item">
                 <div className="review-header">
                   <div className="review-gem">Emerald Cut Diamond</div>
                   <div className="review-date">October 10, 2023</div>
                 </div>
                 <div className="review-rating">
-                  <i className="fas fa-star"></i><i className="fas fa-star"></i><i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i><i className="fas fa-star-half-alt"></i>
+                  <i className="fas fa-star"></i>
+                  <i className="fas fa-star"></i>
+                  <i className="fas fa-star"></i>
+                  <i className="fas fa-star"></i>
+                  <i className="fas fa-star-half-alt"></i>
                 </div>
                 <p className="review-text">
                   The diamond is exquisite with excellent clarity…
@@ -461,13 +386,27 @@ const confirmLogout = async () => {
           <div className="modal-body">
             <div className="form-group">
               <label className="form-label">Card Number</label>
-              <input type="text" className="form-input" placeholder="1234 5678 9012 3456" />
+              <input
+                type="text"
+                className="form-input"
+                placeholder="1234 5678 9012 3456"
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Cardholder Name</label>
-              <input type="text" className="form-input" placeholder="John Doe" />
+              <input
+                type="text"
+                className="form-input"
+                placeholder="John Doe"
+              />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "15px",
+              }}
+            >
               <div className="form-group">
                 <label className="form-label">Expiration Date</label>
                 <input type="text" className="form-input" placeholder="MM/YY" />
@@ -485,25 +424,6 @@ const confirmLogout = async () => {
           </div>
         </div>
       </div>
-      {/* Logout Confirmation Modal (new) */}
-      {showLogoutModal && (
-      <div className="modal-overlay active">
-        <div className="modal">
-          <div className="modal-header">
-            <h3 className="modal-title">Confirm Logout</h3>
-            <button className="modal-close" onClick={() => setShowLogoutModal(false)}>&times;</button>
-          </div>
-          <div className="modal-body">
-            <p style={{ marginBottom: "20px" }}>Are you sure you want to log out?</p>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-              <button className="btn" style={{ background: "grey" }} onClick={() => setShowLogoutModal(false)}>Cancel</button>
-              <button className="btn" onClick={confirmLogout}>Yes, Logout</button>
-            </div>
-          </div>
-        </div>
-      </div>
-)}
-
     </>
   );
 };
