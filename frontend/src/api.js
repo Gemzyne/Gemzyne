@@ -6,18 +6,25 @@ function getToken() {
 }
 
 async function request(path, options = {}) {
-  const headers = options.headers || {};
-  if (options.body && !(options.body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
+  const headers = new Headers(options.headers || {});
+  const isFormData = options.body instanceof FormData;
+
+  // Only set JSON header when not sending FormData
+  if (options.body && !isFormData && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
+
   const token = getToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
 
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers,
     credentials: "include",
   });
+
 
   let data = null;
   try {
@@ -66,7 +73,15 @@ export const api = {
     if (result.user) localStorage.setItem("user", JSON.stringify(result.user));
     return result;
   },
-  logout: () => request("/auth/logout", { method: "POST" }),
+  // Clear LS even if the server call fails
+  logout: async () => {
+    try {
+      await request("/auth/logout", { method: "POST" });
+    } finally {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("user");
+    }
+  },
 
   // ===== ME =====
   getMe: () => request("/users/me"),
@@ -146,4 +161,41 @@ export const api = {
     resolveComplaint: (id) =>
       request(`/admin/complaints/${id}/resolve`, { method: "PATCH" }),
   },
+
+  // ===== CUSTOM ORDERS (Customize & Payment flow) =====
+  orders: {
+    // Create order from Customize page
+    create: (payload) =>
+      request("/api/orders", { method: "POST", body: JSON.stringify(payload) }),
+
+    // Fetch order summary for Payment page
+    get: (id) => request(`/api/orders/${id}`),
+
+    // Card checkout (JSON body)
+    checkoutCard: (id, { customer, payment }) =>
+      request(`/api/orders/${id}/checkout`, {
+        method: "POST",
+        body: JSON.stringify({
+          customer,
+          payment: { method: "card", ...payment },
+        }),
+      }),
+
+// Bank transfer checkout (multipart/form-data with slip)
+    checkoutBank: (id, { customer, country, slip, payment = {} }) => {
+      const fd = new FormData();
+      if (country) fd.append("country", country);
+      if (customer) fd.append("customer", JSON.stringify(customer));
+      fd.append(
+        "payment",
+        JSON.stringify({
+          method: "bank",
+          ...payment,
+        })
+      );
+      if (slip) fd.append("slip", slip); // File/Blob
+      return request(`/api/orders/${id}/checkout`, { method: "POST", body: fd });
+    },
+  },
+
 };

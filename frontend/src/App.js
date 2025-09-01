@@ -14,6 +14,8 @@ import SellerSettings from "./pages/Settings/SellerSettings";
 import AdminSettings from "./pages/Settings/AdminSettings";
 import AdminUserDetailPage from "./pages/AdminUsers/AdminUserDetails";
 import AdminUserCreatePage from "./pages/AdminUsers/AdminUserCreatePage";
+import CustomPage from "./pages/Custom/CustomPage";
+import PaymentPage from "./pages/Payment/PaymentPage";
 
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem("accessToken");
@@ -36,6 +38,17 @@ export default function App() {
       <Route path="/" element={<Navigate to="/mainhome" replace />} />
       <Route path="/mainhome" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
+
+      {/* Shop */}
+        <Route path="/custom" element={<CustomPage />} />
+        <Route
+          path="/payment"
+          element={
+            <RequireAuth>
+              <PaymentPage />
+            </RequireAuth>
+          }
+        />
 
       {/* User */}
       <Route
