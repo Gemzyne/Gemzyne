@@ -14,4 +14,6 @@ router.post('/me/password/reset/confirm', me.confirmMyPasswordReset);
 router.post('/me/email/request', me.requestEmailChange);
 router.post('/me/email/confirm', me.confirmEmailChange);
 
+router.delete('/me', me.softDeleteMe);
+
 module.exports = router;
