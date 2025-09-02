@@ -31,7 +31,7 @@ export default function SellerSidebar() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setMe]);
 
   const doLogout = async () => {
     try {
@@ -67,11 +67,14 @@ export default function SellerSidebar() {
               <i className="fas fa-th-large"></i> Dashboard
             </NavLink>
           </li>
+
+          {/* ROUTES TO SELLER INVENTORY */}
           <li>
-            <a href="#">
+            <NavLink to="/seller/gems">
               <i className="fas fa-gem"></i> Gems
-            </a>
+            </NavLink>
           </li>
+
           <li>
             <a href="#">
               <i className="fas fa-shopping-bag"></i> Orders

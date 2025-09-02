@@ -1,0 +1,152 @@
+/* Fonts & icons */
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Poppins:wght@300;400;500;600&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+.page-root,
+body {
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  color: #f5f5f5;
+  overflow-x: hidden;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* keep page content above particles */
+.page-root { position: relative; z-index: 1; }
+
+/* Removed header/footer styles here to avoid conflicts with HeaderFooter.css */
+
+/* Main Content */
+.detail-container {
+  margin-top: 100px;
+  min-height: calc(100vh - 180px);
+  padding: 20px 5%;
+}
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 30px;
+  color: #d4af37;
+  text-decoration: none;
+  font-weight: 500;
+  transition: 0.3s;
+}
+.back-button:hover { color: #f9f295; }
+.back-button i { margin-right: 10px; }
+
+.gem-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+
+.gem-visual { display: flex; flex-direction: column; gap: 20px; }
+
+.gem-main-image {
+  height: 400px; background: rgba(26, 26, 26, 0.7); border-radius: 15px;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; border: 1px solid rgba(212, 175, 55, 0.1);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); overflow: hidden;
+}
+.gem-main-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+.gem-main-image:hover img { transform: scale(1.05); }
+
+.gem-thumbnails { display: flex; gap: 15px; flex-wrap: wrap; }
+.gem-thumbnail {
+  width: 80px; height: 80px; border-radius: 10px; background: rgba(26, 26, 26, 0.7);
+  border: 1px solid rgba(212, 175, 55, 0.1); cursor: pointer; transition: 0.3s; overflow: hidden; padding: 0;
+}
+.gem-thumbnail img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gem-thumbnail:hover, .gem-thumbnail.active { border-color: #d4af37; transform: scale(1.05); }
+
+.gem-info-detail {
+  background: rgba(26, 26, 26, 0.7); border-radius: 15px; padding: 30px;
+  border: 1px solid rgba(212, 175, 55, 0.1); box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.gem-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px; margin-bottom: 15px; color: #f5f5f5;
+}
+
+.gem-price { color: #d4af37; font-size: 28px; font-weight: 600; margin-bottom: 20px; }
+
+.gem-specs-detail { margin-bottom: 30px; }
+.spec-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.spec-label { color: #b0b0b0; }
+.spec-value { color: #f5f5f5; font-weight: 500; }
+
+.gem-description { margin-bottom: 30px; line-height: 1.8; color: #e0e0e0; }
+
+.gem-actions-detail { display: flex; gap: 15px; margin-bottom: 25px; }
+.add-to-cart-btn-detail {
+  padding: 15px 30px; background: transparent; border: 1px solid #d4af37; border-radius: 30px;
+  color: #d4af37; text-decoration: none; font-weight: 500; transition: 0.3s; text-align: center; flex: 1;
+}
+.add-to-cart-btn-detail:hover { background: rgba(212, 175, 55, 0.1); }
+.buy-now-btn-detail {
+  padding: 15px 30px; background: linear-gradient(45deg, #d4af37, #f9f295);
+  border: none; border-radius: 30px; color: #0a0a0a; font-weight: 600; cursor: pointer; transition: 0.3s; flex: 1;
+}
+.buy-now-btn-detail:hover { background: linear-gradient(45deg, #c5a12d, #e9dc8a); }
+
+.gem-certification { margin-top: 30px; padding-top: 25px; border-top: 1px solid rgba(255, 255, 255, 0.05); }
+.certification-item { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+.certification-icon {
+  width: 40px; height: 40px; border-radius: 50%; background: rgba(212, 175, 55, 0.1);
+  display: flex; align-items: center; justify-content: center; color: #d4af37;
+}
+.certification-text { color: #e0e0e0; }
+
+/* Certificate Section */
+.certificate-section {
+  grid-column: 1 / -1; background: rgba(26, 26, 26, 0.7); border-radius: 15px; padding: 30px;
+  border: 1px solid rgba(212, 175, 55, 0.1); box-shadow: 0 5px 15px rgba(0,0,0,0.3); margin-top: 40px; text-align: center;
+}
+.certificate-header { text-align: center; margin-bottom: 30px; }
+.certificate-header h2 { font-family: 'Playfair Display', serif; font-size: 28px; color: #d4af37; margin-bottom: 10px; }
+.certificate-image { display: flex; justify-content: center; align-items: center; margin: 0 auto; max-width: 800px; }
+.certificate-image-preview { max-width: 100%; max-height: 500px; border-radius: 5px; box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5); }
+
+/* Currency Selector */
+.currency-selector {
+  margin-bottom: 20px; padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.currency-selector select {
+  padding: 8px 15px; background: rgba(10, 10, 10, 0.5);
+  border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 5px; color: #f5f5f5; font-family: 'Poppins', sans-serif;
+}
+
+/* Particle Background */
+#particles-js {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none;
+}
+
+/* Loading animation */
+.loader {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%); width: 50px; height: 50px;
+  border: 5px solid rgba(212, 175, 55, 0.2); border-top: 5px solid #d4af37;
+  border-radius: 50%; animation: spin 1s linear infinite; z-index: 10;
+}
+@keyframes spin { 0%{transform:translate(-50%,-50%) rotate(0)} 100%{transform:translate(-50%,-50%) rotate(360deg)} }
+
+/* Responsive */
+@media (max-width: 992px) {
+  .gem-detail { grid-template-columns: 1fr; }
+  .gem-main-image { height: 350px; }
+}
+@media (max-width: 768px) {
+  .gem-actions-detail { flex-direction: column; }
+  .gem-title { font-size: 28px; }
+  .gem-price { font-size: 24px; }
+  .gem-main-image { height: 300px; }
+}
+@media (max-width: 576px) {
+  .gem-thumbnails { flex-wrap: wrap; justify-content: center; }
+  .gem-info-detail { padding: 20px; }
+  .detail-container { padding: 15px 4%; }
+  .certificate-section { padding: 20px; }
+}

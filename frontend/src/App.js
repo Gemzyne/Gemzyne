@@ -1,4 +1,3 @@
-// src/App.jsx
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
@@ -14,6 +13,13 @@ import SellerSettings from "./pages/Settings/SellerSettings";
 import AdminSettings from "./pages/Settings/AdminSettings";
 import AdminUserDetailPage from "./pages/AdminUsers/AdminUserDetails";
 import AdminUserCreatePage from "./pages/AdminUsers/AdminUserCreatePage";
+
+// Public shop pages
+import GemInventory from "./pages/Inventory/InventoryPage";
+import GemDetail from "./pages/Inventory/GemDetail";
+
+// Seller inventory page
+import SellerInventory from "./pages/SellerAddGem/SellerInventory";
 
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem("accessToken");
@@ -37,6 +43,11 @@ export default function App() {
       <Route path="/mainhome" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
 
+      {/* Public shop routes */}
+      <Route path="/collection" element={<GemInventory />} />
+      <Route path="/inventory" element={<GemInventory />} />
+      <Route path="/gems/:id" element={<GemDetail />} />
+
       {/* User */}
       <Route
         path="/udashboard"
@@ -46,7 +57,6 @@ export default function App() {
           </RequireAuth>
         }
       />
-
       <Route
         path="/settings"
         element={
@@ -67,7 +77,6 @@ export default function App() {
           </RequireAuth>
         }
       />
-
       <Route
         path="/admin/users"
         element={
@@ -78,7 +87,6 @@ export default function App() {
           </RequireAuth>
         }
       />
-
       <Route
         path="/admin/settings"
         element={
@@ -89,7 +97,6 @@ export default function App() {
           </RequireAuth>
         }
       />
-
       <Route
         path="/admin/users/:id"
         element={
@@ -100,7 +107,6 @@ export default function App() {
           </RequireAuth>
         }
       />
-
       <Route
         path="/admin/users/new"
         element={
@@ -123,7 +129,6 @@ export default function App() {
           </RequireAuth>
         }
       />
-
       <Route
         path="/seller/settings"
         element={
@@ -135,10 +140,19 @@ export default function App() {
         }
       />
 
+      {/* Seller inventory entry from sidebar "Gems" */}
       <Route
-        path="*"
-        element={<div style={{ padding: 32 }}>404 – Page not found</div>}
+        path="/seller/gems"
+        element={
+          <RequireAuth>
+            <RequireRole role="seller">
+              <SellerInventory />
+            </RequireRole>
+          </RequireAuth>
+        }
       />
+
+      <Route path="*" element={<div style={{ padding: 32 }}>404 – Page not found</div>} />
     </Routes>
   );
 }

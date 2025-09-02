@@ -23,8 +23,7 @@ async function request(path, options = {}) {
   try {
     data = await res.json();
   } catch {
-    // non-JSON / empty body
-    data = null;
+    data = null; // non-JSON / empty body
   }
 
   if (!res.ok) {
@@ -48,7 +47,7 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  //resend verification code
+  // resend verification code
   resendVerify: (email) =>
     request("/auth/resend-verify", {
       method: "POST",
@@ -116,11 +115,9 @@ export const api = {
   // ===== ADMIN =====
   admin: {
     // OVERVIEW
-    // GET /admin/overview -> { totalUsers, totalSellers, totalOrders, openComplaints } OR { overview: { ... } }
     getOverview: () => request("/admin/overview"),
 
     // USERS
-    // GET /admin/users?q=&role=&status=&page=&limit= -> { users: [...], total, page, limit }
     listUsers: (params = {}) => {
       const qs = new URLSearchParams(params).toString();
       return request(`/admin/users${qs ? `?${qs}` : ""}`);
@@ -136,14 +133,52 @@ export const api = {
     deleteUser: (id) => request(`/admin/users/${id}`, { method: "DELETE" }),
 
     // COMPLAINTS
-    // GET /admin/complaints?status=&page=&limit= -> { complaints: [...], total, page, limit }
     listComplaints: (params = {}) => {
       const qs = new URLSearchParams(params).toString();
       return request(`/admin/complaints${qs ? `?${qs}` : ""}`);
     },
-    // Optional helpers if you later add endpoints:
     getComplaint: (id) => request(`/admin/complaints/${id}`),
     resolveComplaint: (id) =>
       request(`/admin/complaints/${id}/resolve`, { method: "PATCH" }),
   },
 };
+
+// ---- GEMS ----
+api.gems = {
+  // public list (storefront /collection)
+  list: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/api/gems${qs ? `?${qs}` : ""}`);
+  },
+
+  // public details (/gems/:id)
+  byId: (id) => request(`/api/gems/${id}`),
+
+  // seller: my gems in inventory page
+  mine: () => request(`/api/gems/mine/list`),
+
+  // seller: create (multipart/form-data)
+  // pass a FormData instance with fields and files:
+  //  - images (1–4) -> append("images", file)
+  //  - certificate (optional) -> append("certificate", file)
+  //  - other text fields...
+  create: (formData) =>
+    request(`/api/gems`, {
+      method: "POST",
+      body: formData, // DO NOT set Content-Type; browser sets boundary
+    }),
+
+  // seller: update (multipart/form-data)
+  // include keepImages as JSON string of URLs to keep:
+  //   form.append("keepImages", JSON.stringify(existingImageUrls))
+  update: (id, formData) =>
+    request(`/api/gems/${id}`, {
+      method: "PUT",
+      body: formData,
+    }),
+
+  // seller: delete
+  remove: (id) => request(`/api/gems/${id}`, { method: "DELETE" }),
+};
+
+export default api;

@@ -1,0 +1,616 @@
+import React, { useEffect, useRef, useState, useMemo } from "react";
+import "./AddGem.css";
+
+const AddGem = () => {
+  const headerRef = useRef(null);
+  const particlesLoaded = useRef(false);
+
+  // --- Prefill from query params (useful for future "Edit" flow) ---
+  const params = useMemo(() => new URLSearchParams(window.location.search), []);
+  const initialFromQuery = (key, fallback = "") => params.get(key) ?? fallback;
+
+  // --- Form State ---
+  const [gemName, setGemName] = useState(initialFromQuery("name"));
+  const [gemId, setGemId] = useState(initialFromQuery("id"));
+  const [gemType, setGemType] = useState(initialFromQuery("type", ""));
+  const [carat, setCarat] = useState(initialFromQuery("carat", ""));
+  const [dimensions, setDimensions] = useState(initialFromQuery("dimensions", ""));
+  const [clarity, setClarity] = useState(initialFromQuery("clarity", ""));
+  const [colorGrade, setColorGrade] = useState(initialFromQuery("color", ""));
+  const [cutQuality, setCutQuality] = useState(initialFromQuery("cut", ""));
+  const [shape, setShape] = useState(initialFromQuery("shape", ""));
+  const [treatment, setTreatment] = useState(initialFromQuery("treatment", "unheated"));
+  const [certification, setCertification] = useState(initialFromQuery("certification", ""));
+  const [certNumber, setCertNumber] = useState(initialFromQuery("certNumber", ""));
+  const [price, setPrice] = useState(initialFromQuery("price", ""));
+  const [status, setStatus] = useState(initialFromQuery("status", "in-stock"));
+  const [description, setDescription] = useState(initialFromQuery("description", ""));
+
+  const [gemImages, setGemImages] = useState([]); // array of data URLs
+  const [certImage, setCertImage] = useState(null); // single data URL
+
+  // --- Particles.js loader ---
+  useEffect(() => {
+    const initParticles = () => {
+      if (window.particlesJS && !particlesLoaded.current) {
+        window.particlesJS("particles-js", {
+          particles: {
+            number: { value: 60, density: { enable: true, value_area: 800 } },
+            color: { value: "#d4af37" },
+            shape: { type: "circle" },
+            opacity: { value: 0.3, random: true },
+            size: { value: 3, random: true },
+            line_linked: {
+              enable: true,
+              distance: 150,
+              color: "#d4af37",
+              opacity: 0.1,
+              width: 1,
+            },
+            move: {
+              enable: true,
+              speed: 1,
+              direction: "none",
+              random: true,
+              straight: false,
+              out_mode: "out",
+              bounce: false,
+            },
+          },
+          interactivity: {
+            detect_on: "canvas",
+            events: {
+              onhover: { enable: true, mode: "repulse" },
+              onclick: { enable: true, mode: "push" },
+              resize: true,
+            },
+          },
+          retina_detect: true,
+        });
+        particlesLoaded.current = true;
+      }
+    };
+
+    if (!window.particlesJS) {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
+      script.async = true;
+      script.onload = initParticles;
+      document.head.appendChild(script);
+    } else {
+      initParticles();
+    }
+  }, []);
+
+  // --- Header scroll effect ---
+  useEffect(() => {
+    const onScroll = () => {
+      if (!headerRef.current) return;
+      if (window.scrollY > 50) headerRef.current.classList.add("scrolled");
+      else headerRef.current.classList.remove("scrolled");
+    };
+    window.addEventListener("scroll", onScroll);
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // --- Auto ID generation (only if no id provided via query) ---
+  const generateGemId = () => {
+    const timestamp = Date.now().toString().slice(-6);
+    const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
+    return `GM${timestamp}${randomNum}`;
+  };
+
+  useEffect(() => {
+    if (!gemId || gemId.trim() === "") {
+      setGemId(generateGemId());
+    }
+  }, [gemId]);
+
+  // --- Image helpers ---
+  const readFilesAsDataUrls = (files, cb) => {
+    Array.from(files).forEach((file) => {
+      if (!file.type.match("image.*")) return;
+      const reader = new FileReader();
+      reader.onload = (e) => cb(e.target.result);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const onGemImagesSelected = (files) => {
+    readFilesAsDataUrls(files, (dataUrl) => {
+      setGemImages((prev) => [...prev, dataUrl]);
+    });
+  };
+
+  const onCertImageSelected = (file) => {
+    if (!file || !file.type.match("image.*")) return;
+    const reader = new FileReader();
+    reader.onload = (e) => setCertImage(e.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  // --- Handlers for upload areas ---
+  const gemInputRef = useRef(null);
+  const certInputRef = useRef(null);
+
+  const handleGemDrop = (e) => {
+    e.preventDefault();
+    onGemImagesSelected(e.dataTransfer.files);
+  };
+
+  const handleCertDrop = (e) => {
+    e.preventDefault();
+    onCertImageSelected(e.dataTransfer.files?.[0]);
+  };
+
+  // --- Submit / Cancel ---
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    alert(`Gem with ID: ${gemId} successfully added to inventory!`);
+    // Reset (keep particles/header as-is)
+    setGemName("");
+    setGemType("");
+    setCarat("");
+    setDimensions("");
+    setClarity("");
+    setColorGrade("");
+    setCutQuality("");
+    setShape("");
+    setTreatment("unheated");
+    setCertification("");
+    setCertNumber("");
+    setPrice("");
+    setStatus("in-stock");
+    setDescription("");
+    setGemImages([]);
+    setCertImage(null);
+    setGemId(generateGemId());
+    if (gemInputRef.current) gemInputRef.current.value = "";
+    if (certInputRef.current) certInputRef.current.value = "";
+  };
+
+  const handleCancel = () => {
+    // Simple “back to inventory” navigation without a router
+    const qp = new URLSearchParams(window.location.search);
+    qp.set("view", "inventory");
+    window.location.search = qp.toString();
+  };
+
+  return (
+    <div>
+      {/* Particle Background */}
+      <div id="particles-js" />
+
+      {/* Header */}
+      <header ref={headerRef}>
+        <div className="logo">Luxury Gems</div>
+        <nav className="nav-links">
+          <a href="index.html">Home</a>
+          <a href="collection.html">Collection</a>
+          <a href="inventory.html">Inventory</a>
+          <a href="about.html">About</a>
+          <a href="contact.html">Contact</a>
+        </nav>
+        <div className="header-actions">
+          <i className="fas fa-search" />
+          <i className="fas fa-shopping-cart" />
+          <i className="fas fa-user" />
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="form-container">
+        <div className="form-header">
+          <h1>Add New Gem to Inventory</h1>
+          <p>Fill in the details below to add a new precious gem to your inventory</p>
+        </div>
+
+        <form className="gem-form" onSubmit={handleSubmit}>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="gem-name">Gem Name *</label>
+              <input
+                id="gem-name"
+                type="text"
+                required
+                placeholder="e.g., Royal Blue Sapphire"
+                value={gemName}
+                onChange={(e) => setGemName(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label>Gem ID</label>
+              <div className="generated-id">
+                <i className="fas fa-hashtag" />
+                Auto-generated ID: <span id="auto-gem-id">{gemId}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="gem-type">Gem Type *</label>
+              <select
+                id="gem-type"
+                required
+                value={gemType}
+                onChange={(e) => setGemType(e.target.value)}
+              >
+                <option value="">Select Gem Type</option>
+                <option value="diamond">Diamond</option>
+                <option value="ruby">Ruby</option>
+                <option value="sapphire">Sapphire</option>
+                <option value="emerald">Emerald</option>
+                <option value="topaz">Topaz</option>
+                <option value="opal">Opal</option>
+                <option value="amethyst">Amethyst</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label htmlFor="gem-carat">Carat Weight *</label>
+              <input
+                id="gem-carat"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                placeholder="e.g., 2.5"
+                value={carat}
+                onChange={(e) => setCarat(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="gem-dimensions">Dimensions (mm)</label>
+              <input
+                id="gem-dimensions"
+                type="text"
+                placeholder="e.g., 8.5x6.5x4.2"
+                value={dimensions}
+                onChange={(e) => setDimensions(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="gem-clarity">Clarity Grade</label>
+              <select
+                id="gem-clarity"
+                value={clarity}
+                onChange={(e) => setClarity(e.target.value)}
+              >
+                <option value="">Select Clarity</option>
+                <option value="fl">FL - Flawless</option>
+                <option value="if">IF - Internally Flawless</option>
+                <option value="vvs1">VVS1 - Very Very Slightly Included 1</option>
+                <option value="vvs2">VVS2 - Very Very Slightly Included 2</option>
+                <option value="vs1">VS1 - Very Slightly Included 1</option>
+                <option value="vs2">VS2 - Very Slightly Included 2</option>
+                <option value="si1">SI1 - Slightly Included 1</option>
+                <option value="si2">SI2 - Slightly Included 2</option>
+                <option value="i1">I1 - Included 1</option>
+                <option value="i2">I2 - Included 2</option>
+                <option value="i3">I3 - Included 3</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="gem-color">Color Grade</label>
+              <input
+                id="gem-color"
+                type="text"
+                placeholder="e.g., D (Colorless)"
+                value={colorGrade}
+                onChange={(e) => setColorGrade(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="gem-cut">Cut Quality</label>
+              <select
+                id="gem-cut"
+                value={cutQuality}
+                onChange={(e) => setCutQuality(e.target.value)}
+              >
+                <option value="">Select Cut Quality</option>
+                <option value="excellent">Excellent</option>
+                <option value="very-good">Very Good</option>
+                <option value="good">Good</option>
+                <option value="fair">Fair</option>
+                <option value="poor">Poor</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="gem-shape">Shape/Cut Style</label>
+              <select
+                id="gem-shape"
+                value={shape}
+                onChange={(e) => setShape(e.target.value)}
+              >
+                <option value="">Select Shape</option>
+                <option value="round">Round</option>
+                <option value="princess">Princess</option>
+                <option value="cushion">Cushion</option>
+                <option value="oval">Oval</option>
+                <option value="emerald">Emerald</option>
+                <option value="pear">Pear</option>
+                <option value="marquise">Marquise</option>
+                <option value="asscher">Asscher</option>
+                <option value="radiant">Radiant</option>
+                <option value="heart">Heart</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label htmlFor="gem-treatment">Treatment</label>
+              <select
+                id="gem-treatment"
+                value={treatment}
+                onChange={(e) => setTreatment(e.target.value)}
+              >
+                <option value="unheated">Unheated</option>
+                <option value="heated">Heated</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="gem-certification">Certification</label>
+              <input
+                id="gem-certification"
+                type="text"
+                placeholder="e.g., GIA, IGI, AGS"
+                value={certification}
+                onChange={(e) => setCertification(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="gem-cert-number">Certificate Number</label>
+              <input
+                id="gem-cert-number"
+                type="text"
+                placeholder="Certificate reference number"
+                value={certNumber}
+                onChange={(e) => setCertNumber(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="gem-price">Price ($) *</label>
+              <input
+                id="gem-price"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                placeholder="e.g., 3250.00"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="gem-status">Status *</label>
+              <select
+                id="gem-status"
+                required
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option value="in-stock">In Stock</option>
+                <option value="out-of-stock">Out of Stock</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="gem-description">Description</label>
+            <textarea
+              id="gem-description"
+              placeholder="Describe the gem's characteristics, brilliance, and any special features..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          {/* Uploads */}
+          <div className="form-row image-upload-row">
+            {/* Gem Images */}
+            <div className="image-upload">
+              <label>Gem Images *</label>
+              <div
+                className="upload-area"
+                onClick={() => gemInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleGemDrop}
+              >
+                <i className="fas fa-cloud-upload-alt" />
+                <p>Drag & drop gem images here or click to browse</p>
+                <span>Recommended: 4 images (front, back, sides)</span>
+                <span>Max file size: 5MB each (JPG, PNG, WEBP)</span>
+                <input
+                  ref={gemInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files?.length) onGemImagesSelected(e.target.files);
+                  }}
+                  style={{ display: "none" }}
+                />
+              </div>
+
+              <div className="image-preview">
+                {gemImages.map((src, idx) => (
+                  <div className="preview-item" key={idx}>
+                    <img src={src} alt={`gem-${idx}`} />
+                    <div
+                      className="remove-btn"
+                      onClick={() =>
+                        setGemImages((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                    >
+                      <i className="fas fa-times" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Certificate Image */}
+            <div className="image-upload">
+              <label>Certificate Image</label>
+              <div
+                className="upload-area"
+                onClick={() => certInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleCertDrop}
+              >
+                <i className="fas fa-certificate" />
+                <p>Drag & drop certificate image here or click to browse</p>
+                <span>Upload a clear image of the gem's certificate</span>
+                <span>Max file size: 5MB (JPG, PNG, WEBP)</span>
+                <input
+                  ref={certInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => onCertImageSelected(e.target.files?.[0])}
+                  style={{ display: "none" }}
+                />
+              </div>
+
+              <div className="image-preview">
+                {certImage && (
+                  <div className="preview-item certificate-preview">
+                    <img src={certImage} alt="certificate" />
+                    <div
+                      className="remove-btn"
+                      onClick={() => {
+                        setCertImage(null);
+                        if (certInputRef.current) certInputRef.current.value = "";
+                      }}
+                    >
+                      <i className="fas fa-times" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="form-actions">
+            <button type="button" className="btn-secondary" onClick={handleCancel}>
+              Cancel
+            </button>
+            <button type="submit" className="btn">
+              <i className="fas fa-plus-circle" /> Add Gem to Inventory
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Footer */}
+      <footer>
+        <div className="footer-grid">
+          <div className="footer-col">
+            <h3>Luxury Gems</h3>
+            <ul>
+              <li>
+                <a href="#">
+                  <i className="fas fa-map-marker-alt" /> 123 Precious Street, Jewelry
+                  District
+                </a>
+              </li>
+              <li>
+                <a href="#">
+                  <i className="fas fa-phone" /> +1 (555) 123-4567
+                </a>
+              </li>
+              <li>
+                <a href="#">
+                  <i className="fas fa-envelope" /> info@luxurygems.com
+                </a>
+              </li>
+            </ul>
+          </div>
+          <div className="footer-col">
+            <h3>Quick Links</h3>
+            <ul>
+              <li>
+                <a href="#">
+                  <i className="fas fa-gem" /> Our Collection
+                </a>
+              </li>
+              <li>
+                <a href="#">
+                  <i className="fas fa-certificate" /> Certifications
+                </a>
+              </li>
+              <li>
+                <a href="#">
+                  <i className="fas fa-shipping-fast" /> Shipping Policy
+                </a>
+              </li>
+              <li>
+                <a href="#">
+                  <i className="fas fa-undo" /> Return Policy
+                </a>
+              </li>
+            </ul>
+          </div>
+          <div className="footer-col">
+            <h3>Information</h3>
+            <ul>
+              <li>
+                <a href="#">
+                  <i className="fas fa-user-tie" /> About Us
+                </a>
+              </li>
+              <li>
+                <a href="#">
+                  <i className="fas fa-store" /> Our Stores
+                </a>
+              </li>
+              <li>
+                <a href="#">
+                  <i className="fas fa-newspaper" /> Blog
+                </a>
+              </li>
+              <li>
+                <a href="#">
+                  <i className="fas fa-lock" /> Privacy Policy
+                </a>
+              </li>
+            </ul>
+          </div>
+          <div className="footer-col">
+            <h3>Newsletter</h3>
+            <p style={{ color: "#b0b0b0", marginBottom: 20 }}>
+              Subscribe to our newsletter for updates on new arrivals and exclusive offers.
+            </p>
+            <div className="newsletter-form">
+              <input type="email" placeholder="Your Email Address" />
+              <button className="btn">Subscribe</button>
+            </div>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          <p>
+            &copy; 2023 Luxury Gems. All rights reserved. | Designed with{" "}
+            <i className="fas fa-heart" style={{ color: "#d4af37" }} />
+          </p>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default AddGem;
