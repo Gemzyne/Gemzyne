@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import { useUser } from "../context/UserContext";
-import "../pages/DashBoards/SellerDashboard.css";
+import "./Sidebar.css";
 
 export default function SellerSidebar() {
   const { me, loadingUser, logout } = useUser();
@@ -26,9 +26,9 @@ export default function SellerSidebar() {
 
         <ul className="dashboard-menu">
           <li><NavLink to="/seller-dashboard"><i className="fas fa-th-large"></i> Dashboard</NavLink></li>
-          <li><a href="#"><i className="fas fa-gem"></i> Gems</a></li>
+          <li><NavLink to="/seller/gems"><i className="fas fa-gem"></i> Gems</NavLink></li>
           <li><a href="#"><i className="fas fa-shopping-bag"></i> Orders</a></li>
-          <li><NavLink to=""><i className="fas fa-credit-card"></i> Payments</NavLink></li>
+          <li><NavLink to="/seller/payments"><i className="fas fa-credit-card"></i> Payments</NavLink></li>
           <li><a href="#"><i className="fas fa-star"></i> Reviews</a></li>
           <li><NavLink to="/seller/settings"><i className="fas fa-cog"></i> Settings</NavLink></li>
           <li>
