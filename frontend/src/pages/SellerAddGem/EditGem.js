@@ -1,45 +1,55 @@
-// src/pages/SellerAddGem/AddGem.js
-import React, { useEffect, useRef, useState, useMemo } from "react";
+// src/pages/SellerAddGem/EditGem.js
+import React, { useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
-import "./AddGem.css";
+import "./EditGem.css";
 
 const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000";
 
-const AddGem = () => {
+// Ensure server-relative URLs become absolute for previewing
+const absUrl = (u) => {
+  if (!u) return "";
+  if (u.startsWith("http://") || u.startsWith("https://")) return u;
+  return `${API_BASE}${u.startsWith("/") ? "" : "/"}${u}`;
+};
+
+const EditGem = () => {
+  const { id } = useParams(); // gem _id from /seller/gems/:id/edit
   const particlesLoaded = useRef(false);
 
-  // --- Prefill from query params (useful for a future "Edit" flow) ---
-  const params = useMemo(() => new URLSearchParams(window.location.search), []);
-  const initialFromQuery = (key, fallback = "") => params.get(key) ?? fallback;
+  // ---------------- Form State ----------------
+  const [gemName, setGemName] = useState("");
+  const [gemId, setGemId] = useState("");
+  const [gemType, setGemType] = useState("");
+  const [carat, setCarat] = useState("");
+  const [dimensions, setDimensions] = useState("");
+  const [clarity, setClarity] = useState("");
+  const [colorGrade, setColorGrade] = useState("");
+  const [cutQuality, setCutQuality] = useState("");
+  const [shape, setShape] = useState("");
+  const [treatment, setTreatment] = useState("unheated");
+  const [certification, setCertification] = useState("");
+  const [certNumber, setCertNumber] = useState("");
+  const [price, setPrice] = useState("");
+  const [status, setStatus] = useState("in-stock");
+  const [description, setDescription] = useState("");
 
-  // --- Form State ---
-  const [gemName, setGemName] = useState(initialFromQuery("name"));
-  const [gemId, setGemId] = useState(initialFromQuery("id"));
-  const [gemType, setGemType] = useState(initialFromQuery("type", ""));
-  const [carat, setCarat] = useState(initialFromQuery("carat", ""));
-  const [dimensions, setDimensions] = useState(initialFromQuery("dimensions", ""));
-  const [clarity, setClarity] = useState(initialFromQuery("clarity", ""));
-  const [colorGrade, setColorGrade] = useState(initialFromQuery("color", ""));
-  const [cutQuality, setCutQuality] = useState(initialFromQuery("cut", ""));
-  const [shape, setShape] = useState(initialFromQuery("shape", ""));
-  const [treatment, setTreatment] = useState(initialFromQuery("treatment", "unheated"));
-  const [certification, setCertification] = useState(initialFromQuery("certification", ""));
-  const [certNumber, setCertNumber] = useState(initialFromQuery("certNumber", ""));
-  const [price, setPrice] = useState(initialFromQuery("price", ""));
-  const [status, setStatus] = useState(initialFromQuery("status", "in-stock"));
-  const [description, setDescription] = useState(initialFromQuery("description", ""));
+  // Existing media from DB
+  const [existingImages, setExistingImages] = useState([]); // absolute URLs
+  const [keptImages, setKeptImages] = useState([]);         // subset to keep
+  const [existingCertUrl, setExistingCertUrl] = useState(""); // absolute URL if any
 
-  // Previews + original files
-  const [gemImages, setGemImages] = useState([]);           // previews (data URLs)
+  // Newly added media (local previews + files)
+  const [gemImages, setGemImages] = useState([]);           // data URLs for preview
   const [gemImageFiles, setGemImageFiles] = useState([]);   // File[]
-  const [certImage, setCertImage] = useState(null);         // preview
+  const [certImage, setCertImage] = useState(null);         // data URL
   const [certImageFile, setCertImageFile] = useState(null); // File
 
-  // Cancel confirmation modal
+  // Cancel modal
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  // --- Particles.js loader ---
+  // ---------------- Particles (unchanged) ----------------
   useEffect(() => {
     const initParticles = () => {
       if (window.particlesJS && !particlesLoaded.current) {
@@ -50,14 +60,8 @@ const AddGem = () => {
             shape: { type: "circle" },
             opacity: { value: 0.3, random: true },
             size: { value: 3, random: true },
-            line_linked: {
-              enable: true,
-              distance: 150,
-              color: "#d4af37",
-              opacity: 0.1,
-              width: 1,
-            },
-            move: { enable: true, speed: 1, direction: "none", random: true, straight: false, out_mode: "out", bounce: false },
+            line_linked: { enable: true, distance: 150, color: "#d4af37", opacity: 0.1, width: 1 },
+            move: { enable: true, speed: 1, direction: "none", random: true, out_mode: "out" },
           },
           interactivity: {
             detect_on: "canvas",
@@ -68,7 +72,6 @@ const AddGem = () => {
         particlesLoaded.current = true;
       }
     };
-
     if (!window.particlesJS) {
       const script = document.createElement("script");
       script.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
@@ -81,26 +84,59 @@ const AddGem = () => {
     }
   }, []);
 
-  // --- Auto ID generation (only if no id provided via query) ---
-  const generateGemId = () => {
-    const timestamp = Date.now().toString().slice(-6);
-    const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
-    return `GM${timestamp}${randomNum}`;
-  };
+  // ---------------- Load gem by :id ----------------
   useEffect(() => {
-    if (!gemId || gemId.trim() === "") setGemId(generateGemId());
-  }, [gemId]);
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/gems/${id}`, { credentials: "include" });
+        if (!res.ok) throw new Error(`Load failed: ${res.status}`);
 
-  // --- Image helpers ---
+        // Support multiple shapes: {data}, {gem}, or raw object
+        const payload = await res.json();
+        const g = payload?.data || payload?.gem || payload;
+
+        // Basic fields
+        setGemName(g.name || "");
+        setGemId(g.gemId || "");
+        setGemType(g.type || "");
+        setCarat(g.carat ?? "");
+        setDimensions(g.dimensionsMm || "");
+        setClarity(g.clarityGrade || "");
+        setColorGrade(g.colorGrade || "");
+        setCutQuality(g.cutQuality || "");
+        setShape(g.shape || "");
+        setTreatment(g.treatment || "unheated");
+        setCertification(g.certificationAgency || "");
+        setCertNumber(g.certificateNumber || "");
+        setPrice(g.priceUSD ?? "");
+        setStatus(g.status === "out_of_stock" ? "out-of-stock" : "in-stock");
+        setDescription(g.description || "");
+
+        // Images (support g.images or g.imageUrls)
+        const imgs = (Array.isArray(g.images) ? g.images : g.imageUrls || [])
+          .map(absUrl)
+          .filter(Boolean);
+        setExistingImages(imgs);
+        setKeptImages(imgs);
+
+        // Certificate (support certificateUrl or certificate)
+        setExistingCertUrl(absUrl(g.certificateUrl || g.certificate || ""));
+      } catch (e) {
+        console.error(e);
+        alert("Could not load gem for editing.");
+        window.location.href = "/seller/gems";
+      }
+    })();
+  }, [id]);
+
+  // ---------------- Upload helpers ----------------
   const gemInputRef = useRef(null);
   const certInputRef = useRef(null);
 
   const onGemImagesSelected = (files) => {
     Array.from(files).forEach((file) => {
       if (!file.type.match("image.*")) return;
-      // keep original file
       setGemImageFiles((prev) => [...prev, file]);
-      // make preview
       const reader = new FileReader();
       reader.onload = (e) => setGemImages((prev) => [...prev, e.target.result]);
       reader.readAsDataURL(file);
@@ -124,17 +160,20 @@ const AddGem = () => {
     onCertImageSelected(e.dataTransfer.files?.[0]);
   };
 
-  // --- Submit / Cancel ---
+  // ---------------- Submit (PUT) ----------------
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // images required
-    if (gemImageFiles.length < 1) {
-      alert("Please upload at least one gem image (max 4).");
+    // Total images after edit must be 1..4
+    const totalAfter = keptImages.length + gemImageFiles.length;
+    if (totalAfter < 1 || totalAfter > 4) {
+      alert("Please ensure you have between 1 and 4 gem images.");
       return;
     }
-    if (!certImageFile) {
-      alert("Please upload the certificate image.");
+
+    // Must have a certificate (existing or new)
+    if (!existingCertUrl && !certImageFile) {
+      alert("Please keep the existing certificate or upload a new one.");
       return;
     }
 
@@ -155,13 +194,31 @@ const AddGem = () => {
     fd.append("gemId", gemId);
     fd.append("description", description);
 
+    // Tell backend which existing images to keep (support multiple field names)
+    const keptRelative = keptImages.map((u) =>
+      u.startsWith(API_BASE) ? u.slice(API_BASE.length) : u
+    );
+    fd.append("existingImages", JSON.stringify(keptRelative));
+    fd.append("existingImagesJson", JSON.stringify(keptRelative)); // alt name for compatibility
+    fd.append("keepImages", JSON.stringify(keptRelative));          // another alias, just in case
+
+    // New gem images
     gemImageFiles.forEach((file) => fd.append("images", file));
-    fd.append("certificate", certImageFile);
+
+    // Certificate: either new file or keep existing (send relative URL)
+    if (certImageFile) {
+      fd.append("certificate", certImageFile);
+    } else if (existingCertUrl) {
+      const rel = existingCertUrl.startsWith(API_BASE)
+        ? existingCertUrl.slice(API_BASE.length)
+        : existingCertUrl;
+      fd.append("existingCertificateUrl", rel);
+      fd.append("keepCertificateUrl", rel); // alt name for compatibility
+    }
 
     const token = localStorage.getItem("accessToken");
-
-    const res = await fetch(`${API_BASE}/api/gems`, {
-      method: "POST",
+    const res = await fetch(`${API_BASE}/api/gems/${id}`, {
+      method: "PUT",
       body: fd,
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       credentials: "include",
@@ -169,15 +226,21 @@ const AddGem = () => {
 
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
-      alert(`Could not save gem:\n${res.status} ${txt || res.statusText}`);
+      alert(`Could not update gem:\n${res.status} ${txt || res.statusText}`);
       return;
     }
 
-    alert("Gem saved successfully!");
+    alert("Gem updated successfully!");
     window.location.href = "/seller/gems";
   };
 
-  const handleCancel = () => setShowCancelConfirm(true);
+  // ---------------- UI helpers ----------------
+  const removeExistingImage = (url) => setKeptImages((prev) => prev.filter((u) => u !== url));
+  const removeNewImage = (idx) => {
+    setGemImages((prev) => prev.filter((_, i) => i !== idx));
+    setGemImageFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+  const clearExistingCert = () => setExistingCertUrl("");
 
   return (
     <div>
@@ -190,8 +253,8 @@ const AddGem = () => {
       {/* Main Content */}
       <div className="form-container">
         <div className="form-header">
-          <h1>Add New Gem to Inventory</h1>
-          <p>Fill in the details below to add a new precious gem to your inventory</p>
+          <h1>Edit Gem</h1>
+          <p>Update details, images and certification, then save your changes.</p>
         </div>
 
         <form className="gem-form" onSubmit={handleSubmit}>
@@ -211,7 +274,7 @@ const AddGem = () => {
               <label>Gem ID</label>
               <div className="generated-id">
                 <i className="fas fa-hashtag" />
-                Auto-generated ID: <span id="auto-gem-id">{gemId}</span>
+                Current ID: <span id="auto-gem-id">{gemId}</span>
               </div>
             </div>
           </div>
@@ -422,6 +485,20 @@ const AddGem = () => {
             {/* Gem Images */}
             <div className="image-upload">
               <label>Gem Images *</label>
+
+              {/* Existing kept images */}
+              <div className="image-preview">
+                {keptImages.map((src) => (
+                  <div className="preview-item" key={`exist-${src}`}>
+                    <img src={src} alt="existing-gem" />
+                    <div className="remove-btn" onClick={() => removeExistingImage(src)}>
+                      <i className="fas fa-times" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* New uploads */}
               <div
                 className="upload-area"
                 onClick={() => gemInputRef.current?.click()}
@@ -442,17 +519,12 @@ const AddGem = () => {
                 />
               </div>
 
+              {/* New image previews */}
               <div className="image-preview">
                 {gemImages.map((src, idx) => (
-                  <div className="preview-item" key={idx}>
+                  <div className="preview-item" key={`new-${idx}`}>
                     <img src={src} alt={`gem-${idx}`} />
-                    <div
-                      className="remove-btn"
-                      onClick={() => {
-                        setGemImages((prev) => prev.filter((_, i) => i !== idx));
-                        setGemImageFiles((prev) => prev.filter((_, i) => i !== idx));
-                      }}
-                    >
+                    <div className="remove-btn" onClick={() => removeNewImage(idx)}>
                       <i className="fas fa-times" />
                     </div>
                   </div>
@@ -460,9 +532,23 @@ const AddGem = () => {
               </div>
             </div>
 
-            {/* Certificate Image */}
+            {/* Certificate */}
             <div className="image-upload">
               <label>Certificate Image *</label>
+
+              {/* Existing certificate (if any and not cleared) */}
+              {existingCertUrl && !certImage && (
+                <div className="image-preview">
+                  <div className="preview-item certificate-preview">
+                    <img src={existingCertUrl} alt="certificate" />
+                    <div className="remove-btn" onClick={clearExistingCert}>
+                      <i className="fas fa-times" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Upload new certificate (or replace) */}
               <div
                 className="upload-area"
                 onClick={() => certInputRef.current?.click()}
@@ -482,10 +568,11 @@ const AddGem = () => {
                 />
               </div>
 
-              <div className="image-preview">
-                {certImage && (
+              {/* New certificate preview */}
+              {certImage && (
+                <div className="image-preview">
                   <div className="preview-item certificate-preview">
-                    <img src={certImage} alt="certificate" />
+                    <img src={certImage} alt="certificate-new" />
                     <div
                       className="remove-btn"
                       onClick={() => {
@@ -497,18 +584,18 @@ const AddGem = () => {
                       <i className="fas fa-times" />
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Actions */}
           <div className="form-actions">
-            <button type="button" className="btn-secondary" onClick={handleCancel}>
+            <button type="button" className="btn-secondary" onClick={() => setShowCancelConfirm(true)}>
               Cancel
             </button>
             <button type="submit" className="btn">
-              <i className="fas fa-plus-circle" /> Add Gem
+              <i className="fas fa-plus-circle" /> Save
             </button>
           </div>
         </form>
@@ -517,7 +604,7 @@ const AddGem = () => {
       {/* Shared Footer */}
       <Footer />
 
-      {/* Cancel confirmation modal (inline styles so no CSS collisions) */}
+      {/* Cancel confirmation modal */}
       {showCancelConfirm && (
         <div
           style={{
@@ -542,20 +629,15 @@ const AddGem = () => {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ marginBottom: 10 }}>Discard this gem?</h3>
+            <h3 style={{ marginBottom: 10 }}>Discard changes?</h3>
             <p style={{ color: "#b0b0b0", marginBottom: 20 }}>
-              If you continue, your current entries will be lost.
+              If you continue, your current edits will be lost.
             </p>
             <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
               <button className="btn-secondary" onClick={() => setShowCancelConfirm(false)}>
                 Cancel
               </button>
-              <button
-                className="btn"
-                onClick={() => {
-                  window.location.href = "/seller/gems";
-                }}
-              >
+              <button className="btn" onClick={() => (window.location.href = "/seller/gems")}>
                 Continue
               </button>
             </div>
@@ -566,4 +648,4 @@ const AddGem = () => {
   );
 };
 
-export default AddGem;
+export default EditGem;

@@ -24,6 +24,10 @@ import GemDetail from "./pages/Inventory/GemDetail";
 // Seller inventory page
 import SellerInventory from "./pages/SellerAddGem/SellerInventory";
 
+// ✅ Add these
+import AddGem from "./pages/SellerAddGem/AddGem";
+import EditGem from "./pages/SellerAddGem/EditGem"; // <--- NEW
+
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem("accessToken");
   if (!token) return <Navigate to="/login" replace />;
@@ -68,7 +72,6 @@ export default function App() {
           </RequireAuth>
         }
       />
-
       <Route
         path="/payment-history"
         element={
@@ -78,7 +81,6 @@ export default function App() {
         }
       />
 
-      
       {/* Admin */}
       <Route
         path="/admin-dashboard"
@@ -153,7 +155,7 @@ export default function App() {
         }
       />
 
-      {/* Seller inventory entry from sidebar "Gems" */}
+      {/* Seller inventory list */}
       <Route
         path="/seller/gems"
         element={
@@ -163,8 +165,33 @@ export default function App() {
             </RequireRole>
           </RequireAuth>
         }
-        />
-        <Route
+      />
+
+      {/* AddGem page */}
+      <Route
+        path="/seller/gems/new"
+        element={
+          <RequireAuth>
+            <RequireRole role="seller">
+              <AddGem />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      {/* ✅ EditGem page */}
+      <Route
+        path="/seller/gems/:id/edit"
+        element={
+          <RequireAuth>
+            <RequireRole role="seller">
+              <EditGem />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      <Route
         path="/seller/payments"
         element={
           <RequireAuth>
@@ -175,7 +202,7 @@ export default function App() {
         }
       />
 
-
+      {/* 404 */}
       <Route path="*" element={<div style={{ padding: 32 }}>404 – Page not found</div>} />
     </Routes>
   );

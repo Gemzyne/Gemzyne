@@ -1,14 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../../api"; // switch to default import if your api exports default
+import { api } from "../../api"; // keep as-is
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
 import "./InventoryPage.css";
+
+const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000";
 
 const currencyRates = { USD: 1, LKR: 300, EUR: 0.85, GBP: 0.75, AUD: 1.35 };
 const currencySymbols = { USD: "$", LKR: "₨ ", EUR: "€", GBP: "£", AUD: "A$" };
 
 const PARTICLES_ID = "inventory-particles";
+
+const getImageUrl = (pathOrUrl) => {
+  if (!pathOrUrl) return "";
+  if (/^https?:\/\//i.test(pathOrUrl) || /^data:/i.test(pathOrUrl)) return pathOrUrl;
+  return `${API_BASE}${pathOrUrl.startsWith("/") ? "" : "/"}${pathOrUrl}`;
+};
 
 export default function GemInventory() {
   const navigate = useNavigate();
@@ -155,8 +163,8 @@ export default function GemInventory() {
       try {
         const res = await api.gems.list(queryParams);
         if (!cancelled) {
-          setGems(res.data || []);
-          setTotal(res.total || 0);
+          setGems(res?.data || []);
+          setTotal(res?.total ?? (res?.data?.length ?? 0));
         }
       } catch (e) {
         if (!cancelled) {
@@ -189,14 +197,11 @@ export default function GemInventory() {
 
   return (
     <div className="inventory-body">
-      {/* Particle layer */}
       <div id={PARTICLES_ID} className="inventory-particles-layer" aria-hidden="true" />
 
-      {/* Link your existing Header.js (no changes to it) */}
       <Header />
 
       <div className="inventory-container">
-        {/* Mobile filter toggle */}
         <button
           className="inventory-filter-toggle"
           onClick={() => setFilterActive(!filterActive)}
@@ -313,7 +318,7 @@ export default function GemInventory() {
           </div>
         </aside>
 
-        {/* Right main column */}
+        {/* Main grid */}
         <main className="inventory-main">
           <div className="inventory-hero">
             <h1 className="inventory-title">Premium Gem Collection</h1>
@@ -325,62 +330,63 @@ export default function GemInventory() {
           <div className="inventory-results-header">
             <div className="inventory-results-count">
               {loading ? "Loading..." : (
-                <>
-                  Showing <span>{total}</span> gems
-                </>
+                <>Showing <span>{total}</span> gems</>
               )}
             </div>
           </div>
 
           <div className="inventory-gems-grid">
             {!loading &&
-              gems.map((gem) => (
-                <div
-                  className="inventory-gem-card"
-                  key={gem._id}
-                  onClick={() => handleGemClick(gem._id)}
-                >
-                  <div className="inventory-gem-image">
-                    <img
-                      src={gem.images?.[0] || "/images/placeholder-gem.jpg"}
-                      alt={gem.name || "Gem"}
-                    />
+              gems.map((gem) => {
+                const firstImg = gem.images?.[0] ? getImageUrl(gem.images[0]) : "/images/placeholder-gem.jpg";
+                return (
+                  <div
+                    className="inventory-gem-card"
+                    key={gem._id}
+                    onClick={() => handleGemClick(gem._id)}
+                  >
+                    <div className="inventory-gem-image">
+                      <img
+                        src={firstImg}
+                        alt={gem.name || "Gem"}
+                        onError={(e) => (e.currentTarget.src = "/images/placeholder-gem.jpg")}
+                      />
+                    </div>
+                    <div className="inventory-gem-info">
+                      <h3>{gem.name || gem.gemId}</h3>
+                      <div className="inventory-gem-price">
+                        {formatPrice(gem.priceUSD)}
+                      </div>
+                      <div className="inventory-gem-specs">
+                        <span>{gem.carat} Carat</span>
+                        <span>{gem.quality || "-"}</span>
+                      </div>
+                      <div className="inventory-gem-actions">
+                        <button
+                          className="inventory-add-to-cart-btn"
+                          onClick={(e) => addToCart(gem, e)}
+                        >
+                          Add to Cart
+                        </button>
+                        <button
+                          className="inventory-buy-now-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/gems/${gem._id}?buyNow=1`);
+                          }}
+                        >
+                          Buy Now
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="inventory-gem-info">
-                    <h3>{gem.name}</h3>
-                    <div className="inventory-gem-price">
-                      {formatPrice(gem.priceUSD)}
-                    </div>
-                    <div className="inventory-gem-specs">
-                      <span>{gem.carat} Carat</span>
-                      <span>{gem.quality}</span>
-                    </div>
-                    <div className="inventory-gem-actions">
-                      <button
-                        className="inventory-add-to-cart-btn"
-                        onClick={(e) => addToCart(gem, e)}
-                      >
-                        Add to Cart
-                      </button>
-                      <button
-                        className="inventory-buy-now-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/gems/${gem._id}?buyNow=1`);
-                        }}
-                      >
-                        Buy Now
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             {loading && <div className="inventory-loading">Loading gems…</div>}
           </div>
         </main>
       </div>
 
-      {/* Link your existing Footer.js (no changes to it) */}
       <Footer />
     </div>
   );

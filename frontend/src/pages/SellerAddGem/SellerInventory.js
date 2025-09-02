@@ -1,21 +1,27 @@
+// src/pages/SellerAddGem/SellerInventory.js
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Header from "../../Components/Header";
-import { api } from "../../api"; // uses same API style as Inventory page
-import SellerSidebar from "../../Components/SellerSidebar"; // linked sidebar
+import { api } from "../../api";
+import SellerSidebar from "../../Components/SellerSidebar";
 import "../SellerAddGem/SellerInventory.css";
+import { useNavigate } from "react-router-dom";
+
+const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000";
 
 const SellerInventory = () => {
   const particlesLoaded = useRef(false);
+  const navigate = useNavigate();
 
   const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all"); // all | in-stock | out-of-stock
-  const [page, setPage] = useState(1); // visual only for the demo pagination
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [page, setPage] = useState(1);
 
-  // data
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Load particles.js and initialize background
+  const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, name: "" });
+
+  // Particles
   useEffect(() => {
     const initParticles = () => {
       if (window.particlesJS && !particlesLoaded.current) {
@@ -26,29 +32,18 @@ const SellerInventory = () => {
             shape: { type: "circle" },
             opacity: { value: 0.3, random: true },
             size: { value: 3, random: true },
-            line_linked: {
-              enable: true,
-              distance: 150,
-              color: "#d4af37",
-              opacity: 0.1,
-              width: 1,
-            },
+            line_linked: { enable: true, distance: 150, color: "#d4af37", opacity: 0.1, width: 1 },
             move: { enable: true, speed: 1, direction: "none", random: true, out_mode: "out" },
           },
           interactivity: {
             detect_on: "canvas",
-            events: {
-              onhover: { enable: true, mode: "repulse" },
-              onclick: { enable: true, mode: "push" },
-              resize: true,
-            },
+            events: { onhover: { enable: true, mode: "repulse" }, onclick: { enable: true, mode: "push" }, resize: true },
           },
           retina_detect: true,
         });
         particlesLoaded.current = true;
       }
     };
-
     if (!window.particlesJS) {
       const script = document.createElement("script");
       script.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
@@ -76,9 +71,7 @@ const SellerInventory = () => {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   const numberUSD = (n) =>
@@ -88,17 +81,13 @@ const SellerInventory = () => {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-
-    const matches = (g) => {
-      if (!q) return true;
-      return (
-        g.name?.toLowerCase().includes(q) ||
-        g.type?.toLowerCase().includes(q) ||
-        g.gemId?.toLowerCase().includes(q) ||
-        g.sku?.toLowerCase().includes(q) ||
-        g.certificateNumber?.toLowerCase().includes(q)
-      );
-    };
+    const matches = (g) =>
+      !q ||
+      g.name?.toLowerCase().includes(q) ||
+      g.type?.toLowerCase().includes(q) ||
+      g.gemId?.toLowerCase().includes(q) ||
+      g.sku?.toLowerCase().includes(q) ||
+      g.certificateNumber?.toLowerCase().includes(q);
 
     const passFilter = (g) => {
       if (activeFilter === "all") return true;
@@ -110,22 +99,45 @@ const SellerInventory = () => {
     return (items || []).filter(matches).filter(passFilter);
   }, [items, search, activeFilter]);
 
+  // ---- EDIT: go to /seller/gems/:id/edit
+  const handleEdit = (g) => {
+    navigate(`/seller/gems/${g._id}/edit`);
+  };
+
+  // ---- DELETE ----
+  const askDelete = (g) => setConfirmDelete({ open: true, id: g._id, name: g.name || g.gemId || "this gem" });
+  const doDelete = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(`${API_BASE}/api/gems/${confirmDelete.id}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        alert(`Delete failed: ${res.status} ${txt || res.statusText}`);
+        return;
+      }
+      setItems((prev) => prev.filter((x) => x._id !== confirmDelete.id));
+      setConfirmDelete({ open: false, id: null, name: "" });
+    } catch (e) {
+      console.error(e);
+      alert("Delete failed.");
+    }
+  };
+
   return (
     <div className="inventory-page">
-      {/* Particle Background */}
       <div id="particles-js"></div>
-
-      {/* Shared header */}
       <Header />
 
-      {/* Left-aligned page grid (sidebar + content) */}
       <div
         style={{
-          // left aligned (no auto-centering)
           maxWidth: "none",
           margin: 0,
-          padding: "0 16px",
-          marginTop: "120px", // keep content below fixed header
+          padding: "0 16px 0 0",
+          marginTop: "96px",
           display: "grid",
           gridTemplateColumns: "280px minmax(0, 1fr)",
           gap: "16px",
@@ -136,17 +148,12 @@ const SellerInventory = () => {
           <SellerSidebar />
         </aside>
 
-        {/* Page content */}
         <main className="inventory-container" style={{ paddingTop: 0, margin: 0 }}>
           <div className="inventory-header">
             <h1>Gem Inventory Management</h1>
-            <p>
-              Manage your precious gem collection with our intuitive inventory system.
-              Track availability, update details, and add new arrivals.
-            </p>
+            <p>Manage your precious gem collection with our intuitive inventory system.</p>
           </div>
 
-          {/* Controls */}
           <div className="inventory-controls">
             <div className="search-box">
               <i className="fas fa-search"></i>
@@ -158,10 +165,7 @@ const SellerInventory = () => {
               />
             </div>
             <div className="filter-options">
-              <button
-                className={`filter-btn ${activeFilter === "all" ? "active" : ""}`}
-                onClick={() => setActiveFilter("all")}
-              >
+              <button className={`filter-btn ${activeFilter === "all" ? "active" : ""}`} onClick={() => setActiveFilter("all")}>
                 <i className="fas fa-gem"></i> All Gems
               </button>
               <button
@@ -179,7 +183,6 @@ const SellerInventory = () => {
             </div>
           </div>
 
-          {/* Inventory Table */}
           <div className="inventory-table-container">
             <table className="inventory-table">
               <thead>
@@ -202,7 +205,6 @@ const SellerInventory = () => {
                   <th>Actions</th>
                 </tr>
               </thead>
-
               <tbody>
                 {loading && (
                   <tr>
@@ -249,19 +251,17 @@ const SellerInventory = () => {
                         <td className="nowrap">{g.certificateNumber || "-"}</td>
                         <td className="nowrap">{numberUSD(g.priceUSD)}</td>
                         <td>
-                          <span className={`status ${statusClass}`}>
-                            {g.status?.replace(/_/g, " ") || "-"}
-                          </span>
+                          <span className={`status ${statusClass}`}>{g.status?.replace(/_/g, " ") || "-"}</span>
                         </td>
                         <td className="nowrap">
                           {g.createdAt ? new Date(g.createdAt).toLocaleDateString() : "-"}
                         </td>
                         <td>
                           <div className="action-buttons">
-                            <button className="action-btn edit-btn">
+                            <button className="action-btn edit-btn" onClick={() => handleEdit(g)}>
                               <i className="fas fa-edit"></i> Edit
                             </button>
-                            <button className="action-btn delete-btn">
+                            <button className="action-btn delete-btn" onClick={() => askDelete(g)}>
                               <i className="fas fa-trash"></i> Delete
                             </button>
                           </div>
@@ -273,51 +273,27 @@ const SellerInventory = () => {
             </table>
           </div>
 
-          {/* Pagination (visual) */}
+          {/* Pagination (visual only) */}
           <div className="pagination">
-            <button
-              className={`pagination-btn ${page === 1 ? "active" : ""}`}
-              onClick={() => setPage(1)}
-            >
+            <button className={`pagination-btn ${page === 1 ? "active" : ""}`} onClick={() => setPage(1)}>
               <i className="fas fa-chevron-left"></i> Previous
             </button>
-            <button
-              className={`pagination-btn ${page === 1 ? "active" : ""}`}
-              onClick={() => setPage(1)}
-            >
-              1
-            </button>
-            <button
-              className={`pagination-btn ${page === 2 ? "active" : ""}`}
-              onClick={() => setPage(2)}
-            >
-              2
-            </button>
-            <button
-              className={`pagination-btn ${page === 3 ? "active" : ""}`}
-              onClick={() => setPage(3)}
-            >
-              3
-            </button>
+            <button className={`pagination-btn ${page === 1 ? "active" : ""}`} onClick={() => setPage(1)}>1</button>
+            <button className={`pagination-btn ${page === 2 ? "active" : ""}`} onClick={() => setPage(2)}>2</button>
+            <button className={`pagination-btn ${page === 3 ? "active" : ""}`} onClick={() => setPage(3)}>3</button>
             <span className="pagination-info">Page {page} of 3</span>
-            <button
-              className={`pagination-btn ${page === 3 ? "active" : ""}`}
-              onClick={() => setPage(3)}
-            >
+            <button className={`pagination-btn ${page === 3 ? "active" : ""}`} onClick={() => setPage(3)}>
               Next <i className="fas fa-chevron-right"></i>
             </button>
           </div>
 
-          {/* Add New Item Section */}
           <div className="add-item-section">
             <h2>Add New Gem to Inventory</h2>
             <p>Expand your collection by adding new precious gems to the inventory</p>
             <button
               className="btn"
               onClick={() => {
-                const qp = new URLSearchParams(window.location.search);
-                qp.set("view", "add-gem");
-                window.location.search = qp.toString();
+                navigate("/seller/gems/new");
               }}
             >
               <i className="fas fa-plus-circle"></i> Add New Gem
@@ -325,6 +301,40 @@ const SellerInventory = () => {
           </div>
         </main>
       </div>
+
+      {/* Delete confirm */}
+      {confirmDelete.open && (
+        <div
+          onClick={() => setConfirmDelete({ open: false, id: null, name: "" })}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 2147483647
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#1a1a1a", border: "1px solid rgba(212,175,55,0.3)",
+              borderRadius: 12, padding: 24, width: "min(520px, 92vw)",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.45)"
+            }}
+          >
+            <h3 style={{ marginBottom: 10 }}>Delete “{confirmDelete.name}”?</h3>
+            <p style={{ color: "#b0b0b0", marginBottom: 20 }}>
+              This action cannot be undone.
+            </p>
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+              <button className="btn-secondary" onClick={() => setConfirmDelete({ open: false, id: null, name: "" })}>
+                Cancel
+              </button>
+              <button className="btn" onClick={doDelete}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
