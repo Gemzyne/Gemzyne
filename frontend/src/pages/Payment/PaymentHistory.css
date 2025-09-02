@@ -15,18 +15,33 @@ body {
 .dashboard-container {
   display: flex;
   min-height: 100vh;
-  padding-top: 80px;
+  padding-top: 80px; /* header height */
 }
 
-/* Main Content */
+/* -------- MAIN CONTENT -------- */
+/* Default layout */
 .dashboard-content {
   flex: 1;
   padding: 30px;
-  margin-left: 0;
   max-width: 1200px;
-  margin: 0 auto; /* center like your HTML */
+  margin: 0 auto;
 }
 
+/* ✅ Only push content when a sidebar is present and adjacent */
+.dashboard-container > .dashboard-sidebar + .dashboard-content {
+  margin-left: 280px; /* matches fixed sidebar width */
+  margin-right: auto;
+}
+
+/* Optional: on very wide screens keep the offset and natural right margin */
+@media (min-width: 1400px) {
+  .dashboard-container > .dashboard-sidebar + .dashboard-content {
+    margin-left: 280px;
+    margin-right: auto;
+  }
+}
+
+/* -------- HEADER -------- */
 .dashboard-header {
   display: flex;
   justify-content: space-between;
@@ -82,7 +97,7 @@ body {
   box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
 }
 
-/* Stats */
+/* -------- STATS -------- */
 .stats-summary {
   display: flex;
   gap: 20px;
@@ -128,7 +143,7 @@ body {
   font-size: 14px;
 }
 
-/* Payment History Section */
+/* -------- TABLE SECTION -------- */
 .payment-history-section {
   background: rgba(26, 26, 26, 0.7);
   border-radius: 15px;
@@ -174,7 +189,7 @@ body {
   top: 0;
 }
 .payment-table th:first-child { border-top-left-radius: 8px; }
-.payment-table th:last-child { border-top-right-radius: 8px; }
+.payment-table th:last-child  { border-top-right-radius: 8px; }
 
 .payment-table td {
   padding: 15px;
@@ -249,7 +264,15 @@ body {
 .payment-table tbody tr:nth-child(6) { animation-delay: 0.3s; }
 .payment-table tbody tr:nth-child(7) { animation-delay: 0.35s; }
 
-/* Responsive */
+/* -------- RESPONSIVE -------- */
+@media (max-width: 992px) {
+  /* when sidebar stacks (not fixed), remove the offset */
+  .dashboard-container > .dashboard-sidebar + .dashboard-content {
+    margin-left: 0;
+  }
+  .dashboard-content { padding: 20px; }
+}
+
 @media (max-width: 768px) {
   .dashboard-header { flex-direction: column; align-items: flex-start; gap: 15px; }
   .dashboard-controls { width: 100%; }
@@ -260,7 +283,7 @@ body {
   .section-header { flex-direction: column; align-items: flex-start; gap: 10px; }
 }
 
-/* Particle Background */
+/* Particles layer */
 #particles-js {
   position: fixed;
   top: 0; left: 0; width: 100%; height: 100%;

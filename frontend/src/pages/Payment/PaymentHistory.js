@@ -3,6 +3,7 @@ import "./PaymentHistory.css";
 
 
 import Header from "../../Components/Header";
+import UserSidebar from "../../Components/UserSidebar";
  
 
 const PAYMENT_DATA = [
@@ -76,6 +77,7 @@ export default function PaymentHistory() {
       <div id="particles-js" />
 
       <div className="dashboard-container">
+        <UserSidebar />
         <main className="dashboard-content">
           <div className="dashboard-header">
             <h2 className="dashboard-title">Payment History</h2>
