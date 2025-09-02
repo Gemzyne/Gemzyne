@@ -48,9 +48,10 @@ async function coreRequest(path, options = {}, _retried = false) {
   }
 
   const res = await fetch(`${API_URL}${path}`, {
-    ...options,
+    ...rest,
     headers,
     credentials: "include",
+    signal,
   });
 
   // try once to refresh on 401
@@ -63,7 +64,7 @@ async function coreRequest(path, options = {}, _retried = false) {
   try { data = await res.json(); } catch { data = null; }
 
   if (!res.ok) {
-    const err = new Error((data && data.message) || `Error ${res.status}`);
+    const err = new Error(data?.message || `Error ${res.status}`);
     err.status = res.status;
     err.data = data;
     throw err;
@@ -79,18 +80,24 @@ export const api = {
   // ===== AUTH =====
   register: (data) =>
     request("/auth/register", { method: "POST", body: JSON.stringify(data) }),
-
   verifyEmail: (data) =>
-    request("/auth/verify-email", { method: "POST", body: JSON.stringify(data) }),
-
+    request("/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   resendVerify: (email) =>
-    request("/auth/resend-verify", { method: "POST", body: JSON.stringify({ email }) }),
-
+    request("/auth/resend-verify", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
   login: async (data) => {
     const result = await request("/auth/login", {
       method: "POST",
       body: JSON.stringify(data),
     });
+    if (result.accessToken)
+      localStorage.setItem("accessToken", result.accessToken);
+    if (result.user) localStorage.setItem("user", JSON.stringify(result.user));
     if (result.accessToken) localStorage.setItem("accessToken", result.accessToken);
     if (result.sessionId)   localStorage.setItem("sessionId",  result.sessionId); // <— store for refresh
     if (result.user)        localStorage.setItem("user", JSON.stringify(result.user));
@@ -107,24 +114,36 @@ export const api = {
   },
 
   // ===== ME =====
-  getMe: () => request("/users/me"),
+  getMe: (opts) => request("/users/me", opts),
   updateMe: (data) =>
     request("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
 
   me: {
     changePassword: (data) =>
-      request("/users/me/password", { method: "POST", body: JSON.stringify(data) }),
+      request("/users/me/password", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     requestEmailChange: (data) =>
-      request("/users/me/email/request", { method: "POST", body: JSON.stringify(data) }),
+      request("/users/me/email/request", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     confirmEmailChange: (data) =>
-      request("/users/me/email/confirm", { method: "POST", body: JSON.stringify(data) }),
+      request("/users/me/email/confirm", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     deleteMe: (reason) =>
       request("/users/me", { method: "DELETE", body: JSON.stringify({ reason }) }),
   },
 
-  // ===== PASSWORD RESET =====
+  // ===== RESET =====
   forgotPassword: (email) =>
-    request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
+    request("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
   resetPassword: (payload) =>
     request("/auth/reset-password", { method: "POST", body: JSON.stringify(payload) }),
 
@@ -140,6 +159,8 @@ export const api = {
     updateUser: (id, data) =>
       request(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     deleteUser: (id) => request(`/admin/users/${id}`, { method: "DELETE" }),
+
+    // ✅ FIX: Complaints API
     listComplaints: (params = {}) => {
       const qs = new URLSearchParams(params).toString();
       return request(`/admin/complaints${qs ? `?${qs}` : ""}`);
