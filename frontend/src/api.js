@@ -13,27 +13,29 @@ async function request(path, options = {}) {
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
+  const { signal, ...rest } = options;
+
   const res = await fetch(`${API_URL}${path}`, {
-    ...options,
+    ...rest,
     headers,
     credentials: "include",
+    signal,
   });
 
-  let data = null;
+  const text = await res.text();
+  let data = {};
   try {
-    data = await res.json();
+    data = text ? JSON.parse(text) : {};
   } catch {
-    // non-JSON / empty body
-    data = null;
+    data = {};
   }
 
   if (!res.ok) {
-    const err = new Error((data && data.message) || `Error ${res.status}`);
+    const err = new Error(data?.message || `Error ${res.status}`);
     err.status = res.status;
     err.data = data;
     throw err;
   }
-
   return data;
 }
 
@@ -41,26 +43,21 @@ export const api = {
   // ===== AUTH =====
   register: (data) =>
     request("/auth/register", { method: "POST", body: JSON.stringify(data) }),
-
   verifyEmail: (data) =>
     request("/auth/verify-email", {
       method: "POST",
       body: JSON.stringify(data),
     }),
-
-  //resend verification code
   resendVerify: (email) =>
     request("/auth/resend-verify", {
       method: "POST",
       body: JSON.stringify({ email }),
     }),
-
   login: async (data) => {
     const result = await request("/auth/login", {
       method: "POST",
       body: JSON.stringify(data),
     });
-
     if (result.accessToken)
       localStorage.setItem("accessToken", result.accessToken);
     if (result.user) localStorage.setItem("user", JSON.stringify(result.user));
@@ -69,30 +66,26 @@ export const api = {
   logout: () => request("/auth/logout", { method: "POST" }),
 
   // ===== ME =====
-  getMe: () => request("/users/me"),
+  getMe: (opts) => request("/users/me", opts),
   updateMe: (data) =>
     request("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
 
-  // ===== ME EXTRA (for settings page) =====
   me: {
     changePassword: (data) =>
       request("/users/me/password", {
         method: "POST",
         body: JSON.stringify(data),
       }),
-
     requestEmailChange: (data) =>
       request("/users/me/email/request", {
         method: "POST",
         body: JSON.stringify(data),
       }),
-
     confirmEmailChange: (data) =>
       request("/users/me/email/confirm", {
         method: "POST",
         body: JSON.stringify(data),
       }),
-
     deleteMe: (reason) =>
       request("/users/me", {
         method: "DELETE",
@@ -100,13 +93,12 @@ export const api = {
       }),
   },
 
-  // ===== PASSWORD RESET =====
+  // ===== RESET =====
   forgotPassword: (email) =>
     request("/auth/forgot-password", {
       method: "POST",
       body: JSON.stringify({ email }),
     }),
-
   resetPassword: (payload) =>
     request("/auth/reset-password", {
       method: "POST",
@@ -115,12 +107,7 @@ export const api = {
 
   // ===== ADMIN =====
   admin: {
-    // OVERVIEW
-    // GET /admin/overview -> { totalUsers, totalSellers, totalOrders, openComplaints } OR { overview: { ... } }
     getOverview: () => request("/admin/overview"),
-
-    // USERS
-    // GET /admin/users?q=&role=&status=&page=&limit= -> { users: [...], total, page, limit }
     listUsers: (params = {}) => {
       const qs = new URLSearchParams(params).toString();
       return request(`/admin/users${qs ? `?${qs}` : ""}`);
@@ -135,15 +122,10 @@ export const api = {
       }),
     deleteUser: (id) => request(`/admin/users/${id}`, { method: "DELETE" }),
 
-    // COMPLAINTS
-    // GET /admin/complaints?status=&page=&limit= -> { complaints: [...], total, page, limit }
+    // ✅ FIX: Complaints API
     listComplaints: (params = {}) => {
       const qs = new URLSearchParams(params).toString();
       return request(`/admin/complaints${qs ? `?${qs}` : ""}`);
     },
-    // Optional helpers if you later add endpoints:
-    getComplaint: (id) => request(`/admin/complaints/${id}`),
-    resolveComplaint: (id) =>
-      request(`/admin/complaints/${id}/resolve`, { method: "PATCH" }),
   },
 };
