@@ -8,6 +8,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
+const path = require('path');
 
 // existing routes
 const authRoutes = require("./Routes/AuthRoutes");
@@ -18,6 +19,10 @@ const adminComplaintsRoutes = require("./Routes/AdminComplaintsRoutes");
 
 // new gem routes
 const gemRoutes = require("./Routes/AddGem/gemRoutes");
+
+const orderRoutes = require('./Routes/OrderRoutes');
+const errorMiddleware = require('./Middleware/CustomError');
+const paymentRoutes = require('./Routes/PaymentRoutes'); // <-- add
 
 const app = express();
 
@@ -59,6 +64,14 @@ app.use((err, _req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 5000;
+// ✅ mount your Custom Order + Checkout API
+app.use('/api/orders', orderRoutes);
+app.use('/api/payments', paymentRoutes); // <-- add
+
+// ✅ error handler last
+app.use(errorMiddleware);
+
+// --- Connect DB + Start Server
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {

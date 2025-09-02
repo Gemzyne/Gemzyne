@@ -13,6 +13,9 @@ import SellerSettings from "./pages/Settings/SellerSettings";
 import AdminSettings from "./pages/Settings/AdminSettings";
 import AdminUserDetailPage from "./pages/AdminUsers/AdminUserDetails";
 import AdminUserCreatePage from "./pages/AdminUsers/AdminUserCreatePage";
+import CustomPage from "./pages/Custom/CustomPage";
+import PaymentPage from "./pages/Payment/PaymentPage";
+import PaymentHistory from "./pages/Payment/PaymentHistory";
 
 // Public shop pages
 import GemInventory from "./pages/Inventory/InventoryPage";
@@ -66,6 +69,16 @@ export default function App() {
         }
       />
 
+      <Route
+        path="/payment-history"
+        element={
+          <RequireAuth>
+            <PaymentHistory />
+          </RequireAuth>
+        }
+      />
+
+      
       {/* Admin */}
       <Route
         path="/admin-dashboard"
@@ -150,7 +163,18 @@ export default function App() {
             </RequireRole>
           </RequireAuth>
         }
+        />
+        <Route
+        path="/seller/payments"
+        element={
+          <RequireAuth>
+            <RequireRole role="seller">
+              <PaymentPage />
+            </RequireRole>
+          </RequireAuth>
+        }
       />
+
 
       <Route path="*" element={<div style={{ padding: 32 }}>404 – Page not found</div>} />
     </Routes>
