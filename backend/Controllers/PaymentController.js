@@ -28,6 +28,15 @@ exports.checkout = async (req, res, next) => {
       return res.status(400).json({ ok: false, error: 'ORDER_CANCELLED' });
     }
 
+    // 🔒 claim ownership or enforce it
+    if (order.buyerId && order.buyerId.toString() !== req.user.id) {
+      return res.status(403).json({ ok: false, error: 'NOT_YOUR_ORDER' });
+    }
+    if (!order.buyerId) {
+      order.buyerId = req.user.id; // attach on first checkout
+      await order.save();
+    }
+
     const customerRaw = parseMaybeJSON(req.body.customer) || {};
     const paymentRaw  = parseMaybeJSON(req.body.payment)  || {};
     const country     = (req.body.country || customerRaw.country || '').trim();
@@ -79,6 +88,7 @@ exports.checkout = async (req, res, next) => {
         orderId: order._id,
         orderNo: order.orderNo,
         currency: order.currency || 'USD',
+        buyerId: order.buyerId, // 🔗 attach the logged-in user
         customer,
         payment: paymentBlock,
         amounts: { subtotal, shipping, total },
@@ -112,4 +122,102 @@ exports.checkout = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+};
+
+
+
+
+// ========= Listings & management ===========
+
+// GET /api/payments/my?status=&page=&limit=
+exports.listMyPayments = async (req, res, next) => {
+  try {
+    const { status } = req.query;
+    const page  = Math.max(parseInt(req.query.page || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
+
+    const q = { buyerId: req.user.id };
+    if (status) q['payment.status'] = status;
+
+    const [items, total] = await Promise.all([
+      Payment.find(q)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate({ path: 'orderId', select: 'title selections pricing status estimatedFinishDate' }),
+      Payment.countDocuments(q),
+    ]);
+
+    res.json({
+      ok: true,
+      page, limit, total, pages: Math.ceil(total / limit),
+      items,
+    });
+  } catch (err) { next(err); }
+};
+
+// GET /api/payments (seller/admin) — list all
+// supports ?status=&buyer=&orderNo=&page=&limit=
+exports.listAllPayments = async (req, res, next) => {
+  try {
+    const { status, buyer, orderNo } = req.query;
+    const page  = Math.max(parseInt(req.query.page || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 100);
+
+    const q = {};
+    if (status) q['payment.status'] = status;
+    if (buyer)  q['buyerId'] = buyer;
+    if (orderNo) q['orderNo'] = orderNo;
+
+    const [items, total] = await Promise.all([
+      Payment.find(q)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate({ path: 'buyerId', select: 'fullName email phone' })
+        .populate({ path: 'orderId', select: 'title pricing status estimatedFinishDate' }),
+      Payment.countDocuments(q),
+    ]);
+
+    res.json({ ok: true, page, limit, total, pages: Math.ceil(total / limit), items });
+  } catch (err) { next(err); }
+};
+
+// GET /api/payments/:id (owner or seller/admin)
+exports.getPaymentById = async (req, res, next) => {
+  try {
+    const p = await Payment.findById(req.params.id)
+      .populate({ path: 'buyerId', select: 'fullName email phone' })
+      .populate({ path: 'orderId', select: 'title pricing status estimatedFinishDate' });
+
+    if (!p) return res.status(404).json({ ok: false, message: 'Not found' });
+
+    const isOwner = p.buyerId && p.buyerId._id?.toString() === req.user.id;
+    const isStaff = ['seller', 'admin'].includes(req.user.role);
+    if (!isOwner && !isStaff) return res.status(403).json({ ok: false, message: 'Forbidden' });
+
+    res.json({ ok: true, payment: p });
+  } catch (err) { next(err); }
+};
+
+// PATCH /api/payments/:id/mark-paid  (seller/admin) — confirm bank transfers
+exports.markBankPaid = async (req, res, next) => {
+  try {
+    const p = await Payment.findById(req.params.id);
+    if (!p) return res.status(404).json({ ok: false, message: 'Not found' });
+    if (p.payment.method !== 'bank') {
+      return res.status(400).json({ ok: false, message: 'Only bank payments can be marked paid' });
+    }
+    if (p.payment.status === 'paid') {
+      return res.json({ ok: true, message: 'Already paid', payment: p });
+    }
+
+    p.payment.status = 'paid';
+    await p.save();
+
+    // sync order
+    await CustomOrder.findByIdAndUpdate(p.orderId, { $set: { status: 'paid' } });
+
+    res.json({ ok: true, message: 'Marked as paid', payment: p });
+  } catch (err) { next(err); }
 };

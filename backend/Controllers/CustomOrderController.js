@@ -17,7 +17,6 @@ exports.createCustomOrder = async (req, res, next) => {
     const estimatedFinishDate = plus3Days();
     const title = `${cap(type)} ${cap(shape)}`.trim();
 
-    // Use CORD-... generator you requested
     const orderNo = `CORD-${new Date().getFullYear()}-${nanoid(6).toUpperCase()}`;
 
     const order = await CustomOrder.create({
@@ -28,6 +27,7 @@ exports.createCustomOrder = async (req, res, next) => {
       currency: 'USD',
       estimatedFinishDate,
       status: 'pending',                 // <— IMPORTANT: must match model enum
+      buyerId: req.user.id, // 🔗 attach the logged-in user
     });
 
     return res.status(201).json({ ok: true, order });
@@ -41,6 +41,11 @@ exports.getCustomOrder = async (req, res, next) => {
   try {
     const order = await CustomOrder.findById(req.params.id);
     if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
+
+    const isOwner = order.buyerId?.toString() === req.user.id;
+    const isStaff = ['seller', 'admin'].includes(req.user.role);
+    if (!isOwner && !isStaff) return res.status(403).json({ ok: false, message: 'Forbidden' });
+    
     return res.json({ ok: true, order });    // <— Payment page expects ok:true
   } catch (err) {
     next(err);

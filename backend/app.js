@@ -20,6 +20,7 @@ const adminComplaintsRoutes = require("./Routes/AdminComplaintsRoutes"); // <-- 
 
 const orderRoutes = require('./Routes/OrderRoutes');
 const errorMiddleware = require('./Middleware/CustomError');
+const paymentRoutes = require('./Routes/PaymentRoutes'); // <-- add
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use("/admin/users", adminUsersRoutes);
 
 // ✅ mount your Custom Order + Checkout API
 app.use('/api/orders', orderRoutes);
+app.use('/api/payments', paymentRoutes); // <-- add
 
 // ✅ error handler last
 app.use(errorMiddleware);

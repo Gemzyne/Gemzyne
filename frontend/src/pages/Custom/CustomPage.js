@@ -2,11 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import "./CustomPage.css";
 import "../../Components/HeaderFooter.css";
-
-const API_BASE =
-  process.env.REACT_APP_API_BASE ||
-  process.env.REACT_APP_API_URL ||
-  "http://localhost:5000";
+import { api } from "../../api";
 
 const GEM_TYPES = [
   { key: "diamond",  name: "Diamond",  desc: "Brilliant and timeless",      price: 5000, img: "https://images.unsplash.com/photo-1605100550745-c9f430e2cb0c?auto=format&fit=crop&w=500&q=60" },
@@ -45,7 +41,6 @@ export default function CustomPage() {
   const [polish, setPolish] = useState("");
   const [symmetry, setSymmetry] = useState("");
 
-  // derived prices (UI only — server recomputes & persists)
   const basePrice   = useMemo(() => (GEM_TYPES.find(g => g.key === type)?.price || 0), [type]);
   const shapePrice  = useMemo(() => (SHAPES.find(s => s.key === shape)?.price || 0), [shape]);
   const weightPrice = useMemo(() => (weight && weight > 1 ? Math.round((weight - 1) * 1000) : 0), [weight]);
@@ -54,7 +49,6 @@ export default function CustomPage() {
   const symmetryPrice = useMemo(() => symmetry === "excellent" ? 250 : symmetry === "very-good" ? 100 : 0, [symmetry]);
   const totalPrice  = basePrice + shapePrice + weightPrice + gradePrice + polishPrice + symmetryPrice;
 
-  // ETA only for review display (server also saves)
   const estimatedDate = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
@@ -65,7 +59,7 @@ export default function CustomPage() {
   const money = n => `$${(n || 0).toLocaleString()}`;
   const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
 
-  // particles (unchanged)
+  // particles
   useEffect(() => {
     const id = "particles-cdn";
     if (!document.getElementById(id)) {
@@ -89,7 +83,7 @@ export default function CustomPage() {
     }
   }, []);
 
-  // --- Helpers to resume after login ---
+  // resume helpers
   function persistDraft() {
     const draft = { type, shape, weight, grade, polish, symmetry };
     localStorage.setItem("resumeCustomization", JSON.stringify(draft));
@@ -114,19 +108,10 @@ export default function CustomPage() {
 
   async function createOrderAndGo() {
     try {
-      const resp = await fetch(`${API_BASE}/api/orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, shape, weight, grade, polish, symmetry })
+      const { order } = await api.orders.create({
+        type, shape, weight, grade, polish, symmetry
       });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        alert(err?.message || "Failed to create order");
-        return;
-      }
-      const { order } = await resp.json();
 
-      // keep for Payment page reloads
       localStorage.setItem("pendingOrder", JSON.stringify({
         orderId: order._id,
         orderNo: order.orderNo,
@@ -138,16 +123,15 @@ export default function CustomPage() {
       navigate("/payment", { state: { orderId: order._id, amount: order.pricing.subtotal, currency: order.currency } });
     } catch (e) {
       console.error(e);
-      alert("Network error creating order");
+      alert(e?.message || "Network error creating order");
     }
   }
 
-  // Resume flow after login (?proceed=1)
+  // resume flow after login
   useEffect(() => {
     restoreDraft();
     const shouldProceed = searchParams.get("proceed") === "1";
     if (shouldProceed && isLoggedIn()) {
-      // if selections are present, auto create order and go to payment
       if (localStorage.getItem("resumeCustomization")) {
         createOrderAndGo();
       }
@@ -155,22 +139,17 @@ export default function CustomPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
   async function handleProceed() {
     if (!allSelected) return;
 
-    // Gate: only logged-in users can proceed to payment
     if (!isLoggedIn()) {
       persistDraft();
-      // let login page (or your flow) send us back and auto-proceed
       const next = "/custom?proceed=1";
       localStorage.setItem("nextAfterLogin", next);
-      // also pass as query for convenience if your login reads it
       navigate(`/login?next=${encodeURIComponent(next)}`);
       return;
     }
 
-    // Logged in -> create order now
     createOrderAndGo();
   }
 

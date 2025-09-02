@@ -5,11 +5,39 @@ function getToken() {
   return localStorage.getItem("accessToken");
 }
 
-async function request(path, options = {}) {
+let refreshingPromise = null;
+async function refreshToken() {
+  if (refreshingPromise) return refreshingPromise;
+
+  const sessionId = localStorage.getItem("sessionId");
+  if (!sessionId) return false;
+
+  refreshingPromise = fetch(`${API_URL}/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include", // send the HttpOnly refresh cookie
+    body: JSON.stringify({ sessionId }),
+  })
+    .then(async (res) => {
+      if (!res.ok) return false;
+      const { accessToken } = await res.json().catch(() => ({}));
+      if (!accessToken) return false;
+      localStorage.setItem("accessToken", accessToken);
+      return true;
+    })
+    .catch(() => false)
+    .finally(() => {
+      refreshingPromise = null;
+    });
+
+  return refreshingPromise;
+}
+
+// internal core request with single retry after refresh
+async function coreRequest(path, options = {}, _retried = false) {
   const headers = new Headers(options.headers || {});
   const isFormData = options.body instanceof FormData;
 
-  // Only set JSON header when not sending FormData
   if (options.body && !isFormData && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
@@ -25,14 +53,14 @@ async function request(path, options = {}) {
     credentials: "include",
   });
 
+  // try once to refresh on 401
+  if (res.status === 401 && !_retried) {
+    const ok = await refreshToken();
+    if (ok) return coreRequest(path, options, true);
+  }
 
   let data = null;
-  try {
-    data = await res.json();
-  } catch {
-    // non-JSON / empty body
-    data = null;
-  }
+  try { data = await res.json(); } catch { data = null; }
 
   if (!res.ok) {
     const err = new Error((data && data.message) || `Error ${res.status}`);
@@ -40,8 +68,11 @@ async function request(path, options = {}) {
     err.data = data;
     throw err;
   }
-
   return data;
+}
+
+export async function request(path, options) {
+  return coreRequest(path, options);
 }
 
 export const api = {
@@ -50,35 +81,27 @@ export const api = {
     request("/auth/register", { method: "POST", body: JSON.stringify(data) }),
 
   verifyEmail: (data) =>
-    request("/auth/verify-email", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    request("/auth/verify-email", { method: "POST", body: JSON.stringify(data) }),
 
-  //resend verification code
   resendVerify: (email) =>
-    request("/auth/resend-verify", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    }),
+    request("/auth/resend-verify", { method: "POST", body: JSON.stringify({ email }) }),
 
   login: async (data) => {
     const result = await request("/auth/login", {
       method: "POST",
       body: JSON.stringify(data),
     });
-
-    if (result.accessToken)
-      localStorage.setItem("accessToken", result.accessToken);
-    if (result.user) localStorage.setItem("user", JSON.stringify(result.user));
+    if (result.accessToken) localStorage.setItem("accessToken", result.accessToken);
+    if (result.sessionId)   localStorage.setItem("sessionId",  result.sessionId); // <— store for refresh
+    if (result.user)        localStorage.setItem("user", JSON.stringify(result.user));
     return result;
   },
-  // Clear LS even if the server call fails
+
   logout: async () => {
-    try {
-      await request("/auth/logout", { method: "POST" });
-    } finally {
+    try { await request("/auth/logout", { method: "POST" }); }
+    finally {
       localStorage.removeItem("accessToken");
+      localStorage.removeItem("sessionId");
       localStorage.removeItem("user");
     }
   },
@@ -88,114 +111,67 @@ export const api = {
   updateMe: (data) =>
     request("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
 
-  // ===== ME EXTRA (for settings page) =====
   me: {
     changePassword: (data) =>
-      request("/users/me/password", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-
+      request("/users/me/password", { method: "POST", body: JSON.stringify(data) }),
     requestEmailChange: (data) =>
-      request("/users/me/email/request", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-
+      request("/users/me/email/request", { method: "POST", body: JSON.stringify(data) }),
     confirmEmailChange: (data) =>
-      request("/users/me/email/confirm", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-
+      request("/users/me/email/confirm", { method: "POST", body: JSON.stringify(data) }),
     deleteMe: (reason) =>
-      request("/users/me", {
-        method: "DELETE",
-        body: JSON.stringify({ reason }),
-      }),
+      request("/users/me", { method: "DELETE", body: JSON.stringify({ reason }) }),
   },
 
   // ===== PASSWORD RESET =====
   forgotPassword: (email) =>
-    request("/auth/forgot-password", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    }),
-
+    request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
   resetPassword: (payload) =>
-    request("/auth/reset-password", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
+    request("/auth/reset-password", { method: "POST", body: JSON.stringify(payload) }),
 
   // ===== ADMIN =====
   admin: {
-    // OVERVIEW
-    // GET /admin/overview -> { totalUsers, totalSellers, totalOrders, openComplaints } OR { overview: { ... } }
     getOverview: () => request("/admin/overview"),
-
-    // USERS
-    // GET /admin/users?q=&role=&status=&page=&limit= -> { users: [...], total, page, limit }
     listUsers: (params = {}) => {
       const qs = new URLSearchParams(params).toString();
       return request(`/admin/users${qs ? `?${qs}` : ""}`);
     },
-    addUser: (data) =>
-      request("/admin/users", { method: "POST", body: JSON.stringify(data) }),
+    addUser: (data) => request("/admin/users", { method: "POST", body: JSON.stringify(data) }),
     getUser: (id) => request(`/admin/users/${id}`),
     updateUser: (id, data) =>
-      request(`/admin/users/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
+      request(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     deleteUser: (id) => request(`/admin/users/${id}`, { method: "DELETE" }),
-
-    // COMPLAINTS
-    // GET /admin/complaints?status=&page=&limit= -> { complaints: [...], total, page, limit }
     listComplaints: (params = {}) => {
       const qs = new URLSearchParams(params).toString();
       return request(`/admin/complaints${qs ? `?${qs}` : ""}`);
     },
-    // Optional helpers if you later add endpoints:
     getComplaint: (id) => request(`/admin/complaints/${id}`),
-    resolveComplaint: (id) =>
-      request(`/admin/complaints/${id}/resolve`, { method: "PATCH" }),
+    resolveComplaint: (id) => request(`/admin/complaints/${id}/resolve`, { method: "PATCH" }),
   },
 
-  // ===== CUSTOM ORDERS (Customize & Payment flow) =====
+  // ===== ORDERS (Customize & Payment flow) =====
   orders: {
-    // Create order from Customize page
-    create: (payload) =>
-      request("/api/orders", { method: "POST", body: JSON.stringify(payload) }),
-
-    // Fetch order summary for Payment page
+    create: (payload) => request("/api/orders", { method: "POST", body: JSON.stringify(payload) }),
     get: (id) => request(`/api/orders/${id}`),
 
-    // Card checkout (JSON body)
-    checkoutCard: (id, { customer, payment }) =>
+    // Card checkout (country is read for shipping)
+    checkoutCard: (id, { customer, payment, country }) =>
       request(`/api/orders/${id}/checkout`, {
         method: "POST",
         body: JSON.stringify({
+          country,
           customer,
-          payment: { method: "card", ...payment },
+          payment: { method: "card", ...(payment || {}) },
         }),
       }),
 
-// Bank transfer checkout (multipart/form-data with slip)
+    // Bank transfer checkout (multipart/form-data)
     checkoutBank: (id, { customer, country, slip, payment = {} }) => {
       const fd = new FormData();
-      if (country) fd.append("country", country);
+      if (country)  fd.append("country", country);
       if (customer) fd.append("customer", JSON.stringify(customer));
-      fd.append(
-        "payment",
-        JSON.stringify({
-          method: "bank",
-          ...payment,
-        })
-      );
-      if (slip) fd.append("slip", slip); // File/Blob
+      fd.append("payment", JSON.stringify({ method: "bank", ...payment }));
+      if (slip)     fd.append("slip", slip);
       return request(`/api/orders/${id}/checkout`, { method: "POST", body: fd });
     },
   },
-
 };

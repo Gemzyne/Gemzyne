@@ -38,9 +38,15 @@ const PaymentSchema = new mongoose.Schema({
   orderNo:  { type: String, index: true },
   currency: { type: String, default: 'USD' },
 
+  // 🔗 Who made this payment (buyer)
+  buyerId:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+
   customer: CustomerSchema,
   payment:  PaymentBlockSchema,
   amounts:  AmountsSchema,
 }, { timestamps: true });
+
+PaymentSchema.index({ buyerId: 1, createdAt: -1 });
+PaymentSchema.index({ 'payment.status': 1 });
 
 module.exports = mongoose.model('Payment', PaymentSchema);

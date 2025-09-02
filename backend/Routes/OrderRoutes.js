@@ -5,6 +5,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+const { requireAuth, requireRoles } = require('../Middleware/auth');
+
 const { createCustomOrder, getCustomOrder } = require('../Controllers/CustomOrderController');
 const { checkout } = require('../Controllers/PaymentController');
 
@@ -20,6 +22,9 @@ const storage = multer.diskStorage({
   },
 });
 const upload = multer({ storage });
+
+// 🔒 protect all order endpoints
+router.use(requireAuth);
 
 // Create custom order (from Customize page)
 router.post('/', createCustomOrder);

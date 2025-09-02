@@ -1,13 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./PaymentPage.css";
+import { api } from "../../api";
 
-const API =
-  process.env.REACT_APP_API_URL ||
-  process.env.REACT_APP_API_BASE ||
-  "http://localhost:5000";
-
-// Same modal as before (keep if you already added it)
+// Minimal modal
 function Modal({ open, title, message, onClose }) {
   if (!open) return null;
   return (
@@ -42,7 +38,7 @@ export default function PaymentPage() {
       }
     })();
 
-  // 🔐 Frontend guard: redirect guests to login
+  // Guard guests (you also have <RequireAuth>, this is extra safety)
   useEffect(() => {
     if (!isLoggedIn()) {
       const next = orderIdFromNav ? `/payment?order=${orderIdFromNav}` : "/payment";
@@ -55,7 +51,7 @@ export default function PaymentPage() {
   const [loading, setLoading] = useState(!!orderIdFromNav);
   const [order, setOrder] = useState(null);
 
-  // Modal state
+  // Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [modalMessage, setModalMessage] = useState("");
@@ -73,7 +69,7 @@ export default function PaymentPage() {
     if (typeof cb === "function") cb();
   };
 
-  // neutral fallback
+  // Fallback
   const fallbackItem = useMemo(
     () => ({
       title: "Product",
@@ -84,14 +80,14 @@ export default function PaymentPage() {
     []
   );
 
+  // Load order
   useEffect(() => {
     let ignore = false;
     async function run() {
       if (!orderIdFromNav) return;
       try {
         setLoading(true);
-        const res = await fetch(`${API}/api/orders/${orderIdFromNav}`);
-        const json = await res.json();
+        const json = await api.orders.get(orderIdFromNav);
         const ok = json?.ok === true || !!json?.order;
         if (!ignore && ok) setOrder(json.order || json);
       } catch (e) {
@@ -206,20 +202,11 @@ export default function PaymentPage() {
     }
 
     try {
-      const res = await fetch(`${API}/api/orders/${id}/checkout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customer: { fullName, email, phone, country, address, city, zipCode },
-          country,
-          payment: {
-            method: "card",
-            remember: !!rememberCard,
-            card: { cardName, cardNumber },
-          },
-        }),
+      const json = await api.orders.checkoutCard(id, {
+        country,
+        customer: { fullName, email, phone, country, address, city, zipCode },
+        payment: { remember: !!rememberCard, card: { cardName, cardNumber } },
       });
-      const json = await res.json();
       if (json.ok) {
         openModal(
           "Payment successful",
@@ -255,17 +242,11 @@ export default function PaymentPage() {
     }
 
     try {
-      const fd = new FormData();
-      fd.append("slip", file);
-      fd.append("customer", JSON.stringify({ fullName, email, phone, country, address, city, zipCode }));
-      fd.append("payment", JSON.stringify({ method: "bank" }));
-      fd.append("country", country);
-
-      const res = await fetch(`${API}/api/orders/${id}/checkout`, {
-        method: "POST",
-        body: fd,
+      const json = await api.orders.checkoutBank(id, {
+        country,
+        customer: { fullName, email, phone, country, address, city, zipCode },
+        slip: file,
       });
-      const json = await res.json();
       if (json.ok) {
         openModal(
           "Bank transfer submitted",
