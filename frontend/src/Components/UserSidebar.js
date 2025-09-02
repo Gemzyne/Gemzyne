@@ -71,6 +71,11 @@ export default function UserSidebar() {
             </a>
           </li>
           <li>
+            <NavLink to="">
+              <i className="fas fa-credit-card"></i> Payments
+            </NavLink>
+          </li>
+          <li>
             <a href="#">
               <i className="fas fa-gavel"></i> Auctions
             </a>

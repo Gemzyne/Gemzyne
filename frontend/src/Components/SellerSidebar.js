@@ -78,6 +78,11 @@ export default function SellerSidebar() {
             </a>
           </li>
           <li>
+            <NavLink to="">
+              <i className="fas fa-credit-card"></i> Payments
+            </NavLink>
+          </li>
+          <li>
             <a href="#">
               <i className="fas fa-star"></i> Reviews
             </a>
