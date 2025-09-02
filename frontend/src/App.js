@@ -16,6 +16,7 @@ import AdminUserDetailPage from "./pages/AdminUsers/AdminUserDetails";
 import AdminUserCreatePage from "./pages/AdminUsers/AdminUserCreatePage";
 import CustomPage from "./pages/Custom/CustomPage";
 import PaymentPage from "./pages/Payment/PaymentPage";
+import PaymentHistory from "./pages/Payment/PaymentHistory";
 
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem("accessToken");
@@ -69,6 +70,16 @@ export default function App() {
         }
       />
 
+      <Route
+        path="/payment-history"
+        element={
+          <RequireAuth>
+            <PaymentHistory />
+          </RequireAuth>
+        }
+      />
+
+      
       {/* Admin */}
       <Route
         path="/admin-dashboard"
@@ -143,6 +154,17 @@ export default function App() {
           <RequireAuth>
             <RequireRole role="seller">
               <SellerSettings />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/seller/payments"
+        element={
+          <RequireAuth>
+            <RequireRole role="seller">
+              <PaymentPage />
             </RequireRole>
           </RequireAuth>
         }

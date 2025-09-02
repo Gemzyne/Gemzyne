@@ -36,11 +36,11 @@ const Header = () => {
     }
     if (user.role === "admin") {
       // if admins shouldn't customize, send to admin area
-      return navigate("/admin-dashboard");
+      return navigate("/custom");
     }
     if (user.role === "seller") {
       // if sellers shouldn't customize, send to seller area
-      return navigate("/seller-dashboard");
+      return navigate("/custom");
     }
 
     // buyers/default → custom page
