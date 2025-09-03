@@ -17,6 +17,7 @@ const meRoutes = require("./Routes/MeRoutes");
 const adminUsersRoutes = require("./Routes/AdminUsersRoutes");
 const adminOverviewRoutes = require("./Routes/AdminOverviewRoutes"); // <-- add
 const adminComplaintsRoutes = require("./Routes/AdminComplaintsRoutes"); // <-- add
+const AdminMetricsRoutes = require("./Routes/AdminMetricsRoutes"); // <-- add
 
 const orderRoutes = require('./Routes/OrderRoutes');
 const errorMiddleware = require('./Middleware/CustomError');
@@ -43,6 +44,7 @@ app.use("/auth", authRoutes);
 app.use("/admin/overview", adminOverviewRoutes);
 app.use("/admin/complaints", adminComplaintsRoutes);
 app.use("/admin/users", adminUsersRoutes);
+app.use("/admin/metrics", AdminMetricsRoutes); 
 
 // ✅ mount your Custom Order + Checkout API
 app.use('/api/orders', orderRoutes);
