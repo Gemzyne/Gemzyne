@@ -1,37 +1,69 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "./PaymentHistory.css";
 
-
 import Header from "../../Components/Header";
- 
+import UserSidebar from "../../Components/UserSidebar";
 
-const PAYMENT_DATA = [
-  { date: "15 Oct 2023", orderNo: "ORD-00123", product: "Royal Blue Sapphire", paymentType: "Card",          status: "paid",      total: "$8,450" },
-  { date: "14 Oct 2023", orderNo: "ORD-00122", product: "Emerald Cut Diamond",  paymentType: "Bank Transfer", status: "pending",   total: "$12,600" },
-  { date: "12 Oct 2023", orderNo: "ORD-00119", product: "Ruby Ring",            paymentType: "Card",          status: "paid",      total: "$5,200" },
-  { date: "10 Oct 2023", orderNo: "ORD-00115", product: "Sapphire Earrings",    paymentType: "Card",          status: "cancelled", total: "$3,200" },
-  { date: "08 Oct 2023", orderNo: "ORD-00110", product: "Diamond Necklace",     paymentType: "Bank Transfer", status: "paid",      total: "$18,900" },
-  { date: "05 Oct 2023", orderNo: "ORD-00105", product: "Gold Bracelet",        paymentType: "Card",          status: "paid",      total: "$4,500" },
-  { date: "01 Oct 2023", orderNo: "ORD-00100", product: "Pearl Set",            paymentType: "Bank Transfer", status: "pending",   total: "$7,600" },
-];
+// --- API base + tiny wrapper (adds Authorization, handles JSON) ---
+const API_BASE =
+  process.env.REACT_APP_API_URL ||
+  process.env.REACT_APP_API_BASE ||
+  "http://localhost:5000";
+
+async function apiRequest(path, { method = "GET", headers = {}, body, isForm } = {}) {
+  const token = localStorage.getItem("accessToken");
+  const h = new Headers(headers);
+  if (!isForm && body && !h.has("Content-Type")) h.set("Content-Type", "application/json");
+  if (token && !h.has("Authorization")) h.set("Authorization", `Bearer ${token}`);
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: h,
+    body: isForm ? body : body ? JSON.stringify(body) : undefined,
+    credentials: "include",
+  });
+
+  let data = null;
+  try { data = await res.json(); } catch { /* ignore non-JSON */ }
+
+  if (!res.ok) {
+    const err = new Error((data && data.message) || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+// --- helpers ---
+function money(n, ccy = "USD") {
+  const amt = Number(n || 0);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: ccy,
+      maximumFractionDigits: amt % 1 === 0 ? 0 : 2,
+    }).format(amt);
+  } catch { return `${ccy} ${amt.toFixed(2)}`; }
+}
+function fmtDate(d) {
+  if (!d) return "—";
+  const dt = new Date(d);
+  // "15 Oct 2023"
+  return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 export default function PaymentHistory() {
   const [filter, setFilter] = useState("all");
 
-  // stats are based on ALL data (same as your HTML)
-  const stats = useMemo(() => {
-    const total = PAYMENT_DATA.length;
-    const completed = PAYMENT_DATA.filter(p => p.status === "paid").length;
-    const pending = PAYMENT_DATA.filter(p => p.status === "pending").length;
-    return { total, completed, pending };
-  }, []);
+  const [items, setItems]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr]       = useState("");
 
-  // table rows (respect filter)
-  const rows = useMemo(() => {
-    return filter === "all" ? PAYMENT_DATA : PAYMENT_DATA.filter(p => p.status === filter);
-  }, [filter]);
+  // Stats (pulled server-side so they’re correct regardless of current filter)
+  const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0 });
 
-  // load particles.js via CDN and init once
+  // particles bg once
   useEffect(() => {
     const scriptId = "particlesjs-cdn";
     const initParticles = () => {
@@ -70,12 +102,61 @@ export default function PaymentHistory() {
     }
   }, []);
 
+  // fetch stats (3 tiny calls that only read totals)
+  async function fetchStats() {
+    try {
+      const [all, paid, pending] = await Promise.all([
+        apiRequest(`/api/payments/my?limit=1`),
+        apiRequest(`/api/payments/my?status=paid&limit=1`),
+        apiRequest(`/api/payments/my?status=pending&limit=1`),
+      ]);
+      setStats({ total: all.total || 0, completed: paid.total || 0, pending: pending.total || 0 });
+    } catch (e) {
+      // non-blocking for the page
+      console.warn("stats error", e);
+    }
+  }
+
+  // fetch list (respects filter)
+  async function fetchItems(status = "all") {
+    try {
+      setLoading(true);
+      setErr("");
+      const qs = new URLSearchParams();
+      if (status && status !== "all") qs.set("status", status);
+      // you can pass pagination later: qs.set("page", "1"); qs.set("limit","20");
+      const data = await apiRequest(`/api/payments/my${qs.toString() ? `?${qs}` : ""}`);
+      setItems(data.items || []);
+    } catch (e) {
+      setErr(e?.message || "Failed to load payments");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // initial load
+  useEffect(() => {
+    fetchStats();
+    fetchItems(filter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // re-fetch when filter changes
+  useEffect(() => {
+    fetchItems(filter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
+
+  // currency fallback from the first record
+  const currency = items[0]?.currency || "USD";
+
   return (
     <>
-       <Header />
+      <Header />
       <div id="particles-js" />
 
       <div className="dashboard-container">
+        <UserSidebar />
         <main className="dashboard-content">
           <div className="dashboard-header">
             <h2 className="dashboard-title">Payment History</h2>
@@ -96,9 +177,7 @@ export default function PaymentHistory() {
 
           <div className="stats-summary">
             <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-receipt" />
-              </div>
+              <div className="stat-icon"><i className="fas fa-receipt" /></div>
               <div className="stat-info">
                 <h3 id="totalPayments">{stats.total}</h3>
                 <p>Total Payments</p>
@@ -106,9 +185,7 @@ export default function PaymentHistory() {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-check-circle" />
-              </div>
+              <div className="stat-icon"><i className="fas fa-check-circle" /></div>
               <div className="stat-info">
                 <h3 id="completedPayments">{stats.completed}</h3>
                 <p>Completed</p>
@@ -116,9 +193,7 @@ export default function PaymentHistory() {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-clock" />
-              </div>
+              <div className="stat-icon"><i className="fas fa-clock" /></div>
               <div className="stat-info">
                 <h3 id="pendingPayments">{stats.pending}</h3>
                 <p>Pending</p>
@@ -131,72 +206,85 @@ export default function PaymentHistory() {
               <h3 className="section-title">All your purchases with status and totals.</h3>
             </div>
 
-            <table className="payment-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Order No</th>
-                  <th>Product</th>
-                  <th>Payment Type</th>
-                  <th>Status</th>
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: "center", padding: 30, color: "#b0b0b0" }}>
-                      <i
-                        className="fas fa-receipt"
-                        style={{ fontSize: 24, marginBottom: 10, display: "block", opacity: 0.5 }}
-                      />
-                      No payments found with selected status.
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((p) => {
-                    const statusClass =
-                      p.status === "paid"
-                        ? "status-paid"
-                        : p.status === "pending"
-                        ? "status-pending"
-                        : "status-cancelled";
-                    const statusIcon =
-                      p.status === "paid"
-                        ? "fa-check-circle"
-                        : p.status === "pending"
-                        ? "fa-clock"
-                        : "fa-times-circle";
-                    const statusText =
-                      p.status === "paid" ? "Paid" : p.status === "pending" ? "Pending" : "Cancelled";
+            {err && (
+              <div style={{ padding: 12, marginBottom: 8, background: "#b00020", borderRadius: 8 }}>
+                {err}
+              </div>
+            )}
 
-                    return (
-                      <tr key={p.orderNo}>
-                        <td>{p.date}</td>
-                        <td>
-                          <span className="order-id">
-                            <i className="fas fa-hashtag" />
-                            {p.orderNo}
-                          </span>
-                        </td>
-                        <td>{p.product}</td>
-                        <td>{p.paymentType}</td>
-                        <td>
-                          <span className={`status ${statusClass}`}>
-                            <i className={`fas ${statusIcon}`} />
-                            {statusText}
-                          </span>
-                        </td>
-                        <td className="total-amount">{p.total}</td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+            {loading ? (
+              <div className="ph-loader">Loading…</div>
+            ) : (
+              <table className="payment-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Order No</th>
+                    <th>Product</th>
+                    <th>Payment Type</th>
+                    <th>Status</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: "center", padding: 30, color: "#b0b0b0" }}>
+                        <i className="fas fa-receipt" style={{ fontSize: 24, marginBottom: 10, display: "block", opacity: 0.5 }} />
+                        No payments found with selected status.
+                      </td>
+                    </tr>
+                  ) : (
+                    items.map((p) => {
+                      const status = p?.payment?.status || "—";
+                      const method = p?.payment?.method || "—";
+                      const title  = p?.orderId?.title || "Product";
+                      const orderNo = p?.orderNo || p?.orderId?.orderNo || (p?.orderId?._id || "—");
+                      const total = money(p?.amounts?.total ?? 0, p?.currency || currency);
+
+                      const statusClass =
+                        status === "paid" ? "status-paid" :
+                        status === "pending" ? "status-pending" : "status-cancelled";
+                      const statusIcon =
+                        status === "paid" ? "fa-check-circle" :
+                        status === "pending" ? "fa-clock" : "fa-times-circle";
+                      const statusText =
+                        status === "paid" ? "Paid" : status === "pending" ? "Pending" : "Cancelled";
+
+                      return (
+                        <tr key={p._id}>
+                          <td>{fmtDate(p?.createdAt)}</td>
+                          <td>
+                            <span className="order-id">
+                              <i className="fas fa-hashtag" />
+                              {orderNo}
+                            </span>
+                          </td>
+                          <td>{title}</td>
+                          <td>{method === "card" ? "Card" : method === "bank" ? "Bank Transfer" : method}</td>
+                          <td>
+                            <span className={`status ${statusClass}`}>
+                              <i className={`fas ${statusIcon}`} />
+                              {statusText}
+                            </span>
+                          </td>
+                          <td className="total-amount">{total}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </main>
       </div>
+
+      {/* Font Awesome (skip if already globally included) */}
+      <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      />
     </>
   );
 }

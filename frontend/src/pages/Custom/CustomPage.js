@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import "./CustomPage.css";
-import "../../Components/HeaderFooter.css";
+import Header from "../../Components/Header";
+import Footer from "../../Components/Footer";
 import { api } from "../../api";
 
 const GEM_TYPES = [
@@ -155,6 +156,7 @@ export default function CustomPage() {
 
   return (
     <>
+    <Header />
       <div id="particles-js" />
       <div className="customization-container">
         <div className="customization-header">
@@ -344,6 +346,7 @@ export default function CustomPage() {
           </aside>
         </div>
       </div>
+      <Footer />
     </>
   );
 }
