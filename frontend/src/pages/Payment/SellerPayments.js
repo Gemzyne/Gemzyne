@@ -141,6 +141,18 @@ export default function SellerPayments() {
     };
   }, [items]);
 
+  // sticky header effect
+    useEffect(() => {
+      const onScroll = () => {
+        const header = document.getElementById("header");
+        if (!header) return;
+        if (window.scrollY > 100) header.classList.add("scrolled");
+        else header.classList.remove("scrolled");
+      };
+      window.addEventListener("scroll", onScroll);
+      return () => window.removeEventListener("scroll", onScroll);
+    }, []);
+
   // filter by order no (debounced)
   useEffect(() => {
     const t = setTimeout(() => fetchPayments(orderNo), 300);
@@ -195,7 +207,9 @@ export default function SellerPayments() {
     <>
     <Header />
       <div id="particles-js" />
-      <SellerSidebar />
+
+      <div className="dashboard-container seller-payments">
++      <SellerSidebar />
       <main className="dashboard-content">
         <div className="dashboard-header">
           <h2 className="dashboard-title">Seller Payments</h2>
@@ -355,12 +369,7 @@ export default function SellerPayments() {
           )}
         </div>
       </main>
-
-      {/* Font Awesome for icons (or include once in index.html) */}
-      <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-      />
+      </div>
     </>
   );
 }

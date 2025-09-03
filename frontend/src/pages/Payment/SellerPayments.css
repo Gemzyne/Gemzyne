@@ -31,6 +31,26 @@ body {
   min-height: calc(100vh - var(--header-h));
 }
 
+/* --- Payments page layout fixes (scoped) --- */
+.dashboard-container.seller-payments {
+  display: flex;
+  min-height: 100vh;
+  padding-top: var(--header-h); /* sit under fixed header */
+}
+
+/* Push the fixed sidebar below the header on this page only */
+.seller-payments .dashboard-sidebar {
+  top: var(--header-h);              /* 80px from your vars */
+  left: 0;
+  height: calc(100vh - var(--header-h));
+}
+
+/* Content already has margin-left; remove extra top margin here
+   because the container adds padding-top. */
+.seller-payments .dashboard-content {
+  margin-top: 0;
+}
+
 /* Header row inside the page */
 .dashboard-header {
   display: flex;
