@@ -18,6 +18,11 @@ import CustomPage from "./pages/Custom/CustomPage";
 import PaymentPage from "./pages/Payment/PaymentPage";
 import PaymentHistory from "./pages/Payment/PaymentHistory";
 
+// === AUCTION: add at top with others ===
+import AuctionCentre from "./pages/Auction/AuctionCentre";
+import AuctionBuyerDashboard from "./pages/Auction/AuctionBuyerDashboard";
+import AuctionSellerDashboard from "./pages/Auction/AuctionDashboard";
+
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem("accessToken");
   if (!token) return <Navigate to="/login" replace />;
@@ -41,15 +46,15 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
 
       {/* Shop */}
-        <Route path="/custom" element={<CustomPage />} />
-        <Route
-          path="/payment"
-          element={
-            <RequireAuth>
-              <PaymentPage />
-            </RequireAuth>
-          }
-        />
+      <Route path="/custom" element={<CustomPage />} />
+      <Route
+        path="/payment"
+        element={
+          <RequireAuth>
+            <PaymentPage />
+          </RequireAuth>
+        }
+      />
 
       {/* User */}
       <Route
@@ -79,7 +84,6 @@ export default function App() {
         }
       />
 
-      
       {/* Admin */}
       <Route
         path="/admin-dashboard"
@@ -165,6 +169,31 @@ export default function App() {
           <RequireAuth>
             <RequireRole role="seller">
               <PaymentPage />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      {/* === AUCTION: Public centre === */}
+      <Route path="/auction" element={<AuctionCentre />} />
+
+      {/* === AUCTION: Buyer dashboard (logged in) === */}
+      <Route
+        path="/auction/buyer"
+        element={
+          <RequireAuth>
+            <AuctionBuyerDashboard />
+          </RequireAuth>
+        }
+      />
+
+      {/* === AUCTION: Seller dashboard (seller only) === */}
+      <Route
+        path="/auction/seller"
+        element={
+          <RequireAuth>
+            <RequireRole role="seller">
+              <AuctionSellerDashboard />
             </RequireRole>
           </RequireAuth>
         }
