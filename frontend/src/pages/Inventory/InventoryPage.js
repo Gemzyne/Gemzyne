@@ -1,3 +1,4 @@
+// src/pages/Inventory/InventoryPage.js
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../api"; // keep as-is
@@ -201,6 +202,16 @@ export default function GemInventory() {
 
       <Header />
 
+      {/* TOP-RIGHT button under header (moved from sidebar) */}
+      <div className="inventory-topbar">
+        <button
+          className="inventory-btn inventory-customize-btn"
+          onClick={() => navigate("/customize")}
+        >
+          Customize Your Gem
+        </button>
+      </div>
+
       <div className="inventory-container">
         <button
           className="inventory-filter-toggle"
@@ -287,34 +298,6 @@ export default function GemInventory() {
                 <span>{priceLabels.max}</span>
               </div>
             </div>
-          </div>
-
-          <div className="inventory-filter-group">
-            <h4>Carat Weight</h4>
-            <div className="inventory-price-range">
-              <input
-                type="range"
-                min="0"
-                max="20"
-                value={caratRange}
-                className="inventory-range-slider"
-                onChange={(e) => setCaratRange(parseInt(e.target.value, 10))}
-              />
-              <div className="inventory-price-values">
-                <span>0 ct</span>
-                <span>10 ct</span>
-                <span>20+ ct</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="inventory-customize-gem">
-            <button
-              className="inventory-btn inventory-customize-btn"
-              onClick={() => navigate("/customize")}
-            >
-              Customize Your Gem
-            </button>
           </div>
         </aside>
 

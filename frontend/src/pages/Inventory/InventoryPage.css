@@ -241,3 +241,20 @@ inventory-body .inventory-gem-image img{
 @media (max-width: 400px){
   .inventory-body .inventory-gem-specs{ flex-direction: column; gap: 6px; }
 }
+
+/* ========================= */
+/*  NEW: top-right button    */
+/* ========================= */
+.inventory-body .inventory-topbar{
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 5% 0 5%;
+}
+
+/* keep original button look, just prevent full-width stretching here */
+.inventory-body .inventory-topbar .inventory-customize-btn{
+  width: auto;
+  white-space: nowrap;
+}
