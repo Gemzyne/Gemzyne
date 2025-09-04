@@ -11,6 +11,7 @@ const meRoutes = require('./Routes/MeRoutes');
 const adminUsersRoutes = require('./Routes/AdminUsersRoutes');
 const adminOverviewRoutes = require('./Routes/AdminOverviewRoutes');      // <-- add
 const adminComplaintsRoutes = require('./Routes/AdminComplaintsRoutes');  // <-- add
+const reviewRoutes = require('./Routes/ReviewRoutes'); // <-- add
 
 const app = express();
 
@@ -24,10 +25,17 @@ app.use(cookieParser());
 
 app.use("/users",meRoutes);
 app.use("/auth",authRoutes);
+
+// reviews api
+app.use("/api/reviews", reviewRoutes);
+
+
 //admin routes
 app.use("/admin/overview",adminOverviewRoutes);
 app.use("/admin/complaints",adminComplaintsRoutes);
 app.use("/admin/users",adminUsersRoutes);
+
+
 
 
 // --- Connect DB + Start Server
