@@ -1,49 +1,90 @@
-// Buyer dashboard: Ongoing, Your Bids (increase), Upcoming, and Won.
-// asset() ensures images load from backend when the path is relative.
-// Click a gem card (image or "Details") to open a right-side details drawer.
-
+// Buyer dashboard: Ongoing, Your Bids, Upcoming, and Won
 import React, { useEffect, useMemo, useState } from "react";
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
 import "./AuctionBuyerDashboard.css";
 import { request } from "../../api";
 
-// === Image path resolver ===
+/* ================================
+   CONFIG
+   ================================ */
 const BACKEND = process.env.REACT_APP_API_URL || "http://localhost:5000";
 const asset = (p) => {
   if (!p) return "";
   if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) return p;
   return `${BACKEND}${p.startsWith("/") ? "" : "/"}${p}`;
 };
-
-// Time helpers
 const isEnded = (iso) => Date.parse(iso) <= Date.now();
 const isActive = (iso) => !isEnded(iso);
 
+/* ================================
+   PAGE
+   ================================ */
 export default function BuyerDashboard() {
+  /* ---- particles.js background loader ---- */
+  useEffect(() => {
+    const id = "particles-cdn";
+    if (!document.getElementById(id)) {
+      const s = document.createElement("script");
+      s.id = id;
+      s.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
+      s.async = true;
+      s.onload = () => {
+        if (window.particlesJS) {
+          window.particlesJS("particles-js", {
+            particles: {
+              number: { value: 60, density: { enable: true, value_area: 800 } },
+              color: { value: "#d4af37" },
+              shape: { type: "circle" },
+              opacity: { value: 0.3, random: true },
+              size: { value: 3, random: true },
+              line_linked: {
+                enable: true,
+                distance: 150,
+                color: "#d4af37",
+                opacity: 0.1,
+                width: 1,
+              },
+              move: { enable: true, speed: 1, random: true, out_mode: "out" },
+            },
+            interactivity: {
+              detect_on: "canvas",
+              events: {
+                onhover: { enable: true, mode: "repulse" },
+                onclick: { enable: true, mode: "push" },
+                resize: true,
+              },
+            },
+            retina_detect: true,
+          });
+        }
+      };
+      document.body.appendChild(s);
+    }
+  }, []);
+
+  /* ---- state ---- */
   const [ongoing, setOngoing] = useState([]);
-  const [yourBids, setYourBids] = useState([]);   // active (filtered) bids only
+  const [yourBids, setYourBids] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
   const [won, setWon] = useState([]);
-
   const [tab, setTab] = useState("ongoing");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
 
-  // Details drawer state
-  // details = { a, type: 'ongoing'|'your'|'upcoming', yourBid?, bidRecord? }
+  /* ---- details drawer ---- */
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [details, setDetails] = useState(null);
 
-  // soft tick for countdowns/rerenders
+  /* ---- soft tick for countdowns ---- */
   const [, setNowTick] = useState(Date.now());
   useEffect(() => {
     const t = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // Load public auctions
+  /* ---- load public auctions ---- */
   useEffect(() => {
     (async () => {
       const qs = (s) =>
@@ -59,12 +100,11 @@ export default function BuyerDashboard() {
     })();
   }, [search, category]);
 
-  // Load personal data
+  /* ---- load personal data ---- */
   useEffect(() => {
     (async () => {
       try {
         const [my, wins] = await Promise.all([request("/api/bids/my"), request("/api/wins/my")]);
-        // Keep only active (not ended) bids in "Your Bids"
         setYourBids((my.items || []).filter((b) => isActive(b.endTime)));
         setWon(wins.items || []);
       } catch {
@@ -74,8 +114,7 @@ export default function BuyerDashboard() {
     })();
   }, []);
 
-  // Continuous prune: if something ends while user is on the page,
-  // the "Your Bids" card quietly disappears.
+  /* ---- prune ended bids on the fly ---- */
   useEffect(() => {
     const id = setInterval(() => {
       setYourBids((prev) => prev.filter((b) => isActive(b.endTime)));
@@ -83,6 +122,7 @@ export default function BuyerDashboard() {
     return () => clearInterval(id);
   }, []);
 
+  /* ---- derived views ---- */
   const filteredOngoing = useMemo(() => {
     return ongoing.filter((a) => {
       const matchesSearch =
@@ -110,6 +150,7 @@ export default function BuyerDashboard() {
     [yourBids, won]
   );
 
+  /* ---- formatters ---- */
   const fmtMoney = (n) =>
     Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
   const fmtDate = (iso) =>
@@ -121,6 +162,7 @@ export default function BuyerDashboard() {
       minute: "2-digit",
     });
 
+  /* ---- time helpers ---- */
   function timeLeft(targetIso) {
     const total = Date.parse(targetIso) - Date.now();
     const clamp = Math.max(total, 0);
@@ -131,9 +173,8 @@ export default function BuyerDashboard() {
     return { total, days, hours, minutes, seconds };
   }
 
-  // === API actions ===
+  /* ---- api actions ---- */
   async function placeBid(a, amount) {
-    // Only ongoing auctions can be bid on; guard just in case.
     if (isEnded(a.endTime)) {
       alert("This auction has ended.");
       return;
@@ -142,15 +183,12 @@ export default function BuyerDashboard() {
       method: "POST",
       body: JSON.stringify({ auctionId: a._id, amount }),
     });
-    // Update current price locally
     setOngoing((prev) => prev.map((o) => (o._id === a._id ? { ...o, currentPrice: amount } : o)));
-    // Refresh "your bids" (filter active)
     const my = await request("/api/bids/my");
     setYourBids((my.items || []).filter((b) => isActive(b.endTime)));
   }
 
   async function increaseBid(b, amount) {
-    // If ended, remove immediately without calling API
     if (isEnded(b.endTime)) {
       alert("This auction has ended. Removing from Your Bids.");
       setYourBids((prev) => prev.filter((x) => x.auctionId !== b.auctionId));
@@ -164,7 +202,7 @@ export default function BuyerDashboard() {
     setYourBids((my.items || []).filter((x) => isActive(x.endTime)));
   }
 
-  // === Drawer helpers ===
+  /* ---- drawer helpers ---- */
   function openDetails(a, type = "ongoing", bidRecord = null) {
     setDetails({ a, type, yourBid: bidRecord?.yourBid, bidRecord });
     setDetailsOpen(true);
@@ -174,243 +212,280 @@ export default function BuyerDashboard() {
     setDetails(null);
   }
 
+  /* ---- render ---- */
   return (
     <div className="bd-root">
-      <Header />
-
-      <section className="bd-hero">
-        <h1 className="bd-title">Buyer Dashboard</h1>
-
-        <div className="bd-filters">
-          <div className="bd-search">
-            <i className="fa-solid fa-magnifying-glass" />
-            <input
-              type="text"
-              placeholder="Search auctions..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          <div className="bd-select">
-            <button className="bd-select__btn" type="button">
-              <span>
-                {category === "all" ? "All Categories" : category[0].toUpperCase() + category.slice(1)}
-              </span>
-              <i className="fa-solid fa-chevron-down" />
-            </button>
-            <select
-              aria-label="Category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            >
-              <option value="all">All Categories</option>
-              <option value="diamond">Diamonds</option>
-              <option value="sapphire">Sapphires</option>
-              <option value="ruby">Rubies</option>
-              <option value="emerald">Emeralds</option>
-              <option value="other">Other Gems</option>
-            </select>
-          </div>
-
-          <div className="bd-select">
-            <button className="bd-select__btn" type="button">
-              <span>
-                {status === "all" ? "All Statuses" : status === "ending" ? "Ending Soon" : status[0].toUpperCase() + status.slice(1)}
-              </span>
-              <i className="fa-solid fa-chevron-down" />
-            </button>
-            <select
-              aria-label="Status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="all">All Statuses</option>
-              <option value="ongoing">Ongoing</option>
-              <option value="ending">Ending Soon</option>
-              <option value="upcoming">Upcoming</option>
-            </select>
-          </div>
-        </div>
-      </section>
-
-      <section className="bd-stats">
-        <div className="bd-stat">
-          <h4>Active Bids</h4>
-          <div className="bd-stat__val">{stats.activeBids}</div>
-          <div className="bd-stat__sub">Live bids you placed</div>
-        </div>
-        <div className="bd-stat">
-          <h4>Won Auctions</h4>
-          <div className="bd-stat__val">{stats.wonCount}</div>
-          <div className="bd-stat__sub">Congrats!</div>
-        </div>
-        <div className="bd-stat">
-          <h4>Total Spent</h4>
-          <div className="bd-stat__val">${fmtMoney(stats.totalSpent)}</div>
-          <div className="bd-stat__sub">All-time</div>
-        </div>
-      </section>
-
-      <div className="bd-tabs">
-        <div className="bd-tabs__bar">
-          <button className={`bd-tab ${tab === "ongoing" ? "is-active" : ""}`} onClick={() => setTab("ongoing")}>
-            Ongoing Auctions
-          </button>
-        </div>
-        <div className="bd-tabs__bar">
-          <button className={`bd-tab ${tab === "yourbids" ? "is-active" : ""}`} onClick={() => setTab("yourbids")}>
-            Your Bids
-          </button>
-        </div>
-        <div className="bd-tabs__bar">
-          <button className={`bd-tab ${tab === "history" ? "is-active" : ""}`} onClick={() => setTab("history")}>
-            Auction History
-          </button>
-        </div>
-        <div className="bd-tabs__bar">
-          <button className={`bd-tab ${tab === "upcoming" ? "is-active" : ""}`} onClick={() => setTab("upcoming")}>
-            Upcoming Auctions
-          </button>
-        </div>
-      </div>
-
-      {tab === "ongoing" && (
-        <Section title="Ongoing Auctions">
-          <Grid emptyText="No matches found.">
-            {filteredOngoing.map((a) => (
-              <Card
-                key={a._id}
-                a={a}
-                type="ongoing"
-                onSubmit={(val) => placeBid(a, val)}
-                onOpen={() => openDetails(a, "ongoing")}
-              />
-            ))}
-          </Grid>
-        </Section>
-      )}
-
-      {tab === "yourbids" && (
-        <Section title="Your Bids">
-          <Grid emptyText="You haven’t placed any bids yet.">
-            {yourBids
-              // Redundant guard (interval already prunes) — keeps UI safe
-              .filter((b) => isActive(b.endTime))
-              .map((b) => (
-                <Card
-                  key={b.auctionId}
-                  a={{
-                    _id: b.auctionId,
-                    title: b.title,
-                    type: b.type,
-                    endTime: b.endTime,
-                    currentPrice: b.currentPrice,
-                    imageUrl: b.image,
-                    description: b.description,
-                    basePrice: b.basePrice,
-                    startTime: b.startTime,
-                  }}
-                  yourBid={b.yourBid}
-                  type="your"
-                  onSubmit={(val) => increaseBid(b, val)}
-                  onOpen={() =>
-                    openDetails(
-                      {
-                        _id: b.auctionId,
-                        title: b.title,
-                        type: b.type,
-                        endTime: b.endTime,
-                        currentPrice: b.currentPrice,
-                        imageUrl: b.image,
-                        description: b.description,
-                        basePrice: b.basePrice,
-                        startTime: b.startTime,
-                      },
-                      "your",
-                      b
-                    )
-                  }
-                />
-              ))}
-          </Grid>
-        </Section>
-      )}
-
-      {tab === "history" && (
-        <Section title="Auction History (Won Only)">
-          <Grid emptyText="No wins yet.">
-            {won.map((w) => (
-              <article className="bd-card" key={w.id || w.auctionId}>
-                <div className="bd-badge bd-badge--won">WON</div>
-                <img className="bd-card__img" src={asset(w.image)} alt={w.title} />
-                <h3 className="bd-card__title">{w.title}</h3>
-                <p className="bd-card__meta">
-                  <i className="fa-solid fa-gem" /> {w.type}
-                </p>
-                <div className="bd-price">
-                  Final Price: <span>${fmtMoney(w.finalPrice)}</span>
-                </div>
-                <p className="bd-small">Ended: {fmtDate(w.endTime)}</p>
-                <button className="bd-btn bd-btn--outline">Complete Purchase</button>
-              </article>
-            ))}
-          </Grid>
-        </Section>
-      )}
-
-      {tab === "upcoming" && (
-        <Section title="Upcoming Auctions">
-          <Grid emptyText="No upcoming auctions">
-            {upcoming.map((u) => (
-              <article className="bd-card" key={u._id}>
-                <div className="bd-card__timer">
-                  <Countdown target={u.startTime} label="Starts in" />
-                </div>
-                <img
-                  className="bd-card__img bd-click"
-                  src={asset(u.imageUrl)}
-                  alt={u.title}
-                  onClick={() => openDetails(u, "upcoming")}
-                />
-                <h3 className="bd-card__title">{u.title}</h3>
-                <p className="bd-card__meta">
-                  <i className="fa-solid fa-gem" /> {u.type}
-                </p>
-                <div className="bd-price">
-                  Base: <span>${fmtMoney(u.basePrice)}</span>
-                </div>
-                <p className="bd-small">
-                  Starts: {fmtDate(u.startTime)} • Ends: {fmtDate(u.endTime)}
-                </p>
-                <div className="bd-bid">
-                  <button className="bd-btn bd-btn--outline" onClick={() => alert("Reminder set!")}>
-                    Set Reminder
-                  </button>
-                  <button className="bd-btn bd-btn--ghost" type="button" onClick={() => openDetails(u, "upcoming")}>
-                    Details
-                  </button>
-                </div>
-              </article>
-            ))}
-          </Grid>
-        </Section>
-      )}
-
-      {/* === Right-side Details Drawer === */}
-      <DetailsDrawer
-        open={detailsOpen}
-        details={details}
-        onClose={closeDetails}
-        onPlace={placeBid}
-        onIncrease={increaseBid}
+      {/* particles canvas (fixed, behind content) */}
+      <div
+        id="particles-js"
+        className="bd-particles"
+        style={{ position: "fixed", inset: 0, zIndex: 0 }}
       />
 
-      <Footer />
+      {/* page content above particles */}
+      <div className="bd-content" style={{ position: "relative", zIndex: 1 }}>
+        <Header />
+
+        <section className="bd-hero">
+          <h1 className="bd-title">Buyer Dashboard</h1>
+
+          <div className="bd-filters">
+            <div className="bd-search">
+              <i className="fa-solid fa-magnifying-glass" />
+              <input
+                type="text"
+                placeholder="Search auctions..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="bd-select">
+              <button className="bd-select__btn" type="button">
+                <span>
+                  {category === "all"
+                    ? "All Categories"
+                    : category[0].toUpperCase() + category.slice(1)}
+                </span>
+                <i className="fa-solid fa-chevron-down" />
+              </button>
+              <select
+                aria-label="Category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                <option value="all">All Categories</option>
+                <option value="diamond">Diamonds</option>
+                <option value="sapphire">Sapphires</option>
+                <option value="ruby">Rubies</option>
+                <option value="emerald">Emeralds</option>
+                <option value="other">Other Gems</option>
+              </select>
+            </div>
+
+            <div className="bd-select">
+              <button className="bd-select__btn" type="button">
+                <span>
+                  {status === "all"
+                    ? "All Statuses"
+                    : status === "ending"
+                    ? "Ending Soon"
+                    : status[0].toUpperCase() + status.slice(1)}
+                </span>
+                <i className="fa-solid fa-chevron-down" />
+              </button>
+              <select
+                aria-label="Status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option value="all">All Statuses</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="ending">Ending Soon</option>
+                <option value="upcoming">Upcoming</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section className="bd-stats">
+          <div className="bd-stat">
+            <h4>Active Bids</h4>
+            <div className="bd-stat__val">{stats.activeBids}</div>
+            <div className="bd-stat__sub">Live bids you placed</div>
+          </div>
+          <div className="bd-stat">
+            <h4>Won Auctions</h4>
+            <div className="bd-stat__val">{stats.wonCount}</div>
+            <div className="bd-stat__sub">Congrats!</div>
+          </div>
+          <div className="bd-stat">
+            <h4>Total Spent</h4>
+            <div className="bd-stat__val">${fmtMoney(stats.totalSpent)}</div>
+            <div className="bd-stat__sub">All-time</div>
+          </div>
+        </section>
+
+        <div className="bd-tabs">
+          <div className="bd-tabs__bar">
+            <button
+              className={`bd-tab ${tab === "ongoing" ? "is-active" : ""}`}
+              onClick={() => setTab("ongoing")}
+            >
+              Ongoing Auctions
+            </button>
+          </div>
+          <div className="bd-tabs__bar">
+            <button
+              className={`bd-tab ${tab === "yourbids" ? "is-active" : ""}`}
+              onClick={() => setTab("yourbids")}
+            >
+              Your Bids
+            </button>
+          </div>
+          <div className="bd-tabs__bar">
+            <button
+              className={`bd-tab ${tab === "history" ? "is-active" : ""}`}
+              onClick={() => setTab("history")}
+            >
+              Auction History
+            </button>
+          </div>
+          <div className="bd-tabs__bar">
+            <button
+              className={`bd-tab ${tab === "upcoming" ? "is-active" : ""}`}
+              onClick={() => setTab("upcoming")}
+            >
+              Upcoming Auctions
+            </button>
+          </div>
+        </div>
+
+        {tab === "ongoing" && (
+          <Section title="Ongoing Auctions">
+            <Grid emptyText="No matches found.">
+              {filteredOngoing.map((a) => (
+                <Card
+                  key={a._id}
+                  a={a}
+                  type="ongoing"
+                  onSubmit={(val) => placeBid(a, val)}
+                  onOpen={() => openDetails(a, "ongoing")}
+                />
+              ))}
+            </Grid>
+          </Section>
+        )}
+
+        {tab === "yourbids" && (
+          <Section title="Your Bids">
+            <Grid emptyText="You haven’t placed any bids yet.">
+              {yourBids
+                .filter((b) => isActive(b.endTime))
+                .map((b) => (
+                  <Card
+                    key={b.auctionId}
+                    a={{
+                      _id: b.auctionId,
+                      title: b.title,
+                      type: b.type,
+                      endTime: b.endTime,
+                      currentPrice: b.currentPrice,
+                      imageUrl: b.image,
+                      description: b.description,
+                      basePrice: b.basePrice,
+                      startTime: b.startTime,
+                    }}
+                    yourBid={b.yourBid}
+                    type="your"
+                    onSubmit={(val) => increaseBid(b, val)}
+                    onOpen={() =>
+                      openDetails(
+                        {
+                          _id: b.auctionId,
+                          title: b.title,
+                          type: b.type,
+                          endTime: b.endTime,
+                          currentPrice: b.currentPrice,
+                          imageUrl: b.image,
+                          description: b.description,
+                          basePrice: b.basePrice,
+                          startTime: b.startTime,
+                        },
+                        "your",
+                        b
+                      )
+                    }
+                  />
+                ))}
+            </Grid>
+          </Section>
+        )}
+
+        {tab === "history" && (
+          <Section title="Auction History (Won Only)">
+            <Grid emptyText="No wins yet.">
+              {won.map((w) => (
+                <article className="bd-card" key={w.id || w.auctionId}>
+                  <div className="bd-badge bd-badge--won">WON</div>
+                  <img className="bd-card__img" src={asset(w.image)} alt={w.title} />
+                  <h3 className="bd-card__title">{w.title}</h3>
+                  <p className="bd-card__meta">
+                    <i className="fa-solid fa-gem" /> {w.type}
+                  </p>
+                  <div className="bd-price">
+                    Final Price: <span>${fmtMoney(w.finalPrice)}</span>
+                  </div>
+                  <p className="bd-small">Ended: {fmtDate(w.endTime)}</p>
+                  <button className="bd-btn bd-btn--outline">Complete Purchase</button>
+                </article>
+              ))}
+            </Grid>
+          </Section>
+        )}
+
+        {tab === "upcoming" && (
+          <Section title="Upcoming Auctions">
+            <Grid emptyText="No upcoming auctions">
+              {upcoming.map((u) => (
+                <article className="bd-card" key={u._id}>
+                  <div className="bd-card__timer">
+                    <Countdown target={u.startTime} label="Starts in" />
+                  </div>
+                  <img
+                    className="bd-card__img bd-click"
+                    src={asset(u.imageUrl)}
+                    alt={u.title}
+                    onClick={() => openDetails(u, "upcoming")}
+                  />
+                  <h3 className="bd-card__title">{u.title}</h3>
+                  <p className="bd-card__meta">
+                    <i className="fa-solid fa-gem" /> {u.type}
+                  </p>
+                  <div className="bd-price">
+                    Base: <span>${fmtMoney(u.basePrice)}</span>
+                  </div>
+                  <p className="bd-small">
+                    Starts: {fmtDate(u.startTime)} • Ends: {fmtDate(u.endTime)}
+                  </p>
+                  <div className="bd-bid">
+                    <button
+                      className="bd-btn bd-btn--outline"
+                      onClick={() => alert("Reminder set!")}
+                    >
+                      Set Reminder
+                    </button>
+                    <button
+                      className="bd-btn bd-btn--ghost"
+                      type="button"
+                      onClick={() => openDetails(u, "upcoming")}
+                    >
+                      Details
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </Grid>
+          </Section>
+        )}
+
+        <DetailsDrawer
+          open={detailsOpen}
+          details={details}
+          onClose={closeDetails}
+          onPlace={placeBid}
+          onIncrease={increaseBid}
+        />
+
+        <Footer />
+      </div>
     </div>
   );
 }
 
+/* ================================
+   SECTION
+   ================================ */
 function Section({ title, children }) {
   return (
     <section className="bd-section">
@@ -422,10 +497,22 @@ function Section({ title, children }) {
   );
 }
 
+/* ================================
+   GRID
+   ================================ */
 function Grid({ children, emptyText }) {
-  return <div className="bd-grid">{React.Children.count(children) ? children : <div className="bd-empty">{emptyText}</div>}</div>;
+  return (
+    <div className="bd-grid">
+      {React.Children.count(children) ? children : (
+        <div className="bd-empty">{emptyText}</div>
+      )}
+    </div>
+  );
 }
 
+/* ================================
+   COUNTDOWN
+   ================================ */
 function Countdown({ target, label = "Ends in" }) {
   const total = Date.parse(target) - Date.now();
   const clamp = Math.max(total, 0);
@@ -456,9 +543,13 @@ function Countdown({ target, label = "Ends in" }) {
   );
 }
 
+/* ================================
+   CARD
+   ================================ */
 function Card({ a, yourBid, type, onSubmit, onOpen }) {
   const [val, setVal] = useState("");
-  const fmtMoney = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const fmtMoney = (n) =>
+    Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
   const minVal = (a.currentPrice || 0) + 1;
   const ended = isEnded(a.endTime);
 
@@ -508,9 +599,9 @@ function Card({ a, yourBid, type, onSubmit, onOpen }) {
   );
 }
 
-/* =======================
-   Right-side Details Drawer
-   ======================= */
+/* ================================
+   DETAILS DRAWER
+   ================================ */
 function DetailsDrawer({ open, details, onClose, onPlace, onIncrease }) {
   const [val, setVal] = useState("");
 
@@ -518,7 +609,6 @@ function DetailsDrawer({ open, details, onClose, onPlace, onIncrease }) {
     setVal("");
   }, [details?.a?._id, open]);
 
-  // Empty shell when not ready (still preserves mount for smooth animation)
   if (!details) {
     return (
       <>
@@ -583,7 +673,6 @@ function DetailsDrawer({ open, details, onClose, onPlace, onIncrease }) {
             </div>
           )}
 
-          {/* show bid bar only if still active */}
           {(type === "ongoing" || type === "your") && !ended && (
             <>
               <div className="bd-drawer__row">
