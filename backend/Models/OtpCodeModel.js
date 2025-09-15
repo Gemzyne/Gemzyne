@@ -1,12 +1,17 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
 const otpCodeSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
     purpose: {
       type: String,
-      enum: ['verify_email', 'reset_password', 'change_email'],
+      enum: ["verify_email", "reset_password", "change_email"],
       required: true,
       index: true,
     },
@@ -21,7 +26,10 @@ const otpCodeSchema = new mongoose.Schema(
 );
 
 // TTL cleanup
-otpCodeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, name: 'otp_expires_ttl' });
+otpCodeSchema.index(
+  { expiresAt: 1 },
+  { expireAfterSeconds: 0, name: "otp_expires_ttl" }
+);
 
 otpCodeSchema.methods.setCode = async function (rawCode) {
   const salt = await bcrypt.genSalt(10);
@@ -40,4 +48,4 @@ otpCodeSchema.methods.consume = async function () {
   await this.save();
 };
 
-module.exports = mongoose.model('OtpCode', otpCodeSchema);
+module.exports = mongoose.model("OtpCode", otpCodeSchema);

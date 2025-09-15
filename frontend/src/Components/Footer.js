@@ -8,17 +8,22 @@ const Footer = () => {
         <div className="footer-col">
           <h3>LUX GEMS</h3>
           <p>
-            Discover the world's most exceptional gemstones, curated for discerning collectors.
+            Discover the world's most exceptional gemstones, curated for
+            discerning collectors.
           </p>
         </div>
         <div className="footer-col">
           <h3>Collections</h3>
           <ul>
-            {["Sapphires", "Rubies", "Emeralds", "Diamonds", "Rare Gems"].map((c, i) => (
-              <li key={i}>
-                <a href="#"><i className="fas fa-gem"></i> {c}</a>
-              </li>
-            ))}
+            {["Sapphires", "Rubies", "Emeralds", "Diamonds", "Rare Gems"].map(
+              (c, i) => (
+                <li key={i}>
+                  <a href="#">
+                    <i className="fas fa-gem"></i> {c}
+                  </a>
+                </li>
+              )
+            )}
           </ul>
         </div>
         <div className="footer-col">
