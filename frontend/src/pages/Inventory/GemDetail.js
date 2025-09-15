@@ -195,8 +195,8 @@ export default function GemDetail() {
           position: "fixed",
           inset: 0,
           width: "100%",
-          height: "100%",
-          zIndex: -1,
+          height: "100vh",
+          zIndex: 0,
           pointerEvents: "none",
         }}
       />
