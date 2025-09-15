@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import { useUser } from "../context/UserContext";
+import "../pages/DashBoards/SellerDashboard.css";
 import "./Sidebar.css";
 
 export default function SellerSidebar() {

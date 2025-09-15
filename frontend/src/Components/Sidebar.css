@@ -41,16 +41,6 @@
   font-size: 14px;
 }
 
-.user-role {
-  display: inline-block;
-  margin-top: 5px;
-  padding: 3px 10px;
-  background: rgba(212, 175, 55, 0.2);
-  color: #d4af37;
-  border-radius: 20px;
-  font-size: 12px;
-}
-
 .dashboard-menu {
   list-style: none;
 }

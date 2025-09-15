@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Header from "../../Components/Header";
 import AdminSidebar from "../../Components/AdminSidebar";
@@ -8,6 +8,7 @@ import "./AdminDashboard.css";
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
+  // Counters + tables
   const [overview, setOverview] = useState({
     totalUsers: 0,
     totalSellers: 0,
@@ -17,6 +18,12 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [complaints, setComplaints] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
+
+  // Metrics for charts (from /admin/metrics)
+  const [metrics, setMetrics] = useState(null);
+
+  // Keep chart instances to destroy on rerender/unmount
+  const chartsRef = useRef({});
 
   const handleViewUser = (id) => navigate(`/admin/users/${id}`);
 
@@ -48,16 +55,72 @@ export default function AdminDashboard() {
     if (u.role !== "admin") return navigate("/mainhome", { replace: true });
   }, [navigate]);
 
-  // Fetch overview + users + complaints
+  // Particles background
+  useEffect(() => {
+    const initParticles = () =>
+      window.particlesJS?.("particles-js", {
+        particles: {
+          number: { value: 60, density: { enable: true, value_area: 800 } },
+          color: { value: "#d4af37" },
+          shape: { type: "circle" },
+          opacity: { value: 0.3, random: true },
+          size: { value: 3, random: true },
+          line_linked: {
+            enable: true,
+            distance: 150,
+            color: "#d4af37",
+            opacity: 0.1,
+            width: 1,
+          },
+          move: { enable: true, speed: 1 },
+        },
+        interactivity: {
+          detect_on: "canvas",
+          events: {
+            onhover: { enable: true, mode: "repulse" },
+            onclick: { enable: true, mode: "push" },
+            resize: true,
+          },
+        },
+        retina_detect: true,
+      });
+
+    if (window.particlesJS) initParticles();
+    else {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
+      s.onload = initParticles;
+      document.body.appendChild(s);
+      return () => document.body.removeChild(s);
+    }
+  }, []);
+
+  // Sticky header shadow on scroll
+  useEffect(() => {
+    const onScroll = () => {
+      const h = document.getElementById("header");
+      if (!h) return;
+      if (window.scrollY > 100) h.classList.add("scrolled");
+      else h.classList.remove("scrolled");
+    };
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Fetch overview + users + complaints + metrics
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const [overviewRes, usersRes, complaintsRes] = await Promise.all([
-          api.admin.getOverview(),
-          api.admin.listUsers({ page: 1, limit: 20 }),
-          api.admin.listComplaints({ page: 1, limit: 20 }),
-        ]);
+        const [overviewRes, usersRes, complaintsRes, metricsRes] =
+          await Promise.all([
+            api.admin.getOverview(),
+            api.admin.listUsers({ page: 1, limit: 20 }),
+            api.admin.listComplaints
+              ? api.admin.listComplaints({ page: 1, limit: 20 })
+              : Promise.resolve([]),
+            api.admin.getMetrics(), // <-- metrics for charts
+          ]);
 
         if (!mounted) return;
 
@@ -82,6 +145,8 @@ export default function AdminDashboard() {
           ? complaintsRes
           : [];
         setComplaints(clist);
+
+        setMetrics(metricsRes || null);
       } catch (e) {
         console.error("Admin fetch error:", e);
         setUsers([]);
@@ -92,6 +157,222 @@ export default function AdminDashboard() {
       mounted = false;
     };
   }, []);
+
+  // Charts from backend metrics
+  useEffect(() => {
+    if (!metrics) return;
+
+    const ensureChartJs = () =>
+      new Promise((resolve) => {
+        if (window.Chart) return resolve();
+        const s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/chart.js";
+        s.onload = resolve;
+        document.body.appendChild(s);
+      });
+
+    const draw = async () => {
+      await ensureChartJs();
+      const Chart = window.Chart;
+
+      // Destroy any old instances
+      Object.values(chartsRef.current).forEach((c) => {
+        try {
+          c && c.destroy();
+        } catch {}
+      });
+      chartsRef.current = {};
+
+      // Pull data (with safe fallbacks)
+      const byMonth = metrics.usersByMonth || {
+        labels: [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+        ],
+        values: [4, 6, 5, 7, 10, 12, 9, 13, 11, 15],
+      };
+      const roles = metrics.usersByRole || {
+        labels: ["buyer", "seller", "admin"],
+        values: [10, 3, 1],
+      };
+      const statuses = metrics.usersByStatus || {
+        labels: ["active", "suspended"],
+        values: [10, 1],
+      };
+      const traffic = metrics.demo?.trafficSources || {
+        labels: ["Direct", "Organic Search", "Social", "Referral", "Email"],
+        values: [35, 25, 20, 15, 5],
+      };
+
+      // User Growth (bar)
+      const ug = document.getElementById("userGrowthChart");
+      if (ug) {
+        const ctx = ug.getContext("2d");
+        const grad = ctx.createLinearGradient(0, 0, 0, 400);
+        grad.addColorStop(0, "rgba(212, 175, 55, 0.8)");
+        grad.addColorStop(1, "rgba(212, 175, 55, 0.1)");
+        chartsRef.current.ug = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: byMonth.labels,
+            datasets: [
+              {
+                label: "New Users",
+                data: byMonth.values,
+                backgroundColor: grad,
+                borderRadius: 5,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: "#f5f5f5" } } },
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: { color: "rgba(255,255,255,0.1)" },
+                ticks: { color: "#b0b0b0" },
+              },
+              x: {
+                grid: { color: "rgba(255,255,255,0.1)" },
+                ticks: { color: "#b0b0b0" },
+              },
+            },
+          },
+        });
+      }
+
+      // Users by Role — seller gold palette
+      const roleEl = document.getElementById("roleChart");
+      if (roleEl) {
+        chartsRef.current.role = new Chart(roleEl.getContext("2d"), {
+          type: "pie",
+          data: {
+            labels: roles.labels, // e.g. ["buyer","seller","admin"]
+            datasets: [
+              {
+                data: roles.values,
+                backgroundColor: [
+                  "rgba(212, 175, 55, 0.8)", // gold
+                  "rgba(148, 121, 43, 0.8)", // deep gold/brown
+                  "rgba(212, 175, 55, 0.6)", // light gold
+                  "rgba(169, 140, 44, 0.8)", // antique gold
+                  "rgba(212, 175, 55, 0.4)", // very light gold
+                ],
+                borderColor: [
+                  "rgba(212,175,55,1)",
+                  "rgba(148,121,43,1)",
+                  "rgba(212,175,55,1)",
+                  "rgba(169,140,44,1)",
+                  "rgba(212,175,55,1)",
+                ],
+                borderWidth: 1,
+                hoverOffset: 6,
+              },
+            ],
+          },
+          options: {
+            plugins: {
+              legend: { position: "bottom", labels: { color: "#f5f5f5" } },
+            },
+          },
+        });
+      }
+
+      // Users by Status (bar)
+      const statusEl = document.getElementById("statusChart");
+      if (statusEl) {
+        const ctx = statusEl.getContext("2d");
+        const grad = ctx.createLinearGradient(0, 0, 0, 400);
+        grad.addColorStop(0, "rgba(212, 175, 55, 0.6)");
+        grad.addColorStop(1, "rgba(212, 175, 55, 0.1)");
+        chartsRef.current.status = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: statuses.labels,
+            datasets: [
+              {
+                label: "Users by Status",
+                data: statuses.values,
+                backgroundColor: grad,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: "#f5f5f5" } } },
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: { color: "rgba(255,255,255,0.1)" },
+                ticks: { color: "#b0b0b0" },
+              },
+              x: {
+                grid: { color: "rgba(255,255,255,0.1)" },
+                ticks: { color: "#b0b0b0" },
+              },
+            },
+          },
+        });
+      }
+
+      // Traffic Sources — seller gold palette
+      const ts = document.getElementById("trafficChart");
+      if (ts) {
+        chartsRef.current.ts = new Chart(ts.getContext("2d"), {
+          type: "doughnut",
+          data: {
+            labels: traffic.labels, // ["Direct","Organic Search","Social","Referral","Email"]
+            datasets: [
+              {
+                data: traffic.values,
+                backgroundColor: [
+                  "rgba(212, 175, 55, 0.8)",
+                  "rgba(148, 121, 43, 0.8)",
+                  "rgba(212, 175, 55, 0.6)",
+                  "rgba(169, 140, 44, 0.8)",
+                  "rgba(212, 175, 55, 0.4)",
+                ],
+                borderColor: [
+                  "rgba(212,175,55,1)",
+                  "rgba(148,121,43,1)",
+                  "rgba(212,175,55,1)",
+                  "rgba(169,140,44,1)",
+                  "rgba(212,175,55,1)",
+                ],
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            cutout: "60%",
+            plugins: {
+              legend: { position: "bottom", labels: { color: "#f5f5f5" } },
+            },
+          },
+        });
+      }
+    };
+
+    draw();
+
+    return () => {
+      Object.values(chartsRef.current).forEach((c) => {
+        try {
+          c && c.destroy();
+        } catch {}
+      });
+      chartsRef.current = {};
+    };
+  }, [metrics]);
 
   const usersRows = useMemo(
     () => (Array.isArray(users) ? users.slice(0, 4) : []),
@@ -104,7 +385,9 @@ export default function AdminDashboard() {
 
   return (
     <>
+      {/* Particles background */}
       <div id="particles-js"></div>
+
       <Header />
 
       <div className="dashboard-container">
@@ -119,7 +402,7 @@ export default function AdminDashboard() {
           <div className="stats-grid">
             <div className="stat-card">
               <div className="stat-icon">
-                <i className="fas fa-users"></i>
+                <i className="fas fa-users" />
               </div>
               <div className="stat-info">
                 <h3>{overview.totalUsers}</h3>
@@ -128,7 +411,7 @@ export default function AdminDashboard() {
             </div>
             <div className="stat-card">
               <div className="stat-icon">
-                <i className="fas fa-store"></i>
+                <i className="fas fa-store" />
               </div>
               <div className="stat-info">
                 <h3>{overview.totalSellers}</h3>
@@ -137,7 +420,7 @@ export default function AdminDashboard() {
             </div>
             <div className="stat-card">
               <div className="stat-icon">
-                <i className="fas fa-shopping-bag"></i>
+                <i className="fas fa-shopping-bag" />
               </div>
               <div className="stat-info">
                 <h3>{overview.totalOrders}</h3>
@@ -146,12 +429,24 @@ export default function AdminDashboard() {
             </div>
             <div className="stat-card">
               <div className="stat-icon">
-                <i className="fas fa-exclamation-circle"></i>
+                <i className="fas fa-exclamation-circle" />
               </div>
               <div className="stat-info">
                 <h3>{overview.openComplaints}</h3>
                 <p>Open Complaints</p>
               </div>
+            </div>
+          </div>
+
+          {/* Charts: Growth + Role */}
+          <div className="chart-container">
+            <div className="chart-card">
+              <h3 className="chart-title">User Growth</h3>
+              <canvas id="userGrowthChart" />
+            </div>
+            <div className="chart-card">
+              <h3 className="chart-title">Users by Role</h3>
+              <canvas id="roleChart" />
             </div>
           </div>
 
@@ -229,7 +524,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Complaints */}
+          {/* Complaints (preview) */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Complaints</h3>
@@ -272,6 +567,25 @@ export default function AdminDashboard() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* System Analytics (Traffic demo + Status) */}
+          <div className="dashboard-section">
+            <div className="section-header">
+              <h3 className="section-title">System Analytics</h3>
+              <button className="btn">Generate Report</button>
+            </div>
+
+            <div className="chart-container">
+              <div className="chart-card">
+                <h3 className="chart-title">Traffic Sources (Demo)</h3>
+                <canvas id="trafficChart" />
+              </div>
+              <div className="chart-card">
+                <h3 className="chart-title">Users by Status</h3>
+                <canvas id="statusChart" />
+              </div>
             </div>
           </div>
         </main>

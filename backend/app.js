@@ -18,6 +18,7 @@ const adminComplaintsRoutes = require("./Routes/AdminComplaintsRoutes");
 
 // new gem routes
 const gemRoutes = require("./Routes/AddGem/gemRoutes");
+const AdminMetricsRoutes = require("./Routes/AdminMetricsRoutes"); // <-- add
 
 const orderRoutes = require('./Routes/OrderRoutes');
 const errorMiddleware = require('./Middleware/CustomError');
@@ -47,6 +48,7 @@ app.use("/auth", authRoutes);
 app.use("/admin/overview", adminOverviewRoutes);
 app.use("/admin/complaints", adminComplaintsRoutes);
 app.use("/admin/users", adminUsersRoutes);
+app.use("/admin/metrics", AdminMetricsRoutes); 
 app.use("/api/gems", gemRoutes);
 
 // multer + generic error handlers

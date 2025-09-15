@@ -148,6 +148,8 @@ export const api = {
 
   // ===== ADMIN =====
   admin: {
+    // Metrics / Overview
+    getMetrics: () => request("/admin/metrics"),
     getOverview: () => request("/admin/overview"),
 
     listUsers: (params = {}) => {

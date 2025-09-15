@@ -16,6 +16,8 @@ import AdminUserCreatePage from "./pages/AdminUsers/AdminUserCreatePage";
 import CustomPage from "./pages/Custom/CustomPage";
 import PaymentPage from "./pages/Payment/PaymentPage";
 import PaymentHistory from "./pages/Payment/PaymentHistory";
+import SellerPayments from "./pages/Payment/SellerPayments";
+
 
 // Public shop pages
 import GemInventory from "./pages/Inventory/InventoryPage";
@@ -196,7 +198,7 @@ export default function App() {
         element={
           <RequireAuth>
             <RequireRole role="seller">
-              <PaymentPage />
+              <SellerPayments/>
             </RequireRole>
           </RequireAuth>
         }

@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
+import "../pages/DashBoards/AdminDashboard.css";
 import "./Sidebar.css";
 
 export default function AdminSidebar() {
