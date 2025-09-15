@@ -1,6 +1,37 @@
-import React, { useEffect, useMemo, useRef } from "react";
+// src/pages/ReviewsPage/ReviewsPage.js
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import "./ReviewsPage.css";
+import { apiRequest } from "../../lib/api";
+
+const PLACEHOLDER_IMG =
+  "https://images.unsplash.com/photo-1606760227093-899b6c7e5eeb?auto=format&fit=crop&w=800&q=80";
+
+function initialsFromName(first = "", last = "", email = "") {
+  const a = (first || "").trim()[0];
+  const b = (last || "").trim()[0];
+  if (a || b) return `${a ?? ""}${b ?? ""}`.toUpperCase();
+  // fallback to email initials
+  if (email) return email.slice(0, 2).toUpperCase();
+  return "GG";
+}
+
+function capFirst(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+function formatDate(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  } catch {
+    return "";
+  }
+}
 
 const ReviewsPage = () => {
   // ---- Particles.js loader & init ----
@@ -16,11 +47,12 @@ const ReviewsPage = () => {
         document.body.appendChild(s);
       });
 
-    // destroy previous instances (in case of navigating back)
     const destroyParticles = () => {
       if (window.pJSDom && window.pJSDom.length) {
         window.pJSDom.forEach((p) => {
-          try { p?.pJS?.fn?.vendors?.destroypJS?.(); } catch {}
+          try {
+            p?.pJS?.fn?.vendors?.destroypJS?.();
+          } catch {}
         });
         window.pJSDom = [];
       }
@@ -52,13 +84,7 @@ const ReviewsPage = () => {
             opacity: 0.2,
             width: 1,
           },
-          move: {
-            enable: true,
-            speed: 2,
-            random: true,
-            straight: false,
-            out_mode: "out",
-          },
+          move: { enable: true, speed: 2, random: true, out_mode: "out" },
         },
         interactivity: {
           detect_on: "canvas",
@@ -89,77 +115,71 @@ const ReviewsPage = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // ---- Static reviews ----
-  const reviews = useMemo(
-    () => [
-      {
-        initials: "SJ",
-        name: "Sarah Johnson",
-        date: "October 15, 2023",
-        stars: 5,
-        tags: ["Quality", "Service"],
-        text:
-          "Absolutely stunning blue sapphire! The color is even more vibrant in person than in the photos. The cut is perfect and it sparkles from every angle. Excellent customer service throughout the process.",
-        gemImg:
-          "https://images.unsplash.com/photo-1599643478517-a313f52cc3c3?auto=format&fit=crop&w=1074&q=80",
-        gemDesc: "Royal Blue Sapphire • 3.25 Carat • Oval Cut",
-        helpful: 12,
-      },
-      {
-        initials: "MC",
-        name: "Michael Chen",
-        date: "October 12, 2023",
-        stars: 4,
-        tags: ["Shipping", "Documentation"],
-        text:
-          "Beautiful ruby with excellent clarity. The cut is precise and the color is a rich red. Shipping was faster than expected. The only reason I'm not giving 5 stars is that the certificate took a few extra days to arrive.",
-        gemImg:
-          "https://images.unsplash.com/photo-1605102106749-5b935d968c56?auto=format&fit=crop&w=1170&q=80",
-        gemDesc: "Premium Ruby • 2.75 Carat • Cushion Cut",
-        helpful: 5,
-      },
-      {
-        initials: "EW",
-        name: "Emma Wilson",
-        date: "October 8, 2023",
-        stars: 5,
-        tags: ["Quality", "Service", "Packaging"],
-        text:
-          "This Padparadscha sapphire is exceptional! The unique color is exactly as described and the cut highlights its beauty perfectly. The customer service team was incredibly helpful in answering all my questions. Highly recommend!",
-        gemImg:
-          "https://images.unsplash.com/photo-1572314493769-03a6b2672354?auto=format&fit=crop&w=1170&q=80",
-        gemDesc: "Padparadscha Sapphire • 2.10 Carat • Emerald Cut",
-        helpful: 8,
-      },
-      {
-        initials: "RK",
-        name: "Robert Kim",
-        date: "October 5, 2023",
-        stars: 4,
-        tags: ["Value", "Authenticity"],
-        text:
-          "The Alexandrite is beautiful and changes color nicely in different lighting. The certificate of authenticity was detailed and gave me confidence in my purchase. While it's a bit pricey, the quality justifies the cost.",
-        gemImg:
-          "https://images.unsplash.com/photo-1631603086892-5e4fbe4e9fd9?auto=format&fit=crop&w=1074&q=80",
-        gemDesc: "Alexandrite • 2.50 Carat • Round Cut",
-        helpful: 6,
-      },
-      {
-        initials: "LP",
-        name: "Lisa Patel",
-        date: "October 3, 2023",
-        stars: 5,
-        tags: ["Packaging", "Service"],
-        text:
-          "Exceptional service! The packaging was luxurious and secure. The gemstone arrived in a beautiful presentation box that made it feel like a special gift. The customer service representative was knowledgeable and helped me choose the perfect stone.",
-        gemImg:
-          "https://images.unsplash.com/photo-1606760227093-899b6c7e5eeb?auto=format&fit=crop&w=1074&q=80",
-        gemDesc: "Cat's Eye Chrysoberyl • 1.85 Carat • Cabochon Cut",
-        helpful: 9,
-      },
-    ],
-    []
-  );
+  // ---- Fetch reviews from API ----
+  const [reviews, setReviews] = useState([]);       // normalized for UI
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const data = await apiRequest("/api/reviews"); // GET (success:true,reviews:[...])
+        const items = (data?.reviews ?? []).map((r) => ({
+          id: r._id,
+          initials: initialsFromName(r.firstName, r.lastName, r.email),
+          name:
+            [r.firstName, r.lastName].filter(Boolean).join(" ") ||
+            r.email ||
+            "Anonymous",
+          date: formatDate(r.createdAt),
+          stars: Number(r.rating) || 0,
+          tags: (r.categories || []).map((t) => capFirst(t)),
+          text: r.reviewText || "",
+          gemImg: (r.images && r.images[0]) || PLACEHOLDER_IMG,
+          gemDesc:
+            (r.productName
+              ? `${r.productName}`
+              : r.productId
+              ? `${r.productId}`
+              : "Gemstone") + (r.productId ? ` • ${r.productId}` : ""),
+          helpful: 0, // you can wire this later
+        }));
+        if (mounted) setReviews(items);
+      } catch (e) {
+        if (mounted) setError(e.message || "Failed to load reviews");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // ---- Sidebar stats from live data ----
+  const { total, avg, dist } = useMemo(() => {
+    const total = reviews.length;
+    const sum = reviews.reduce((s, r) => s + (r.stars || 0), 0);
+    const avg = total ? (sum / total).toFixed(1) : "0.0";
+    const dist = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    reviews.forEach((r) => {
+      const k = Math.max(1, Math.min(5, Math.round(r.stars || 0)));
+      dist[k] += 1;
+    });
+    return { total, avg, dist };
+  }, [reviews]);
+
+  const bars = [
+    { label: "5 Stars", count: dist[5] || 0 },
+    { label: "4 Stars", count: dist[4] || 0 },
+    { label: "3 Stars", count: dist[3] || 0 },
+    { label: "2 Stars", count: dist[2] || 0 },
+    { label: "1 Star", count: dist[1] || 0 },
+  ];
+  const maxCount = Math.max(1, ...bars.map((b) => b.count));
 
   return (
     <div className="reviews-root">
@@ -200,8 +220,24 @@ const ReviewsPage = () => {
             <h3>Customer Reviews</h3>
           </div>
 
-          {reviews.map((r, idx) => (
-            <div className="review-item" key={idx}>
+          {loading && (
+            <div className="review-item">
+              <p>Loading reviews…</p>
+            </div>
+          )}
+          {!!error && !loading && (
+            <div className="review-item">
+              <p style={{ color: "#f88" }}>Error: {error}</p>
+            </div>
+          )}
+          {!loading && !error && reviews.length === 0 && (
+            <div className="review-item">
+              <p>No reviews yet. Be the first to leave feedback!</p>
+            </div>
+          )}
+
+          {reviews.map((r) => (
+            <div className="review-item" key={r.id}>
               <div className="review-header">
                 <div className="reviewer-info">
                   <div className="reviewer-avatar">{r.initials}</div>
@@ -254,15 +290,19 @@ const ReviewsPage = () => {
           <div className="stats-container">
             <div className="stat-item">
               <span>Total Reviews</span>
-              <span className="stat-value">247</span>
+              <span className="stat-value">{total}</span>
             </div>
             <div className="stat-item">
               <span>Average Rating</span>
-              <span className="stat-value">4.7</span>
+              <span className="stat-value">{avg}</span>
             </div>
+            {/* You can compute real “Positive Reviews %” if you want.
+                For now, show percent of 4★ and 5★ */}
             <div className="stat-item">
               <span>Positive Reviews</span>
-              <span className="stat-value">92%</span>
+              <span className="stat-value">
+                {total ? Math.round(((dist[4] + dist[5]) / total) * 100) : 0}%
+              </span>
             </div>
             <div className="stat-item">
               <span>Response Rate</span>
@@ -274,30 +314,28 @@ const ReviewsPage = () => {
                 Rating Distribution
               </h4>
 
-              {[
-                { label: "5 Stars", width: "75%", count: 185 },
-                { label: "4 Stars", width: "17%", count: 42 },
-                { label: "3 Stars", width: "5%", count: 12 },
-                { label: "2 Stars", width: "2%", count: 5 },
-                { label: "1 Star", width: "1%", count: 3 },
-              ].map((row) => (
-                <div className="rating-bar" key={row.label}>
-                  <span className="rating-label">{row.label}</span>
-                  <div className="rating-progress">
-                    <div
-                      className="rating-progress-fill"
-                      style={{ width: row.width }}
-                    />
+              {bars.map((row) => {
+                const widthPct =
+                  maxCount === 0 ? "0%" : `${(row.count / maxCount) * 100}%`;
+                return (
+                  <div className="rating-bar" key={row.label}>
+                    <span className="rating-label">{row.label}</span>
+                    <div className="rating-progress">
+                      <div
+                        className="rating-progress-fill"
+                        style={{ width: widthPct }}
+                      />
+                    </div>
+                    <span className="rating-count">{row.count}</span>
                   </div>
-                  <span className="rating-count">{row.count}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </aside>
       </div>
 
-      {/* Bottom buttons — now Links, not modals */}
+      {/* Bottom buttons */}
       <div className="action-buttons-bottom">
         <Link to="/add-review" className="action-btn">
           <i className="fas fa-star" /> Add Review
@@ -410,4 +448,3 @@ const ReviewsPage = () => {
 };
 
 export default ReviewsPage;
-

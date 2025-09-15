@@ -12,6 +12,7 @@ const adminUsersRoutes = require('./Routes/AdminUsersRoutes');
 const adminOverviewRoutes = require('./Routes/AdminOverviewRoutes');      // <-- add
 const adminComplaintsRoutes = require('./Routes/AdminComplaintsRoutes');  // <-- add
 const reviewRoutes = require('./Routes/ReviewRoutes'); // <-- add
+const complaintRoutes = require('./Routes/ComplaintRoutes');
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/auth",authRoutes);
 
 // reviews api
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/complaints", complaintRoutes);
 
 
 //admin routes
