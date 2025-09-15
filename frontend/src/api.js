@@ -205,6 +205,64 @@ export const api = {
       return request(`/api/orders/${id}/checkout`, { method: "POST", body: fd });
     },
   },
+
+  // === AUCTION (multipart-aware; safe to paste over just this block) ===
+  auctions: {
+    // public lists
+    listPublic: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/api/auctions/public${qs ? `?${qs}` : ""}`);
+    },
+    get: (id) => request(`/api/auctions/${id}`),
+
+    // seller
+    overview: () => request(`/api/auctions/seller/overview`),
+
+    // Create accepts:
+    //  - FormData (send as-is)
+    //  - payload with .file or .image (File/Blob) -> builds FormData
+    //  - plain JSON (fallback; server also accepts imageUrl dataURL)
+    create: (payload) => {
+      // If caller already gives FormData, just send it
+      if (typeof FormData !== "undefined" && payload instanceof FormData) {
+        return request(`/api/auctions`, { method: "POST", body: payload });
+      }
+
+      // If payload contains a File/Blob, build FormData to bypass express.json()
+      const maybeFile = payload?.file || payload?.image;
+      const isBlob =
+        typeof Blob !== "undefined" &&
+        maybeFile instanceof Blob &&
+        typeof maybeFile.size === "number";
+
+      if (isBlob) {
+        const fd = new FormData();
+        // support both 'title' and 'name' keys for gem name
+        if (payload?.title || payload?.name) fd.append("title", payload.title || payload.name);
+        if (payload?.type) fd.append("type", payload.type);
+        if (payload?.description) fd.append("description", payload.description);
+        if (payload?.basePrice != null) fd.append("basePrice", String(payload.basePrice));
+        if (payload?.startTime) fd.append("startTime", payload.startTime);
+        if (payload?.endTime) fd.append("endTime", payload.endTime);
+        fd.append("image", maybeFile); // must match upload.single("image") on the server
+        if (payload?.imageUrl) fd.append("imageUrl", payload.imageUrl); // optional fallback
+        return request(`/api/auctions`, { method: "POST", body: fd });
+      }
+
+      // Fallback to JSON (small bodies or dataURL via imageUrl)
+      return request(`/api/auctions`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+
+    update: (id, payload) =>
+      request(`/api/auctions/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+
+    remove: (id) => request(`/api/auctions/${id}`, { method: "DELETE" }),
+  },
+  // === AUCTION END ===
+
 };
 
 // ---- GEMS ----

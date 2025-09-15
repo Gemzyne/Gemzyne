@@ -24,6 +24,13 @@ const orderRoutes = require('./Routes/OrderRoutes');
 const errorMiddleware = require('./Middleware/CustomError');
 const paymentRoutes = require('./Routes/PaymentRoutes'); // <-- add
 
+//Auction 
+// --- AUCTION: add below your other requires ---
+const auctionRoutes = require("./Routes/AuctionRoutes");
+const bidRoutes = require("./Routes/BidRoutes");
+const winnerRoutes = require("./Routes/WinnerRoutes");
+const { startCloseEndedAuctionsJob } = require("./jobs/closeEndedAuctions");
+
 const app = express();
 
 app.use(
@@ -33,7 +40,10 @@ app.use(
   })
 );
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true, limit: "5mb" }));
+
 app.use(cookieParser());
 
 // static uploads
@@ -69,6 +79,13 @@ const PORT = process.env.PORT || 5000;
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes); // <-- add
 
+//Auction
+// --- AUCTION: mount routes (all prefixed) ---
+app.use("/api/auctions", auctionRoutes);
+app.use("/api/bids", bidRoutes);
+app.use("/api/wins", winnerRoutes);
+
+
 // ✅ error handler last
 app.use(errorMiddleware);
 
@@ -77,6 +94,9 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("Connected to MongoDB");
-    app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+    startCloseEndedAuctionsJob();
+    app.listen(process.env.PORT, () => {
+      console.log(`Server is running on port ${process.env.PORT}`);
+    });
   })
   .catch((e) => console.error("DB error:", e));

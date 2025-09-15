@@ -1,0 +1,375 @@
+/* AuctionCentre.css
+   ---------------------------------------------------------------------------
+   Page-scoped styles for the Auction Centre.
+   IMPORTANT: All selectors are prefixed with `.ac-` to avoid global conflicts.
+   Fonts and icons are imported here; class names are local to this page.
+   --------------------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css');
+
+/* Theme tokens (local to this page) */
+.ac-page {
+  --ac-text: #f5f5f5;
+  --ac-subtle: #b0b0b0;
+  --ac-bg: #0a0a0a;
+  --ac-bg-2: #1a1a1a;
+  --ac-card: rgba(26, 26, 26, 0.7);
+  --ac-border: rgba(212, 175, 55, 0.12);
+  --ac-gold-1: #d4af37;
+  --ac-gold-2: #f9f295;
+  --ac-green: #2ecc71;
+  --ac-blue: #3498db;
+  --ac-red: #e74c3c;
+
+  font-family: 'Poppins', sans-serif;
+  color: var(--ac-text);
+  background: linear-gradient(135deg, var(--ac-bg) 0%, var(--ac-bg-2) 100%);
+  min-height: 100vh;
+}
+
+/* Content wrapper (keep space for fixed Header) */
+.ac-container {
+  position: relative;
+  z-index: 1;
+  padding: 120px 5% 60px;
+  /* top padding leaves room for fixed Header */
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Page title */
+.ac-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 42px;
+  text-align: center;
+  margin-bottom: 28px;
+  background: linear-gradient(to right, var(--ac-text), var(--ac-gold-1));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Section headings */
+.ac-section {
+  margin-top: 26px;
+}
+
+.ac-section-title {
+  position: relative;
+  margin-bottom: 18px;
+}
+
+.ac-section-title h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 30px;
+  color: var(--ac-text);
+  margin: 0;
+}
+
+.ac-section-underline {
+  display: block;
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(to right, var(--ac-gold-1), var(--ac-gold-2));
+  margin-top: 8px;
+  border-radius: 1px;
+}
+
+/* Search + filters row */
+.ac-search-filter {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.ac-search-box {
+  position: relative;
+  min-width: 260px;
+  flex: 1;
+  max-width: 520px;
+}
+
+.ac-search-box input {
+  width: 100%;
+  padding: 14px 16px 14px 44px;
+  color: var(--ac-text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  outline: none;
+}
+
+.ac-search-box .fa-search {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ac-subtle);
+  font-size: 14px;
+}
+
+.ac-filter {
+  padding: 14px 16px;
+  min-width: 160px;
+  color: var(--ac-text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  outline: none;
+}
+
+/* Grid list of cards */
+.ac-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 22px;
+}
+
+/* One auction card */
+.ac-card {
+  background: var(--ac-card);
+  border: 1px solid var(--ac-border);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.ac-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(212, 175, 55, 0.28);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45);
+}
+
+/* Status badge */
+.ac-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  align-self: flex-start;
+  letter-spacing: .3px;
+}
+
+.ac-badge-ongoing {
+  background: rgba(46, 204, 113, .18);
+  color: var(--ac-green);
+}
+
+.ac-badge-upcoming {
+  background: rgba(52, 152, 219, .18);
+  color: var(--ac-blue);
+}
+
+.ac-badge-ended {
+  background: rgba(231, 76, 60, .18);
+  color: var(--ac-red);
+}
+
+/* Image */
+.ac-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Card text */
+.ac-card-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  margin: 2px 0 10px;
+}
+
+.ac-meta {
+  color: var(--ac-subtle);
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.ac-meta .fa-gem {
+  color: var(--ac-gold-1);
+  margin-right: 8px;
+}
+
+.ac-desc {
+  color: var(--ac-subtle);
+  font-size: 15px;
+  margin-bottom: 12px;
+  line-height: 1.55;
+}
+
+.ac-price {
+  color: var(--ac-gold-1);
+  font-weight: 700;
+  font-size: 18px;
+  margin: 8px 0;
+}
+
+.ac-line {
+  color: var(--ac-subtle);
+  margin: 2px 0 6px;
+}
+
+/* Countdown */
+.ac-countdown {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 10px 0 14px;
+}
+
+.ac-timebox {
+  text-align: center;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 6px 8px;
+  border-radius: 8px;
+  min-width: 52px;
+}
+
+.ac-timebox-value {
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--ac-gold-1);
+}
+
+.ac-timebox-label {
+  font-size: 10px;
+  color: var(--ac-subtle);
+}
+
+.ac-ended,
+.ac-started {
+  color: var(--ac-subtle);
+  font-style: italic;
+}
+
+/* Buttons */
+.ac-btn {
+  cursor: pointer;
+  border: none;
+  width: 100%;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  background: linear-gradient(45deg, var(--ac-gold-1), var(--ac-gold-2));
+  color: #0a0a0a;
+  box-shadow: 0 8px 18px rgba(212, 175, 55, 0.35);
+  transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+}
+
+.ac-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(212, 175, 55, 0.45);
+}
+
+.ac-btn:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.ac-btn-outline {
+  background: rgba(212, 175, 55, 0.10);
+  color: var(--ac-gold-1);
+  border: 1px solid var(--ac-gold-1);
+  box-shadow: none;
+}
+
+/* Table (history) */
+.ac-table-wrap {
+  background: var(--ac-card);
+  border: 1px solid var(--ac-border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+}
+
+.ac-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ac-table thead th {
+  text-align: left;
+  padding: 14px 16px;
+  font-weight: 700;
+  color: var(--ac-gold-1);
+  background: rgba(212, 175, 55, 0.12);
+  border-bottom: 1px solid var(--ac-border);
+}
+
+.ac-table tbody td {
+  padding: 14px 16px;
+  color: var(--ac-subtle);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ac-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ac-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ac-winner {
+  color: var(--ac-gold-1);
+  font-weight: 600;
+}
+
+.ac-won {
+  color: var(--ac-green);
+  font-weight: 700;
+}
+
+.ac-empty {
+  text-align: center;
+  padding: 22px;
+  color: var(--ac-subtle);
+}
+
+/* Responsive tweaks */
+@media (max-width: 992px) {
+  .ac-title {
+    font-size: 36px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ac-container {
+    padding-top: 100px;
+  }
+
+  .ac-list {
+    grid-template-columns: 1fr;
+  }
+
+  .ac-table-wrap {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .ac-title {
+    font-size: 30px;
+  }
+
+  .ac-timebox {
+    min-width: 44px;
+  }
+}

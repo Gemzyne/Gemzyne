@@ -29,6 +29,10 @@ import SellerInventory from "./pages/SellerAddGem/SellerInventory";
 // ✅ Add these
 import AddGem from "./pages/SellerAddGem/AddGem";
 import EditGem from "./pages/SellerAddGem/EditGem"; // <--- NEW
+// === AUCTION: add at top with others ===
+import AuctionCentre from "./pages/Auction/AuctionCentre";
+import AuctionBuyerDashboard from "./pages/Auction/AuctionBuyerDashboard";
+import AuctionSellerDashboard from "./pages/Auction/AuctionDashboard";
 
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem("accessToken");
@@ -57,9 +61,16 @@ export default function App() {
       <Route path="/inventory" element={<GemInventory />} />
       <Route path="/gems/:id" element={<GemDetail />} />
       
-      {/*custom and payment*/}
-      <Route path="custom" element={<CustomPage />}/>
-      <Route path="payment" element={<PaymentPage />}/>
+      {/* Shop */}
+      <Route path="/custom" element={<CustomPage />} />
+      <Route
+        path="/payment"
+        element={
+          <RequireAuth>
+            <PaymentPage />
+          </RequireAuth>
+        }
+      />
 
       
       {/* User */}
@@ -204,6 +215,32 @@ export default function App() {
           <RequireAuth>
             <RequireRole role="seller">
               <SellerPayments/>
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      
+      {/* === AUCTION: Public centre === */}
+      <Route path="/auction" element={<AuctionCentre />} />
+
+      {/* === AUCTION: Buyer dashboard (logged in) === */}
+      <Route
+        path="/auction/buyer"
+        element={
+          <RequireAuth>
+            <AuctionBuyerDashboard />
+          </RequireAuth>
+        }
+      />
+
+      {/* === AUCTION: Seller dashboard (seller only) === */}
+      <Route
+        path="/auction/seller"
+        element={
+          <RequireAuth>
+            <RequireRole role="seller">
+              <AuctionSellerDashboard />
             </RequireRole>
           </RequireAuth>
         }

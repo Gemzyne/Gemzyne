@@ -30,6 +30,17 @@ const Header = () => {
     navigate("/inventory");
   };
 
+  // === AUCTION: role-aware navigation for Auction link (guest → centre, buyer → buyer dashboard, seller → seller dashboard, admin → centre)
+  const handleAuctionClick = (e) => {
+    e.preventDefault();
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!user) return navigate("/auction"); // guest → public Auction Centre
+    if (user.role === "seller") return navigate("/auction/seller"); // seller dashboard
+    if (user.role === "admin") return navigate("/auction"); // admins → public centre
+    return navigate("/auction/buyer"); // buyers/others → buyer dashboard
+  };
+  // === AUCTION: end
+
   return (
     <header id="header">
       <div className="logo">GemZyne</div>
@@ -39,7 +50,13 @@ const Header = () => {
         <Link to="/inventory">
           Collection
         </Link>
-        <Link to="/auction">Auction</Link>
+
+        {/* === AUCTION: wire role-aware handler while preserving the href === */}
+        <Link to="/auction" onClick={handleAuctionClick}>
+          Auction
+        </Link>
+        {/* === AUCTION: end */}
+        
         <Link to="/about">About</Link>
         <Link to="/review">Review & Feedback</Link>
       </nav>
