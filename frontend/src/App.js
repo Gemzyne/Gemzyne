@@ -53,10 +53,15 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
 
       {/* Public shop routes */}
-      <Route path="/collection" element={<GemInventory />} />
+     {/* <Route path="/collection" element={<GemInventory />} />*/}
       <Route path="/inventory" element={<GemInventory />} />
       <Route path="/gems/:id" element={<GemDetail />} />
+      
+      {/*custom and payment*/}
+      <Route path="custom" element={<CustomPage />}/>
+      <Route path="payment" element={<PaymentPage />}/>
 
+      
       {/* User */}
       <Route
         path="/udashboard"

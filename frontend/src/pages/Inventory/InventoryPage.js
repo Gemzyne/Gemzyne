@@ -44,6 +44,10 @@ export default function GemInventory() {
 
   const particlesInitialized = useRef(false);
 
+  // ===== Modal state for login prompt (ADDED) =====
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  // ===============================================
+
   const priceLabels = useMemo(() => {
     const rate = currencyRates[currency];
     const sym = currencySymbols[currency];
@@ -188,12 +192,29 @@ export default function GemInventory() {
 
   const handleGemClick = (gemId) => navigate(`/gems/${gemId}`);
 
+  // ====== Login guard for actions (MODIFIED) ======
+  const requireLogin = () => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      setShowLoginPrompt(true); // show modal instead of alert
+      return false;
+    }
+    return true;
+  };
+  // ============================================
+
   const addToCart = (gem, e) => {
     e.stopPropagation();
+    if (!requireLogin()) return;
     const cart = JSON.parse(localStorage.getItem("cart") || "[]");
     if (!cart.find((i) => i._id === gem._id)) cart.push({ ...gem, qty: 1 });
     localStorage.setItem("cart", JSON.stringify(cart));
     alert("Added to cart");
+  };
+
+  const goLogin = () => {
+    setShowLoginPrompt(false);
+    navigate("/login");
   };
 
   return (
@@ -206,7 +227,7 @@ export default function GemInventory() {
       <div className="inventory-topbar">
         <button
           className="inventory-btn inventory-customize-btn"
-          onClick={() => navigate("/customize")}
+          onClick={() => navigate("/Custom")}
         >
           Customize Your Gem
         </button>
@@ -326,13 +347,13 @@ export default function GemInventory() {
                   <div
                     className="inventory-gem-card"
                     key={gem._id}
-                    onClick={() => handleGemClick(gem._id)}
                   >
                     <div className="inventory-gem-image">
                       <img
                         src={firstImg}
                         alt={gem.name || "Gem"}
                         onError={(e) => (e.currentTarget.src = "/images/placeholder-gem.jpg")}
+                        onClick={() => handleGemClick(gem._id)}
                       />
                     </div>
                     <div className="inventory-gem-info">
@@ -355,7 +376,9 @@ export default function GemInventory() {
                           className="inventory-buy-now-btn"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/gems/${gem._id}?buyNow=1`);
+                            if (!requireLogin()) return;
+                            // TODO: Link to Payment page here later
+                            // e.g., navigate(`/checkout?gem=${gem._id}`)
                           }}
                         >
                           Buy Now
@@ -371,6 +394,77 @@ export default function GemInventory() {
       </div>
 
       <Footer />
+
+      {/* ===== Login Modal (ADDED) ===== */}
+      {showLoginPrompt && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="login-required-title"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+            backdropFilter: "blur(1px)",
+          }}
+          onClick={() => setShowLoginPrompt(false)}
+        >
+          <div
+            style={{
+              background: "#111",
+              color: "#eee",
+              border: "1px solid rgba(212,175,55,0.25)",
+              borderRadius: 16,
+              padding: 24,
+              width: "min(520px, 92vw)",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="login-required-title" style={{ margin: 0, fontWeight: 700, fontSize: 22 }}>
+              Login required
+            </h3>
+            <p style={{ marginTop: 12, color: "#cfcfcf", lineHeight: 1.5 }}>
+              Please log in to continue.
+            </p>
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 18 }}>
+              <button
+                onClick={() => setShowLoginPrompt(false)}
+                style={{
+                  background: "transparent",
+                  color: "#eee",
+                  border: "1px solid rgba(212,175,55,0.35)",
+                  padding: "10px 18px",
+                  borderRadius: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={goLogin}
+                style={{
+                  background: "linear-gradient(135deg,#d4af37,#caa43b)",
+                  color: "#111",
+                  border: "none",
+                  padding: "10px 18px",
+                  borderRadius: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Login
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ================================= */}
     </div>
   );
 }

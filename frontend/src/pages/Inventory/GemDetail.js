@@ -11,7 +11,7 @@ const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000";
 const currencyRates   = { USD:1, LKR:300, EUR:0.85, GBP:0.75, AUD:1.35 };
 const currencySymbols = { USD:"$", LKR:"₨ ", EUR:"€",   GBP:"£",   AUD:"A$" };
 
-// Prefix server-relative paths (e.g. "/uploads/...") with API base
+// Prefix server-relative paths (e.g. "/uploads/...")
 const getImageUrl = (pathOrUrl) => {
   if (!pathOrUrl) return "";
   if (/^https?:\/\//i.test(pathOrUrl) || /^data:/i.test(pathOrUrl)) return pathOrUrl;
@@ -31,6 +31,10 @@ export default function GemDetail() {
   const [loading, setLoading] = useState(true);
 
   const particlesInitialized = useRef(false);
+
+  // ===== Modal state for login prompt (ADDED) =====
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  // ===============================================
 
   useEffect(() => {
     localStorage.setItem("selectedCurrency", selectedCurrency);
@@ -94,9 +98,9 @@ export default function GemDetail() {
         script.id = LIB_ID;
         script.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
         script.async = true;
-        script.crossOrigin = "anonymous"; // better error visibility
+        script.crossOrigin = "anonymous";
         script.onload = () => requestAnimationFrame(initParticles);
-        script.onerror = () => {}; // do not crash page if CDN fails
+        script.onerror = () => {};
         document.body.appendChild(script);
       } else {
         if (typeof window.particlesJS === "function") {
@@ -148,7 +152,19 @@ export default function GemDetail() {
     return `${sym}${converted.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
   }, [gem, selectedCurrency]);
 
+  // ====== Login guard for actions (MODIFIED) ======
+  const requireLogin = () => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      setShowLoginPrompt(true); // show modal instead of alert
+      return false;
+    }
+    return true;
+  };
+  // ============================================
+
   const addToCart = () => {
+    if (!requireLogin()) return;
     if (!gem) return;
     const cart = JSON.parse(localStorage.getItem("cart") || "[]");
     if (!cart.find((i) => i._id === gem._id)) cart.push({ ...gem, qty: 1 });
@@ -157,8 +173,14 @@ export default function GemDetail() {
   };
 
   const instantBuy = () => {
+    if (!requireLogin()) return;
     addToCart();
     navigate("/checkout");
+  };
+
+  const goLogin = () => {
+    setShowLoginPrompt(false);
+    navigate("/login");
   };
 
   if (loading) return <div className="detail-container">Loading…</div>;
@@ -182,7 +204,7 @@ export default function GemDetail() {
       <Header />
 
       <div className="detail-container">
-        <button className="back-button" onClick={() => navigate(-1)}>
+        <button type="button" className="back-button" onClick={() => navigate(-1)}>
           <i className="fas fa-arrow-left" /> Back to Collection
         </button>
 
@@ -293,6 +315,77 @@ export default function GemDetail() {
       </div>
 
       <Footer />
+
+      {/* ===== Login Modal (ADDED) ===== */}
+      {showLoginPrompt && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="login-required-title-detail"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+            backdropFilter: "blur(1px)",
+          }}
+          onClick={() => setShowLoginPrompt(false)}
+        >
+          <div
+            style={{
+              background: "#111",
+              color: "#eee",
+              border: "1px solid rgba(212,175,55,0.25)",
+              borderRadius: 16,
+              padding: 24,
+              width: "min(520px, 92vw)",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="login-required-title-detail" style={{ margin: 0, fontWeight: 700, fontSize: 22 }}>
+              Login required
+            </h3>
+            <p style={{ marginTop: 12, color: "#cfcfcf", lineHeight: 1.5 }}>
+              Please log in to continue.
+            </p>
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 18 }}>
+              <button
+                onClick={() => setShowLoginPrompt(false)}
+                style={{
+                  background: "transparent",
+                  color: "#eee",
+                  border: "1px solid rgba(212,175,55,0.35)",
+                  padding: "10px 18px",
+                  borderRadius: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={goLogin}
+                style={{
+                  background: "linear-gradient(135deg,#d4af37,#caa43b)",
+                  color: "#111",
+                  border: "none",
+                  padding: "10px 18px",
+                  borderRadius: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Login
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ================================= */}
     </div>
   );
 }

@@ -17,8 +17,6 @@ body {
 /* keep page content above particles */
 .page-root { position: relative; z-index: 1; }
 
-/* Removed header/footer styles here to avoid conflicts with HeaderFooter.css */
-
 /* Main Content */
 .detail-container {
   margin-top: 100px;
@@ -26,18 +24,44 @@ body {
   padding: 20px 5%;
 }
 
+/* 🔸 Back button restyled to match the gold “Customize Your Gem” pill button */
 .back-button {
   display: inline-flex;
   align-items: center;
+  gap: 10px;
   margin-bottom: 30px;
-  color: #d4af37;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 9999px;
+  background: linear-gradient(45deg, #d4af37, #f9f295);
+  color: #0a0a0a;
+  font-weight: 600;
+  cursor: pointer;
   text-decoration: none;
-  font-weight: 500;
-  transition: 0.3s;
+  box-shadow:
+    0 10px 24px rgba(212, 175, 55, 0.25),
+    inset 0 1px 0 rgba(255,255,255,0.35);
+  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
 }
-.back-button:hover { color: #f9f295; }
-.back-button i { margin-right: 10px; }
+.back-button:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+  box-shadow:
+    0 12px 28px rgba(212, 175, 55, 0.35),
+    inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.back-button:active {
+  transform: translateY(0);
+  box-shadow:
+    0 8px 18px rgba(212, 175, 55, 0.2),
+    inset 0 1px 0 rgba(255,255,255,0.3);
+}
+.back-button i {
+  font-size: 0.95rem;
+  color: #0a0a0a;
+}
 
+/* Layout */
 .gem-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
 
 .gem-visual { display: flex; flex-direction: column; gap: 20px; }

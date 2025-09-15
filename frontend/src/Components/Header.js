@@ -36,7 +36,7 @@ const Header = () => {
       <nav className="nav-links">
         <Link to="/mainhome">Home</Link>
         {/* ✅ Point the link to /inventory and keep onClick as a SPA navigate fallback */}
-        <Link to="/inventory" onClick={handleCollectionClick}>
+        <Link to="/inventory">
           Collection
         </Link>
         <Link to="/auction">Auction</Link>
