@@ -1,11 +1,31 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Header";
 import SellerSidebar from "../../Components/SellerSidebar";
+import { request } from "../../api";
 import "./SellerDashboard.css"; // paste the CSS from your HTML <style> here (unchanged)
+
+// simple formatter (same behavior as payments page)
+function money(n, ccy = "USD") {
+ const amt = Number(n || 0);
+ try {
+   return new Intl.NumberFormat(undefined, {
+      style: "currency",
+     currency: ccy,
+      maximumFractionDigits: amt % 1 === 0 ? 0 : 2,
+    }).format(amt);
+  } catch {
+    return `${ccy} ${amt.toFixed(2)}`;
+  }
+}
+
 
 export default function SellerDashboard() {
   const navigate = useNavigate();
+
+  // NEW: live revenue state
+const [revenue, setRevenue] = useState("—");
+const [revLoading, setRevLoading] = useState(true);
 
   // guard: only sellers
   useEffect(() => {
@@ -14,6 +34,29 @@ export default function SellerDashboard() {
     if (!user) return navigate("/login", { replace: true });
     if (user.role !== "seller") return navigate("/mainhome", { replace: true });
   }, [navigate]);
+
+   // NEW: fetch payments & compute total paid revenue
+useEffect(() => {
+    let alive = true;
+   (async () => {
+      try {
+        setRevLoading(true);
+        // If your backend supports it, you can call `/api/payments?status=paid`
+        const data = await request("/api/payments");
+        const items = data?.items || [];
+       const ccy = items[0]?.currency || "USD";
+        const totalPaid = items
+          .filter((p) => p?.payment?.status === "paid")
+          .reduce((sum, p) => sum + Number(p?.amounts?.total || 0), 0);
+        if (alive) setRevenue(money(totalPaid, ccy));
+      } catch (e) {
+        if (alive) setRevenue("—");
+      } finally {
+        if (alive) setRevLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
 
   // particles (same as your HTML)
   useEffect(() => {
@@ -223,7 +266,7 @@ export default function SellerDashboard() {
                 <i className="fas fa-dollar-sign"></i>
               </div>
               <div className="stat-info">
-                <h3>$86,450</h3>
+                <h3>{revLoading ? "…" : revenue}</h3>
                 <p>Total Revenue</p>
               </div>
             </div>

@@ -28,7 +28,7 @@ function requireRoles(...roles) {
 async function revokeAllSessions(userId) {
   await Session.updateMany(
     { userId, revokedAt: null },
-    { $set: { revokedAt: new Date() } }
+    { $set: { revokedAt: new Date(), expiresAt: new Date() } }
   );
 }
 

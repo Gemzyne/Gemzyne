@@ -311,7 +311,7 @@ exports.logout = async (req, res) => {
     const { sessionId } = req.body || {};
     if (sessionId) {
       await Session.findByIdAndUpdate(sessionId, {
-        $set: { revokedAt: new Date() },
+        $set: { revokedAt: new Date(), expiresAt: new Date() },
       });
     }
     clearRefreshCookie(res);
