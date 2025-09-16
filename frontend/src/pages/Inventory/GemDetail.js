@@ -1,4 +1,3 @@
-// src/pages/Inventory/GemDetail.js
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import api from "../../api";
@@ -11,7 +10,6 @@ const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000";
 const currencyRates   = { USD:1, LKR:300, EUR:0.85, GBP:0.75, AUD:1.35 };
 const currencySymbols = { USD:"$", LKR:"₨ ", EUR:"€",   GBP:"£",   AUD:"A$" };
 
-// Prefix server-relative paths (e.g. "/uploads/...")
 const getImageUrl = (pathOrUrl) => {
   if (!pathOrUrl) return "";
   if (/^https?:\/\//i.test(pathOrUrl) || /^data:/i.test(pathOrUrl)) return pathOrUrl;
@@ -20,7 +18,7 @@ const getImageUrl = (pathOrUrl) => {
 
 export default function GemDetail() {
   const { id } = useParams();
-  const [sp] = useSearchParams(); // left intact
+  const [sp] = useSearchParams();
   const navigate = useNavigate();
 
   const [gem, setGem] = useState(null);
@@ -31,16 +29,13 @@ export default function GemDetail() {
   const [loading, setLoading] = useState(true);
 
   const particlesInitialized = useRef(false);
-
-  // ===== Modal state for login prompt (ADDED) =====
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  // ===============================================
 
   useEffect(() => {
     localStorage.setItem("selectedCurrency", selectedCurrency);
   }, [selectedCurrency]);
 
-  // --- Particles.js: robust single-load + init on this canvas only ---
+  // particles.js (scoped to #particles-js inside .page-root)
   useEffect(() => {
     const CANVAS_ID = "particles-js";
     const LIB_ID = "particlesjs-lib";
@@ -85,12 +80,9 @@ export default function GemDetail() {
       try {
         window.particlesJS(CANVAS_ID, config);
         particlesInitialized.current = true;
-      } catch {
-        // ignore init failures from external lib
-      }
+      } catch {}
     };
 
-    // load library once
     if (!window.particlesJS) {
       let script = document.getElementById(LIB_ID);
       if (!script) {
@@ -100,7 +92,6 @@ export default function GemDetail() {
         script.async = true;
         script.crossOrigin = "anonymous";
         script.onload = () => requestAnimationFrame(initParticles);
-        script.onerror = () => {};
         document.body.appendChild(script);
       } else {
         if (typeof window.particlesJS === "function") {
@@ -113,14 +104,13 @@ export default function GemDetail() {
       requestAnimationFrame(initParticles);
     }
 
-    // cleanup instance for this canvas only
     return () => {
       destroyExistingFor(CANVAS_ID);
       particlesInitialized.current = false;
     };
   }, []);
 
-  // --- Fetch the gem ---
+  // Fetch gem
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -152,16 +142,14 @@ export default function GemDetail() {
     return `${sym}${converted.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
   }, [gem, selectedCurrency]);
 
-  // ====== Login guard for actions (MODIFIED) ======
   const requireLogin = () => {
     const token = localStorage.getItem("accessToken");
     if (!token) {
-      setShowLoginPrompt(true); // show modal instead of alert
+      setShowLoginPrompt(true);
       return false;
     }
     return true;
   };
-  // ============================================
 
   const addToCart = () => {
     if (!requireLogin()) return;
@@ -188,18 +176,8 @@ export default function GemDetail() {
 
   return (
     <div className="page-root">
-      {/* Full-viewport canvas for particles (inline style so no CSS change needed) */}
-      <div
-        id="particles-js"
-        style={{
-          position: "fixed",
-          inset: 0,
-          width: "100%",
-          height: "100vh",
-          zIndex: 0,
-          pointerEvents: "none",
-        }}
-      />
+      {/* particles canvas (styled in gemdetails.css) */}
+      <div id="particles-js" />
 
       <Header />
 
@@ -259,7 +237,6 @@ export default function GemDetail() {
 
             <div className="gem-price">{displayPrice}</div>
 
-            {/* Schema-accurate fields */}
             <div className="gem-specs-detail">
               <div className="spec-item"><span className="spec-label">Type:</span><span className="spec-value">{gem.type || "-"}</span></div>
               <div className="spec-item"><span className="spec-label">Carat Weight:</span><span className="spec-value">{gem.carat ?? "-"}</span></div>
@@ -316,7 +293,6 @@ export default function GemDetail() {
 
       <Footer />
 
-      {/* ===== Login Modal (ADDED) ===== */}
       {showLoginPrompt && (
         <div
           role="dialog"
@@ -385,7 +361,6 @@ export default function GemDetail() {
           </div>
         </div>
       )}
-      {/* ================================= */}
     </div>
   );
 }

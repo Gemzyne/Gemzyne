@@ -11,7 +11,8 @@ const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000";
 const currencyRates = { USD: 1, LKR: 300, EUR: 0.85, GBP: 0.75, AUD: 1.35 };
 const currencySymbols = { USD: "$", LKR: "₨ ", EUR: "€", GBP: "£", AUD: "A$" };
 
-const PARTICLES_ID = "inventory-particles";
+// IMPORTANT: match the CSS selector `.inventory-body #particles-js`
+const PARTICLES_ID = "particles-js";
 
 const getImageUrl = (pathOrUrl) => {
   if (!pathOrUrl) return "";
