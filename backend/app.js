@@ -78,6 +78,8 @@ const PORT = process.env.PORT || 5000;
 // ✅ mount your Custom Order + Checkout API
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes); // <-- add
+app.use('/api/metrics', require('./Routes/MetricsRoutes'));
+
 
 //Auction
 // --- AUCTION: mount routes (all prefixed) ---

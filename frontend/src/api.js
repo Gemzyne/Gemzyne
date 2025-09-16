@@ -88,17 +88,31 @@ export async function request(path, options) {
   return coreRequest(path, options);
 }
 
+//NEW: metrics helpers (read-only, hit your new endpoints)
+export const metrics = {
+  summary: (year) => request(`/api/metrics/seller/summary?year=${year}`),
+  monthly: (year) => request(`/api/metrics/seller/monthly?year=${year}`),
+  category: (year) => request(`/api/metrics/seller/category?year=${year}`),
+};
+
+
 export const api = {
   // ===== AUTH =====
   register: (data) =>
     request("/auth/register", { method: "POST", body: JSON.stringify(data) }),
 
   verifyEmail: (data) =>
-    request("/auth/verify-email", { method: "POST", body: JSON.stringify(data) }),
+    request("/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   // resend verification code
   resendVerify: (email) =>
-    request("/auth/resend-verify", { method: "POST", body: JSON.stringify({ email }) }),
+    request("/auth/resend-verify", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
 
   login: async (payload) => {
     const result = await request("/auth/login", {
@@ -106,15 +120,20 @@ export const api = {
       body: JSON.stringify(payload),
     });
     // Store once, only when present
-    if (result?.accessToken) localStorage.setItem("accessToken", result.accessToken);
+    if (result?.accessToken)
+      localStorage.setItem("accessToken", result.accessToken);
     if (result?.sessionId) localStorage.setItem("sessionId", result.sessionId);
     if (result?.user) localStorage.setItem("user", JSON.stringify(result.user));
     return result;
   },
 
   logout: async () => {
+    const sessionId = localStorage.getItem("sessionId");
     try {
-      await request("/auth/logout", { method: "POST" });
+      await request("/auth/logout", {
+        method: "POST",
+        body: JSON.stringify({ sessionId }), // ← SEND IT
+      });
     } finally {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("sessionId");
@@ -130,21 +149,39 @@ export const api = {
 
   me: {
     changePassword: (data) =>
-      request("/users/me/password", { method: "POST", body: JSON.stringify(data) }),
+      request("/users/me/password", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     requestEmailChange: (data) =>
-      request("/users/me/email/request", { method: "POST", body: JSON.stringify(data) }),
+      request("/users/me/email/request", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     confirmEmailChange: (data) =>
-      request("/users/me/email/confirm", { method: "POST", body: JSON.stringify(data) }),
+      request("/users/me/email/confirm", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     deleteMe: (reason) =>
-      request("/users/me", { method: "DELETE", body: JSON.stringify({ reason }) }),
+      request("/users/me", {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
+      }),
   },
 
   // ===== RESET =====
   forgotPassword: (email) =>
-    request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
+    request("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
 
   resetPassword: (payload) =>
-    request("/auth/reset-password", { method: "POST", body: JSON.stringify(payload) }),
+    request("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 
   // ===== ADMIN =====
   admin: {
@@ -163,7 +200,10 @@ export const api = {
     getUser: (id) => request(`/admin/users/${id}`),
 
     updateUser: (id, data) =>
-      request(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      request(`/admin/users/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
 
     deleteUser: (id) => request(`/admin/users/${id}`, { method: "DELETE" }),
 
@@ -202,7 +242,10 @@ export const api = {
       if (customer) fd.append("customer", JSON.stringify(customer));
       fd.append("payment", JSON.stringify({ method: "bank", ...payment }));
       if (slip) fd.append("slip", slip);
-      return request(`/api/orders/${id}/checkout`, { method: "POST", body: fd });
+      return request(`/api/orders/${id}/checkout`, {
+        method: "POST",
+        body: fd,
+      });
     },
   },
 

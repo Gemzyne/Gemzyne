@@ -1,17 +1,18 @@
-import React, { useEffect, useState } from "react";
+// src/pages/Seller/SellerDashboard.js
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Header";
 import SellerSidebar from "../../Components/SellerSidebar";
-import { request } from "../../api";
-import "./SellerDashboard.css"; // paste the CSS from your HTML <style> here (unchanged)
+import { metrics } from "../../api";          // ✅ use the new helpers
+import "./SellerDashboard.css";
 
-// simple formatter (same behavior as payments page)
+// money formatter
 function money(n, ccy = "USD") {
- const amt = Number(n || 0);
- try {
-   return new Intl.NumberFormat(undefined, {
+  const amt = Number(n || 0);
+  try {
+    return new Intl.NumberFormat(undefined, {
       style: "currency",
-     currency: ccy,
+      currency: ccy,
       maximumFractionDigits: amt % 1 === 0 ? 0 : 2,
     }).format(amt);
   } catch {
@@ -19,15 +20,21 @@ function money(n, ccy = "USD") {
   }
 }
 
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 export default function SellerDashboard() {
   const navigate = useNavigate();
+  const [year] = useState(new Date().getFullYear());
 
-  // NEW: live revenue state
-const [revenue, setRevenue] = useState("—");
-const [revLoading, setRevLoading] = useState(true);
+  // Stat card: total revenue
+  const [revenue, setRevenue] = useState("—");
+  const [revLoading, setRevLoading] = useState(true);
 
-  // guard: only sellers
+  // Charts
+  const revenueChartInstance = useRef(null);
+  const categoryChartInstance = useRef(null);
+
+  // seller guard
   useEffect(() => {
     const raw = localStorage.getItem("user");
     const user = raw ? JSON.parse(raw) : null;
@@ -35,30 +42,7 @@ const [revLoading, setRevLoading] = useState(true);
     if (user.role !== "seller") return navigate("/mainhome", { replace: true });
   }, [navigate]);
 
-   // NEW: fetch payments & compute total paid revenue
-useEffect(() => {
-    let alive = true;
-   (async () => {
-      try {
-        setRevLoading(true);
-        // If your backend supports it, you can call `/api/payments?status=paid`
-        const data = await request("/api/payments");
-        const items = data?.items || [];
-       const ccy = items[0]?.currency || "USD";
-        const totalPaid = items
-          .filter((p) => p?.payment?.status === "paid")
-          .reduce((sum, p) => sum + Number(p?.amounts?.total || 0), 0);
-        if (alive) setRevenue(money(totalPaid, ccy));
-      } catch (e) {
-        if (alive) setRevenue("—");
-      } finally {
-        if (alive) setRevLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, []);
-
-  // particles (same as your HTML)
+  // Particles (unchanged)
   useEffect(() => {
     const init = () => {
       window.particlesJS &&
@@ -69,30 +53,12 @@ useEffect(() => {
             shape: { type: "circle" },
             opacity: { value: 0.3, random: true },
             size: { value: 3, random: true },
-            line_linked: {
-              enable: true,
-              distance: 150,
-              color: "#d4af37",
-              opacity: 0.1,
-              width: 1,
-            },
-            move: {
-              enable: true,
-              speed: 1,
-              direction: "none",
-              random: true,
-              straight: false,
-              out_mode: "out",
-              bounce: false,
-            },
+            line_linked: { enable: true, distance: 150, color: "#d4af37", opacity: 0.1, width: 1 },
+            move: { enable: true, speed: 1, direction: "none", random: true, straight: false, out_mode: "out", bounce: false },
           },
           interactivity: {
             detect_on: "canvas",
-            events: {
-              onhover: { enable: true, mode: "repulse" },
-              onclick: { enable: true, mode: "push" },
-              resize: true,
-            },
+            events: { onhover: { enable: true, mode: "repulse" }, onclick: { enable: true, mode: "push" }, resize: true },
           },
           retina_detect: true,
         });
@@ -101,14 +67,14 @@ useEffect(() => {
     if (window.particlesJS) init();
     else {
       const s = document.createElement("script");
-      s.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
+      s.src = "https://cdn.jsdelivr.net/npm/particles.js/2.0.0/particles.min.js";
       s.onload = init;
       document.body.appendChild(s);
       return () => document.body.removeChild(s);
     }
   }, []);
 
-  // sticky header effect
+  // sticky header (unchanged)
   useEffect(() => {
     const onScroll = () => {
       const header = document.getElementById("header");
@@ -120,121 +86,143 @@ useEffect(() => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // charts (static data for now; teammates will wire later)
+  // Load summary for revenue card
   useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setRevLoading(true);
+        const s = await metrics.summary(year);
+        const ccy = s?.currency || "USD";
+        const total = Number(s?.totalRevenue || 0);
+        if (alive) setRevenue(money(total, ccy));
+      } catch {
+        if (alive) setRevenue("—");
+      } finally {
+        if (alive) setRevLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [year]);
+
+  // Charts powered by metrics
+  useEffect(() => {
+    let alive = true;
+
     const ensureChartJs = () =>
       new Promise((resolve) => {
-        if (window.Chart) return resolve();
+        if (window.Chart) return resolve(window.Chart);
         const s = document.createElement("script");
         s.src = "https://cdn.jsdelivr.net/npm/chart.js";
-        s.onload = resolve;
+        s.onload = () => resolve(window.Chart);
         document.body.appendChild(s);
       });
 
     const draw = async () => {
-      await ensureChartJs();
-      const Chart = window.Chart;
+      const Chart = await ensureChartJs();
 
-      const rev = document.getElementById("revenueChart");
-      if (rev) {
-        const ctx = rev.getContext("2d");
-        new Chart(ctx, {
+      let revenueSeries = Array(12).fill(0);
+      let catLabels = [];
+      let catValues = [];
+      let ccy = "USD";
+
+      try {
+        const [m, c, s] = await Promise.all([
+          metrics.monthly(year),
+          metrics.category(year),
+          metrics.summary(year),
+        ]);
+        revenueSeries = Array.isArray(m?.months) ? m.months.map(Number) : revenueSeries;
+        catLabels = c?.labels || [];
+        catValues = (c?.values || []).map(Number);
+        ccy = s?.currency || "USD";
+      } catch {
+        // Fallback to zeros (avoids breaking the page)
+        revenueSeries = Array(12).fill(0);
+        catLabels = ["Sapphires", "Rubies", "Emeralds", "Diamonds", "Others"];
+        catValues = [0, 0, 0, 0, 0];
+      }
+      if (!alive) return;
+
+      // cleanup before re-draw
+      try { revenueChartInstance.current?.destroy(); } catch {}
+      try { categoryChartInstance.current?.destroy(); } catch {}
+
+      const revCanvas = document.getElementById("revenueChart");
+      if (revCanvas && revCanvas.getContext) {
+        revenueChartInstance.current = new Chart(revCanvas.getContext("2d"), {
           type: "line",
           data: {
-            labels: [
-              "Jan",
-              "Feb",
-              "Mar",
-              "Apr",
-              "May",
-              "Jun",
-              "Jul",
-              "Aug",
-              "Sep",
-              "Oct",
-            ],
-            datasets: [
-              {
-                label: "Revenue ($)",
-                data: [
-                  12500, 19000, 18000, 22000, 19500, 24000, 26000, 31000, 28500,
-                  32450,
-                ],
-                borderColor: "#d4af37",
-                tension: 0.3,
-                fill: true,
-                backgroundColor: "rgba(212, 175, 55, 0.1)",
-              },
-            ],
+            labels: MONTHS,
+            datasets: [{
+              label: `Revenue (${ccy})`,
+              data: revenueSeries,
+              borderColor: "#d4af37",
+              tension: 0.3,
+              fill: true,
+              backgroundColor: "rgba(212, 175, 55, 0.1)",
+            }],
           },
           options: {
             responsive: true,
             plugins: { legend: { labels: { color: "#f5f5f5" } } },
             scales: {
-              y: {
-                beginAtZero: true,
-                grid: { color: "rgba(255,255,255,0.1)" },
-                ticks: { color: "#b0b0b0" },
-              },
-              x: {
-                grid: { color: "rgba(255,255,255,0.1)" },
-                ticks: { color: "#b0b0b0" },
-              },
+              y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.1)" }, ticks: { color: "#b0b0b0" } },
+              x: { grid: { color: "rgba(255,255,255,0.1)" }, ticks: { color: "#b0b0b0" } },
             },
           },
         });
       }
 
-      const cat = document.getElementById("categoryChart");
-      if (cat) {
-        const ctx = cat.getContext("2d");
-        new Chart(ctx, {
+      const catCanvas = document.getElementById("categoryChart");
+      if (catCanvas && catCanvas.getContext) {
+        categoryChartInstance.current = new Chart(catCanvas.getContext("2d"), {
           type: "doughnut",
           data: {
-            labels: ["Sapphires", "Rubies", "Emeralds", "Diamonds", "Others"],
-            datasets: [
-              {
-                data: [30, 25, 20, 15, 10],
-                backgroundColor: [
-                  "rgba(212, 175, 55, 0.8)",
-                  "rgba(148, 121, 43, 0.8)",
-                  "rgba(212, 175, 55, 0.6)",
-                  "rgba(169, 140, 44, 0.8)",
-                  "rgba(212, 175, 55, 0.4)",
-                ],
-                borderColor: [
-                  "rgba(212,175,55,1)",
-                  "rgba(148,121,43,1)",
-                  "rgba(212,175,55,1)",
-                  "rgba(169,140,44,1)",
-                  "rgba(212,175,55,1)",
-                ],
-                borderWidth: 1,
-              },
-            ],
+            labels: catLabels,
+            datasets: [{
+              data: catValues,
+              backgroundColor: [
+                "rgba(212, 175, 55, 0.8)",
+                "rgba(148, 121, 43, 0.8)",
+                "rgba(212, 175, 55, 0.6)",
+                "rgba(169, 140, 44, 0.8)",
+                "rgba(212, 175, 55, 0.4)",
+              ],
+              borderColor: [
+                "rgba(212,175,55,1)",
+                "rgba(148,121,43,1)",
+                "rgba(212,175,55,1)",
+                "rgba(169,140,44,1)",
+                "rgba(212,175,55,1)",
+              ],
+              borderWidth: 1,
+            }],
           },
           options: {
             responsive: true,
-            plugins: {
-              legend: { position: "bottom", labels: { color: "#f5f5f5" } },
-            },
+            plugins: { legend: { position: "bottom", labels: { color: "#f5f5f5" } } },
           },
         });
       }
     };
 
     draw();
-  }, []);
+
+    return () => {
+      alive = false;
+      try { revenueChartInstance.current?.destroy(); } catch {}
+      try { categoryChartInstance.current?.destroy(); } catch {}
+    };
+  }, [year]);
 
   return (
     <>
-      <div id="particles-js"></div>
+      <div id="particles-js" />
       <Header />
       <div className="dashboard-container">
-        {/* DYNAMIC seller details */}
         <SellerSidebar active="dashboard" />
 
-        {/* Main content — unchanged visuals */}
         <main className="dashboard-content">
           <div className="dashboard-header">
             <h2 className="dashboard-title">Seller Dashboard</h2>
@@ -244,36 +232,28 @@ useEffect(() => {
           {/* Stats */}
           <div className="stats-grid">
             <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-gem"></i>
-              </div>
+              <div className="stat-icon"><i className="fas fa-gem" /></div>
               <div className="stat-info">
                 <h3>42</h3>
                 <p>Total Gems</p>
               </div>
             </div>
             <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-shopping-bag"></i>
-              </div>
+              <div className="stat-icon"><i className="fas fa-shopping-bag" /></div>
               <div className="stat-info">
                 <h3>28</h3>
                 <p>Total Orders</p>
               </div>
             </div>
             <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-dollar-sign"></i>
-              </div>
+              <div className="stat-icon"><i className="fas fa-dollar-sign" /></div>
               <div className="stat-info">
                 <h3>{revLoading ? "…" : revenue}</h3>
                 <p>Total Revenue</p>
               </div>
             </div>
             <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-star"></i>
-              </div>
+              <div className="stat-icon"><i className="fas fa-star" /></div>
               <div className="stat-info">
                 <h3>4.8</h3>
                 <p>Average Rating</p>
@@ -332,9 +312,7 @@ useEffect(() => {
                     <td>11 Oct 2023</td>
                     <td>$15,200</td>
                     <td>
-                      <span className="status status-processing">
-                        Processing
-                      </span>
+                      <span className="status status-processing">Processing</span>
                     </td>
                     <td>
                       <button className="action-btn btn-view">View</button>
@@ -370,7 +348,6 @@ useEffect(() => {
           </div>
 
           {/* Inventory & Reports sections left as-is (static for now) */}
-          {/* Gem Inventory */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Gem Inventory</h3>
@@ -387,10 +364,7 @@ useEffect(() => {
             <div className="gems-grid">
               <div className="gem-card">
                 <div className="gem-image">
-                  <i
-                    className="fas fa-gem"
-                    style={{ fontSize: 48, color: "#3498db" }}
-                  ></i>
+                  <i className="fas fa-gem" style={{ fontSize: 48, color: "#3498db" }}></i>
                 </div>
                 <div className="gem-info">
                   <h4 className="gem-name">Royal Blue Sapphire</h4>
@@ -405,10 +379,7 @@ useEffect(() => {
 
               <div className="gem-card">
                 <div className="gem-image">
-                  <i
-                    className="fas fa-gem"
-                    style={{ fontSize: 48, color: "#e74c3c" }}
-                  ></i>
+                  <i className="fas fa-gem" style={{ fontSize: 48, color: "#e74c3c" }}></i>
                 </div>
                 <div className="gem-info">
                   <h4 className="gem-name">Burmese Ruby</h4>
@@ -423,10 +394,7 @@ useEffect(() => {
 
               <div className="gem-card">
                 <div className="gem-image">
-                  <i
-                    className="fas fa-gem"
-                    style={{ fontSize: 48, color: "#2ecc71" }}
-                  ></i>
+                  <i className="fas fa-gem" style={{ fontSize: 48, color: "#2ecc71" }}></i>
                 </div>
                 <div className="gem-info">
                   <h4 className="gem-name">Emerald Cut Diamond</h4>
@@ -441,10 +409,7 @@ useEffect(() => {
 
               <div className="gem-card">
                 <div className="gem-image">
-                  <i
-                    className="fas fa-gem"
-                    style={{ fontSize: 48, color: "#9b59b6" }}
-                  ></i>
+                  <i className="fas fa-gem" style={{ fontSize: 48, color: "#9b59b6" }}></i>
                 </div>
                 <div className="gem-info">
                   <h4 className="gem-name">Tanzanite</h4>
