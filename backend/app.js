@@ -49,6 +49,8 @@ app.use("/admin/metrics", AdminMetricsRoutes);
 // ✅ mount your Custom Order + Checkout API
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes); // <-- add
+app.use('/api/metrics', require('./Routes/MetricsRoutes'));
+
 
 // ✅ error handler last
 app.use(errorMiddleware);
