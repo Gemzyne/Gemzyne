@@ -227,7 +227,7 @@ export default function BuyerDashboard() {
         <Header />
 
         <section className="bd-hero">
-          <h1 className="bd-title">Buyer Dashboard</h1>
+          <h1 className="bd-title">Auction Center</h1>
 
           <div className="bd-filters">
             <div className="bd-search">
@@ -281,7 +281,6 @@ export default function BuyerDashboard() {
               >
                 <option value="all">All Statuses</option>
                 <option value="ongoing">Ongoing</option>
-                <option value="ending">Ending Soon</option>
                 <option value="upcoming">Upcoming</option>
               </select>
             </div>
@@ -644,11 +643,18 @@ function DetailsDrawer({ open, details, onClose, onPlace, onIncrease }) {
 
         <div className="bd-drawer__body">
           <img className="bd-drawer__img" src={asset(a.imageUrl)} alt={a.title} />
-          {a.description && <p className="bd-drawer__desc">{a.description}</p>}
-
           <div className="bd-drawer__row">
             <span className="bd-drawer__label">Type:</span>{a.type || "-"}
           </div>
+           
+          {a?.description && (
+            <div className="bd-drawer__row" style={{ alignItems: "flex-start" }}>
+              <span className="bd-drawer__label">Description:</span>
+              <span className="bd-drawer__desc" style={{ flex: 1, whiteSpace: "pre-wrap" }}>
+                {a.description}
+              </span>
+            </div>
+          )}
           {a.basePrice != null && (
             <div className="bd-drawer__row">
               <span className="bd-drawer__label">Base:</span>${fmtMoney(a.basePrice)}
@@ -673,7 +679,7 @@ function DetailsDrawer({ open, details, onClose, onPlace, onIncrease }) {
             </div>
           )}
 
-          {(type === "ongoing" || type === "your") && !ended && (
+          {(type === "ongoing" || type === "your" ||type ==="upcoming") && !ended && (
             <>
               <div className="bd-drawer__row">
                 <span className="bd-drawer__label">

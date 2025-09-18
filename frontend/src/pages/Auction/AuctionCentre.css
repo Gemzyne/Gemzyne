@@ -31,10 +31,13 @@
 .ac-container {
   position: relative;
   z-index: 1;
-  padding: 120px 5% 60px;
+  padding: 100px;
   /* top padding leaves room for fixed Header */
   max-width: 1400px;
   margin: 0 auto;
+  justify-content: center;
+  align-items: center;
+
 }
 
 /* Page title */
@@ -118,6 +121,14 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   outline: none;
+  
+}
+
+/* The items inside the opened dropdown */
+.ac-filter option,
+.ac-filter optgroup {
+  background: #0a0a0af3;
+  color: var(--ac-text); 
 }
 
 /* Grid list of cards */
@@ -125,6 +136,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
   gap: 22px;
+  
 }
 
 /* One auction card */
@@ -140,6 +152,8 @@
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  height: fit-content;
+  max-height: 700px;
 }
 
 .ac-card:hover {
@@ -270,6 +284,7 @@
   color: #0a0a0a;
   box-shadow: 0 8px 18px rgba(212, 175, 55, 0.35);
   transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+  align-items: end;
 }
 
 .ac-btn:hover {

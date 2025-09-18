@@ -24,6 +24,7 @@ import SellerPayments from "./pages/Payment/SellerPayments";
 import AuctionCentre from "./pages/Auction/AuctionCentre";
 import AuctionBuyerDashboard from "./pages/Auction/AuctionBuyerDashboard";
 import AuctionSellerDashboard from "./pages/Auction/AuctionDashboard";
+import SellerAuctionControlDashboard from "./pages/DashBoards/SellerAuctionControlDashboard";
 
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem("accessToken");
@@ -196,6 +197,17 @@ export default function App() {
           <RequireAuth>
             <RequireRole role="seller">
               <AuctionSellerDashboard />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/seller/auction-control"
+        element={
+          <RequireAuth>
+            <RequireRole role="seller">
+              <SellerAuctionControlDashboard />
             </RequireRole>
           </RequireAuth>
         }
