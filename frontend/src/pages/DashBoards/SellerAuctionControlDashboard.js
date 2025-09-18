@@ -251,6 +251,7 @@ export default function SellerAuctionControlDashboard() {
 
   /* ========== Filters ========== */
   const norm = (s) => (s || "").toLowerCase();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const match = (a) =>
     (!q ||
       norm(a.title).includes(norm(q)) ||
@@ -263,11 +264,11 @@ export default function SellerAuctionControlDashboard() {
   );
   const upcomingFiltered = useMemo(
     () => overview.upcoming.filter(match),
-    [overview.upcoming, q, type]
+    [match, overview.upcoming]
   );
   const historyFiltered = useMemo(
     () => overview.history.filter(match),
-    [overview.history, q, type]
+    [match, overview.history]
   );
 
   const showLive = status === "all" || status === "live";
