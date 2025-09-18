@@ -1,3 +1,15 @@
+// src/pages/DashBoards/SellerAuctionControlDashboard.jsx
+// ----------------------------------------------------------------------------
+// Seller • Auction Control Dashboard
+// - Particles background
+// - Overview widgets
+// - Filters (search/type/status)
+// - Charts (status doughnut + weekly/monthly revenue with summary)
+// - Live / Upcoming / Ended sections
+// - Drawer (details + recent bidders; edit in "upcoming" mode)
+// - Create Auction modal (4 steps)
+// ----------------------------------------------------------------------------
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Header";
@@ -6,6 +18,7 @@ import "../DashBoards/SellerAuctionControlDashboard.css";
 import { request } from "../../api";
 
 /* ===================== Helpers ===================== */
+// Resolve server-relative URLs (e.g., "/uploads/x.jpg") to absolute backend URLs
 const BACKEND = process.env.REACT_APP_API_URL || "http://localhost:5000";
 const asset = (p) => {
   if (!p) return "";
@@ -17,6 +30,8 @@ const asset = (p) => {
     return p;
   return `${BACKEND}${p.startsWith("/") ? "" : "/"}${p}`;
 };
+
+// Currency + Date/Time formatters for consistent display
 const fmtMoney = (n) =>
   "$" + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
 const fmtDateTime = (iso) =>
@@ -28,6 +43,7 @@ const fmtDateTime = (iso) =>
     minute: "2-digit",
   });
 
+// Countdown hook (ticks every second) used by LiveCard/UpcomingCard
 function useCountdown(targetISO) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -50,7 +66,7 @@ const TimeBox = ({ v, lbl }) => (
   </div>
 );
 
-/* ---- Revenue grouping helpers ---- */
+/* ---- Revenue grouping helpers (monthly/weekly buckets) ---- */
 function lastNMonths(n, from = new Date()) {
   const arr = [];
   const d = new Date(from.getFullYear(), from.getMonth(), 1);
@@ -72,7 +88,7 @@ function isoWeek(date) {
     Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
   );
   const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum); // Thursday
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum); // shift to Thursday
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const wk = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
   return { year: d.getUTCFullYear(), week: wk };
@@ -80,11 +96,10 @@ function isoWeek(date) {
 function lastNWeeks(n, from = new Date()) {
   const arr = [];
   const today = new Date(from);
-  const day = (today.getDay() + 6) % 7; // 0=Mon ... 6=Sun
+  const day = (today.getDay() + 6) % 7; // Monday=0
   const monday = new Date(today);
   monday.setDate(today.getDate() - day);
   monday.setHours(0, 0, 0, 0);
-
   for (let i = 0; i < n; i++) {
     const start = new Date(monday);
     start.setDate(monday.getDate() - (n - 1 - i) * 7);
@@ -118,7 +133,7 @@ const pctDelta = (curr, prev) => {
 export default function SellerAuctionControlDashboard() {
   const navigate = useNavigate();
 
-  // guard
+  /* ---------- Route guard: allow only logged-in sellers ---------- */
   useEffect(() => {
     const raw = localStorage.getItem("user");
     const user = raw ? JSON.parse(raw) : null;
@@ -126,7 +141,7 @@ export default function SellerAuctionControlDashboard() {
     if (user.role !== "seller") return navigate("/mainhome", { replace: true });
   }, [navigate]);
 
-  // particles
+  /* ---------- Particles background (lazy load if needed) ---------- */
   useEffect(() => {
     const init = () => {
       window.particlesJS &&
@@ -150,7 +165,6 @@ export default function SellerAuctionControlDashboard() {
               random: true,
               straight: false,
               out_mode: "out",
-              bounce: false,
             },
           },
           interactivity: {
@@ -174,7 +188,7 @@ export default function SellerAuctionControlDashboard() {
     }
   }, []);
 
-  /* ========== Data ========== */
+  /* ========== Data (summary + lists) ========== */
   const [overview, setOverview] = useState({
     totals: { income: 0, totalAuctions: 0, ongoing: 0, sold: 0 },
     live: [],
@@ -182,16 +196,19 @@ export default function SellerAuctionControlDashboard() {
     history: [],
   });
 
+  // Filter states
   const [q, setQ] = useState("");
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
 
+  // Drawer / modal states
   const [openDrawer, setOpenDrawer] = useState(false);
   const [drawerAuction, setDrawerAuction] = useState(null);
   const [drawerMode, setDrawerMode] = useState("live"); // 'live' | 'upcoming' | 'ended'
   const [createOpen, setCreateOpen] = useState(false);
   const [editForm, setEditForm] = useState(null);
 
+  // Fetch overview; poll every 10s
   async function load() {
     try {
       const data = await request("/api/auctions/seller/overview");
@@ -216,6 +233,7 @@ export default function SellerAuctionControlDashboard() {
     return () => clearInterval(id);
   }, []);
 
+  // When opening "upcoming" in drawer, preload form
   useEffect(() => {
     if (openDrawer && drawerMode === "upcoming" && drawerAuction) {
       setEditForm({
@@ -238,9 +256,10 @@ export default function SellerAuctionControlDashboard() {
       norm(a.title).includes(norm(q)) ||
       norm(a.description).includes(norm(q))) &&
     (type === "all" || a.type === type);
+
   const liveFiltered = useMemo(
     () => overview.live.filter(match),
-    [overview.live, q, type]
+    [match, overview.live]
   );
   const upcomingFiltered = useMemo(
     () => overview.upcoming.filter(match),
@@ -250,6 +269,7 @@ export default function SellerAuctionControlDashboard() {
     () => overview.history.filter(match),
     [overview.history, q, type]
   );
+
   const showLive = status === "all" || status === "live";
   const showUpcoming = status === "all" || status === "upcoming";
   const showEnded = status === "all" || status === "ended";
@@ -271,7 +291,7 @@ export default function SellerAuctionControlDashboard() {
     setOpenDrawer(true);
   };
 
-  /* ========== Drawer actions ========== */
+  /* ========== Drawer actions (Upcoming only) ========== */
   async function saveUpcoming() {
     const id = drawerAuction?._id;
     await request(`/api/auctions/${id}`, {
@@ -297,11 +317,12 @@ export default function SellerAuctionControlDashboard() {
     await load();
   }
 
-  /* ========== Charts (unchanged) ========== */
+  /* ========== Charts ========== */
   const [revenueMode, setRevenueMode] = useState("weekly"); // "weekly" | "monthly"
   const chartRefs = { status: useRef(null), revenue: useRef(null) };
   const chartObjs = useRef({});
 
+  // Counts for doughnut
   const statusCounts = useMemo(() => {
     const live = liveFiltered.length;
     const up = upcomingFiltered.length;
@@ -309,7 +330,7 @@ export default function SellerAuctionControlDashboard() {
     return { live, up, ended };
   }, [liveFiltered, upcomingFiltered, historyFiltered]);
 
-  // monthly (last 12 months)
+  // Monthly revenue from history
   const monthlyRevenue = useMemo(() => {
     const buckets = lastNMonths(12);
     const sums = new Map(buckets.map((b) => [b.key, 0]));
@@ -328,13 +349,13 @@ export default function SellerAuctionControlDashboard() {
     return { labels, data };
   }, [overview.history]);
 
-  // weekly (last 12 ISO weeks)
+  // Weekly revenue (prefer API; fallback to client grouping)
   const [weeklyApi, setWeeklyApi] = useState(null);
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const res = await request("/api/reports/weekly-revenue"); // expected: [{year, week, amount}]
+        const res = await request("/api/reports/weekly-revenue"); // [{year, week, amount}]
         if (mounted && Array.isArray(res)) setWeeklyApi(res);
       } catch {
         setWeeklyApi(null);
@@ -368,7 +389,7 @@ export default function SellerAuctionControlDashboard() {
     return { labels, data };
   }, [overview.history, weeklyApi]);
 
-  // tiny summary for revenue (this vs last)
+  // Summary: last vs previous bucket
   const revenueSummary = useMemo(() => {
     const src = revenueMode === "weekly" ? weeklyRevenue : monthlyRevenue;
     const arr = src.data || [];
@@ -379,6 +400,7 @@ export default function SellerAuctionControlDashboard() {
     return { current, previous, delta };
   }, [revenueMode, weeklyRevenue, monthlyRevenue]);
 
+  // Draw charts (lazy-load Chart.js from CDN)
   useEffect(() => {
     const ensureChartJs = () =>
       new Promise((resolve) => {
@@ -392,10 +414,12 @@ export default function SellerAuctionControlDashboard() {
     const draw = async () => {
       await ensureChartJs();
       const Chart = window.Chart;
+
+      // Destroy old instances
       Object.values(chartObjs.current).forEach((c) => c?.destroy?.());
       chartObjs.current = {};
 
-      // Status doughnut
+      // Doughnut: Auction status counts
       if (chartRefs.status.current) {
         chartObjs.current.status = new Chart(
           chartRefs.status.current.getContext("2d"),
@@ -433,7 +457,7 @@ export default function SellerAuctionControlDashboard() {
         );
       }
 
-      // Revenue bar (weekly/monthly)
+      // Bar: Revenue (weekly/monthly)
       if (chartRefs.revenue.current) {
         const src = revenueMode === "weekly" ? weeklyRevenue : monthlyRevenue;
         chartObjs.current.revenue = new Chart(
@@ -480,16 +504,22 @@ export default function SellerAuctionControlDashboard() {
       Object.values(chartObjs.current).forEach((c) => c?.destroy?.());
       chartObjs.current = {};
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusCounts, weeklyRevenue, monthlyRevenue, revenueMode]);
 
   /* ===================== UI ===================== */
   return (
     <>
+      {/* Background particles (under everything) */}
       <div id="particles-js" />
+
+      {/* App Shell: header + sidebar + content */}
       <Header />
       <div className="sac-container">
         <SellerSidebar active="auctioncontrol" />
+
         <main className="sac-content">
+          {/* Page header: title + primary action */}
           <div className="sac-header">
             <h2 className="sac-title">Seller • Auction Control</h2>
             <button className="sac-btn" onClick={() => setCreateOpen(true)}>
@@ -497,7 +527,7 @@ export default function SellerAuctionControlDashboard() {
             </button>
           </div>
 
-          {/* Filters - one row centered */}
+          {/* Filters row: search, type, status */}
           <div className="sac-filters">
             <div className="sac-search">
               <i className="fa-solid fa-magnifying-glass" />
@@ -554,7 +584,7 @@ export default function SellerAuctionControlDashboard() {
             </div>
           </div>
 
-          {/* Overview */}
+          {/* Overview widgets */}
           <section className="sac-overview">
             <Widget
               icon="fa-coins"
@@ -578,7 +608,7 @@ export default function SellerAuctionControlDashboard() {
             />
           </section>
 
-          {/* Charts */}
+          {/* Charts row */}
           <div className="sac-charts">
             <div className="sac-chart-card">
               <h3 className="sac-chart-title">Auctions by Status</h3>
@@ -606,7 +636,7 @@ export default function SellerAuctionControlDashboard() {
                 </div>
               </div>
 
-              {/* Summary row */}
+              {/* Mini KPI summary (current vs previous bucket) */}
               <div className="sac-metrics">
                 <div className="sac-metric">
                   <div className="sac-metric-label">
@@ -651,7 +681,7 @@ export default function SellerAuctionControlDashboard() {
             </div>
           </div>
 
-          {/* Live */}
+          {/* Live list */}
           {showLive && (
             <Section title="Live Auctions">
               <div className="sac-grid">
@@ -666,7 +696,7 @@ export default function SellerAuctionControlDashboard() {
             </Section>
           )}
 
-          {/* Upcoming */}
+          {/* Upcoming list */}
           {showUpcoming && (
             <Section title="Upcoming Auctions">
               <div className="sac-grid">
@@ -685,7 +715,7 @@ export default function SellerAuctionControlDashboard() {
             </Section>
           )}
 
-          {/* Ended */}
+          {/* Ended (table) */}
           {showEnded && (
             <Section title="Auction History">
               <div className="sac-table-wrap">
@@ -736,7 +766,7 @@ export default function SellerAuctionControlDashboard() {
         </main>
       </div>
 
-      {/* Drawer */}
+      {/* Drawer (details / edit upcoming) */}
       <DetailsDrawer
         open={openDrawer}
         a={drawerAuction}
@@ -748,7 +778,7 @@ export default function SellerAuctionControlDashboard() {
         onDeleteUpcoming={deleteUpcoming}
       />
 
-      {/* Create Modal */}
+      {/* Create Auction Modal */}
       <CreateAuctionModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
@@ -758,7 +788,7 @@ export default function SellerAuctionControlDashboard() {
   );
 }
 
-/* ===================== Pieces ===================== */
+/* ===================== Reusable Pieces ===================== */
 function Section({ title, children }) {
   return (
     <section className="sac-section">
@@ -779,6 +809,8 @@ function Widget({ icon, label, value }) {
     </div>
   );
 }
+
+// Live card (uniform height via CSS; action pinned bottom)
 function LiveCard({ a, onOpen }) {
   const { total, days, hours, minutes, seconds } = useCountdown(a.endTime);
   const ended = total <= 0;
@@ -817,6 +849,8 @@ function LiveCard({ a, onOpen }) {
     </div>
   );
 }
+
+// Upcoming card (switches to STARTED style when countdown hits 0)
 function UpcomingCard({ a, onOpen }) {
   const { total, days, hours, minutes, seconds } = useCountdown(a.startTime);
   const started = total <= 0;
@@ -874,7 +908,7 @@ function DetailsDrawer({
   onSaveUpcoming,
   onDeleteUpcoming,
 }) {
-  // recent bidders
+  // Recent bidders list (live/ended only)
   const [bidders, setBidders] = useState([]);
   const [loadingBidders, setLoadingBidders] = useState(false);
 
@@ -887,7 +921,6 @@ function DetailsDrawer({
       }
       try {
         setLoadingBidders(true);
-        // most recent first
         const data = await request(
           `/api/bids/auction/${a._id}?limit=10&sort=desc`
         );
@@ -919,12 +952,15 @@ function DetailsDrawer({
         onClick={onClose}
       />
       <aside className={`sac-drawer ${open ? "open" : ""}`} aria-hidden={!open}>
+        {/* Drawer header */}
         <div className="sac-drawer-header">
           <h3>{a ? a.title : "Details"}</h3>
           <button className="sac-icon-btn" onClick={onClose} aria-label="Close">
             <i className="fa-solid fa-xmark" />
           </button>
         </div>
+
+        {/* Drawer body */}
         <div className="sac-drawer-body">
           {!a ? null : mode === "upcoming" ? (
             <>
@@ -933,6 +969,7 @@ function DetailsDrawer({
                 src={asset(a.imageUrl)}
                 alt={a.title}
               />
+              {/* Upcoming edit form */}
               <div className="sac-form-grid">
                 <div className="sac-form-group sac-col-full">
                   <label className="sac-required">Gem Name</label>
@@ -1005,6 +1042,7 @@ function DetailsDrawer({
             </>
           ) : (
             <>
+              {/* Read-only details for live/ended */}
               <img
                 className="sac-drawer-img"
                 src={asset(a.imageUrl)}
@@ -1050,11 +1088,9 @@ function DetailsDrawer({
                 <table className="sac-table">
                   <thead>
                     <tr>
-                      <th>#</th>
+                      <th></th>
                       <th>Bidder</th>
-                      <th>Email</th>
                       <th>Amount</th>
-                      <th>Time</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1075,9 +1111,7 @@ function DetailsDrawer({
                         <tr key={b.id}>
                           <td>{idx + 1}</td>
                           <td>{b.name}</td>
-                          <td className="sac-muted">{b.email || "-"}</td>
                           <td className="sac-price">{fmtMoney(b.amount)}</td>
-                          <td>{b.time ? fmtDateTime(b.time) : "-"}</td>
                         </tr>
                       ))
                     )}
@@ -1087,6 +1121,8 @@ function DetailsDrawer({
             </>
           )}
         </div>
+
+        {/* Drawer footer */}
         <div className="sac-drawer-footer">
           {mode === "upcoming" ? (
             <>
@@ -1108,7 +1144,7 @@ function DetailsDrawer({
   );
 }
 
-/* ============ Create Modal ============ */
+/* ============ Create Auction Modal (4 steps) ============ */
 function CreateAuctionModal({ open, onClose, onCreated }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
@@ -1123,6 +1159,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
   });
   const fileRef = useRef(null);
 
+  // Reset on close
   useEffect(() => {
     if (!open) {
       setStep(1);
@@ -1153,6 +1190,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
     form.endTime &&
     new Date(form.startTime) < new Date(form.endTime);
 
+  // Image file handler with basic validation
   const handleFile = (file) => {
     if (!file) return;
     if (!/^image\//.test(file.type))
@@ -1164,6 +1202,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
     setField("file", file);
   };
 
+  // Submit new auction
   async function submit(e) {
     e.preventDefault();
     const fd = new FormData();
@@ -1184,6 +1223,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
 
   return (
     <>
+      {/* Modal backdrop + container */}
       <div
         className={`sac-modal-overlay ${open ? "open" : ""}`}
         onClick={onClose}
@@ -1193,6 +1233,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
         role="dialog"
         aria-modal="true"
       >
+        {/* Modal header */}
         <div className="sac-modal-header">
           <h2>Create Auction</h2>
           <button className="sac-icon-btn" onClick={onClose}>
@@ -1200,6 +1241,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
           </button>
         </div>
 
+        {/* Stepper */}
         <div className="sac-steps">
           {["Gem Details", "Pricing", "Schedule", "Review"].map((label, i) => {
             const n = i + 1;
@@ -1213,7 +1255,9 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
           })}
         </div>
 
+        {/* Modal body (form) */}
         <form className="sac-modal-body" onSubmit={submit}>
+          {/* Step 1: gem details + image */}
           {step === 1 && (
             <div className="sac-form-grid">
               <div className="sac-form-group sac-col-full">
@@ -1224,6 +1268,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
                   placeholder="e.g., Royal Blue Sapphire"
                 />
               </div>
+
               <div className="sac-form-group">
                 <label className="sac-required">Gem Type</label>
                 <select
@@ -1238,6 +1283,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
                   <option value="other">Other</option>
                 </select>
               </div>
+
               <div className="sac-form-group sac-col-full">
                 <label className="sac-required">Description</label>
                 <textarea
@@ -1246,6 +1292,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
                   placeholder="Describe the gem..."
                 />
               </div>
+
               <div className="sac-form-group sac-col-full">
                 <label className="sac-required">Image</label>
                 {!form.imageDataUrl ? (
@@ -1300,6 +1347,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
                   onChange={(e) => handleFile(e.target.files?.[0])}
                 />
               </div>
+
               <div className="sac-form-nav sac-col-full">
                 <button
                   type="button"
@@ -1320,6 +1368,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
             </div>
           )}
 
+          {/* Step 2: starting price */}
           {step === 2 && (
             <div className="sac-form-grid">
               <div className="sac-form-group sac-col-full">
@@ -1354,6 +1403,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
             </div>
           )}
 
+          {/* Step 3: schedule */}
           {step === 3 && (
             <div className="sac-form-grid">
               <div className="sac-form-group">
@@ -1392,6 +1442,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
             </div>
           )}
 
+          {/* Step 4: review & submit */}
           {step === 4 && (
             <div className="sac-form-grid">
               <div className="sac-review sac-col-full">
