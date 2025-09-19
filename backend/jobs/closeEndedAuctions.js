@@ -1,22 +1,32 @@
+// Jobs/closeEndedAuction.js
+// ---------------------------------------------------------
+// Background job that:
+//  1) Promotes upcoming -> ongoing when startTime passes
+//  2) Closes auctions whose endTime has passed
+//  3) Creates a Winner record for the top bid (if any)
+// We now ALSO store `auctionCode` from Auction.auctionId onto the Winner.
+
 const Auction = require("../Models/Auction");
 const Bid = require("../Models/Bid");
 const Winner = require("../Models/Winner");
 
+// Find the highest bid for an auction.
+// If two bids have the same amount, the earliest wins.
 async function topBid(auctionId) {
-  // Highest amount; for ties, earliest wins
   return Bid.findOne({ auction: auctionId })
     .sort({ amount: -1, placedAt: 1 })
     .lean();
 }
 
+// One execution "tick" of the job
 async function tickOnce() {
   const now = new Date();
 
-  // 1) Promote upcoming -> ongoing (keeps status tidy)
+  // 1) Promote upcoming -> ongoing when time window opens
   await Auction.updateMany(
     { status: { $ne: "ongoing" }, startTime: { $lte: now }, endTime: { $gt: now } },
     { $set: { status: "ongoing" } }
-  ).catch(() => {});
+  ).catch(() => { /* ignore */ });
 
   // 2) Close auctions that just ended and create winners
   const toClose = await Auction.find({
@@ -28,22 +38,24 @@ async function tickOnce() {
     const existingWinner = await Winner.findOne({ auction: a._id }).lean();
     const top = await topBid(a._id);
 
-    // mark ended & sync price/finalPrice
+    // Mark auction ended, update current/final price
     a.status = "ended";
     a.endedAt = now;
     if (top) {
       a.currentPrice = Math.max(Number(a.currentPrice || 0), Number(top.amount || 0));
-      if ("finalPrice" in a) a.finalPrice = top.amount; // only if your model has this field
+      // If your Auction schema has finalPrice, set it too:
+      if ("finalPrice" in a) a.finalPrice = top.amount;
     }
     await a.save();
 
-    // create Winner doc if there was a bid and not already created
+    // If we have a top bid and no winner exists, create the winner
     if (!existingWinner && top) {
-      const purchaseDeadline = new Date(now.getTime() + 7 * 86400000);
+      const purchaseDeadline = new Date(now.getTime() + 7 * 86400000); // +7 days
       await Winner.create({
-        auction: a._id,
-        user: top.user,
-        amount: top.amount,
+        auction: a._id,           // ObjectId link
+        auctionCode: a.auctionId, // NEW: human-friendly code (AUC-...-...)
+        user: top.user,           // who placed the top bid
+        amount: top.amount,       // final price
         purchaseDeadline,
         purchaseStatus: "pending",
       });
@@ -51,10 +63,11 @@ async function tickOnce() {
   }
 }
 
+// Start the interval job (runs every 2 minutes)
 function startCloseEndedAuctionsJob() {
   setInterval(() => {
     tickOnce().catch((e) => console.error("closeEndedAuctions error:", e));
-  }, 2 * 60 * 1000); // every 2 minutes
+  }, 2 * 60 * 1000);
 }
 
 module.exports = { startCloseEndedAuctionsJob, tickOnce };

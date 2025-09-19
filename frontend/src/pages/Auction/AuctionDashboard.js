@@ -177,7 +177,7 @@ export default function AuctionDashboard() {
     <div className="sd-page">
       <Header />
       <main className="sd-container">
-        <h1 className="sd-title">Auction Dashboard</h1>
+        <h1 className="sd-title">Auction Center</h1>
 
         <section className="sd-overview">
           <Widget
@@ -407,6 +407,18 @@ function LiveCard({ a, onOpen }) {
       <div className="sd-badge sd-badge-live">
         LIVE • {a.bidsCount || 0} BIDS
       </div>
+      <div className="sd-countdown">
+        {ended ? (
+          <span className="sd-muted">Auction ended</span>
+        ) : (
+          <>
+            <TimeBox v={days} lbl="Days" />
+            <TimeBox v={hours} lbl="Hours" />
+            <TimeBox v={minutes} lbl="Mins" />
+            <TimeBox v={seconds} lbl="Secs" />
+          </>
+        )}
+      </div>
       <img className="sd-image" src={asset(a.imageUrl)} alt={a.title} />
       <h3 className="sd-card-title">{a.title}</h3>
       <p className="sd-card-sub">
@@ -420,18 +432,7 @@ function LiveCard({ a, onOpen }) {
       <p className="sd-line">
         <strong>Ends:</strong> {fmtDateTime(a.endTime)}
       </p>
-      <div className="sd-countdown">
-        {ended ? (
-          <span className="sd-muted">Auction ended</span>
-        ) : (
-          <>
-            <TimeBox v={days} lbl="Days" />
-            <TimeBox v={hours} lbl="Hours" />
-            <TimeBox v={minutes} lbl="Mins" />
-            <TimeBox v={seconds} lbl="Secs" />
-          </>
-        )}
-      </div>
+      
       <div className="sd-actions">
         <button className="sd-btn-outline sd-btn-wide" onClick={onOpen}>
           <i className="fa-solid fa-eye" /> View Details
@@ -453,6 +454,18 @@ function UpcomingCard({ a, onOpen }) {
       >
         {started ? "STARTED" : "UPCOMING"}
       </div>
+       <div className="sd-countdown">
+        {started ? (
+          <span className="sd-muted">Auction started</span>
+        ) : (
+          <>
+            <TimeBox v={days} lbl="Days" />
+            <TimeBox v={hours} lbl="Hours" />
+            <TimeBox v={minutes} lbl="Mins" />
+            <TimeBox v={seconds} lbl="Secs" />
+          </>
+        )}
+      </div>
       <img className="sd-image" src={asset(a.imageUrl)} alt={a.title} />
       <h3 className="sd-card-title">{a.title}</h3>
       <p className="sd-card-sub">
@@ -466,18 +479,7 @@ function UpcomingCard({ a, onOpen }) {
       <p className="sd-line">
         <strong>End:</strong> {fmtDateTime(a.endTime)}
       </p>
-      <div className="sd-countdown">
-        {started ? (
-          <span className="sd-muted">Auction started</span>
-        ) : (
-          <>
-            <TimeBox v={days} lbl="Days" />
-            <TimeBox v={hours} lbl="Hours" />
-            <TimeBox v={minutes} lbl="Mins" />
-            <TimeBox v={seconds} lbl="Secs" />
-          </>
-        )}
-      </div>
+     
       <div className="sd-actions">
         <button className="sd-btn-outline sd-btn-wide" onClick={onOpen}>
           <i className="fa-solid fa-pen-to-square" /> Details / Edit

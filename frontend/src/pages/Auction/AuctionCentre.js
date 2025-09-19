@@ -255,13 +255,6 @@ function OngoingCard({ auction, onBid }) {
       <div className={`ac-badge ${ended ? "ac-badge-ended" : "ac-badge-ongoing"}`}>
         {ended ? "ENDED" : "ONGOING"}
       </div>
-      <img className="ac-image" src={asset(auction.imageUrl)} alt={auction.title} />
-      <h3 className="ac-card-title">{auction.title}</h3>
-      <p className="ac-meta"><i className="fa-solid fa-gem" /> {auction.type}</p>
-      <p className="ac-desc">{auction.description}</p>
-      <div className="ac-price">Current: {fmtMoney(auction.currentPrice)}</div>
-      <p className="ac-line"><strong>Base Price:</strong> {fmtMoney(auction.basePrice)}</p>
-      <p className="ac-line"><strong>Ends:</strong> {fmtDate(auction.endTime)}</p>
       <div className="ac-countdown">
         {ended ? (
           <span className="ac-ended">Auction ended</span>
@@ -274,6 +267,13 @@ function OngoingCard({ auction, onBid }) {
           </>
         )}
       </div>
+      <img className="ac-image" src={asset(auction.imageUrl)} alt={auction.title} />
+      <h3 className="ac-card-title">{auction.title}</h3>
+      <p className="ac-meta"><i className="fa-solid fa-gem" /> {auction.type}</p>
+      <div className="ac-price">Current: {fmtMoney(auction.currentPrice)}</div>
+      <p className="ac-line"><strong>Base Price:</strong> {fmtMoney(auction.basePrice)}</p>
+      <p className="ac-line"><strong>Ends:</strong> {fmtDate(auction.endTime)}</p>
+      
       <button className="ac-btn" onClick={onBid} disabled={ended}>Bid Now</button>
     </div>
   );
@@ -290,13 +290,6 @@ function UpcomingCard({ auction, onReminder }) {
       <div className={`ac-badge ${started ? "ac-badge-ongoing" : "ac-badge-upcoming"}`}>
         {started ? "STARTED" : "UPCOMING"}
       </div>
-      <img className="ac-image" src={asset(auction.imageUrl)} alt={auction.title} />
-      <h3 className="ac-card-title">{auction.title}</h3>
-      <p className="ac-meta"><i className="fa-solid fa-gem" /> {auction.type}</p>
-      <p className="ac-desc">{auction.description}</p>
-      <div className="ac-price">Base: {fmtMoney(auction.basePrice)}</div>
-      <p className="ac-line"><strong>Starts:</strong> {fmtDate(auction.startTime)}</p>
-      <p className="ac-line"><strong>Ends:</strong> {fmtDate(auction.endTime)}</p>
       <div className="ac-countdown">
         {started ? (
           <span className="ac-started">Auction started</span>
@@ -309,6 +302,13 @@ function UpcomingCard({ auction, onReminder }) {
           </>
         )}
       </div>
+      <img className="ac-image" src={asset(auction.imageUrl)} alt={auction.title} />
+      <h3 className="ac-card-title">{auction.title}</h3>
+      <p className="ac-meta"><i className="fa-solid fa-gem" /> {auction.type}</p>
+      <div className="ac-price">Base: {fmtMoney(auction.basePrice)}</div>
+      <p className="ac-line"><strong>Starts:</strong> {fmtDate(auction.startTime)}</p>
+      <p className="ac-line"><strong>Ends:</strong> {fmtDate(auction.endTime)}</p>
+      
       <button className="ac-btn ac-btn-outline" onClick={onReminder}>Set Reminder</button>
     </div>
   );
