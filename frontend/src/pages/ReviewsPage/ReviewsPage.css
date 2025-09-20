@@ -290,3 +290,106 @@ footer {
   .page-header h1 { font-size: 36px; }
 }
 
+/* ===== Feedback Overview (Sidebar Card) ===== */
+
+.sidebar {
+  width: 320px;
+  min-width: 280px;
+  margin-left: 24px;
+}
+
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 100%;
+    min-width: auto;
+    margin-left: 0;
+    margin-top: 24px;
+  }
+}
+
+/* Card container */
+.feedback-card {
+  background: rgba(26, 26, 26, 0.85);
+  border: 1px solid rgba(212, 175, 55, 0.15);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+
+/* Card header (title strip) */
+.feedback-card__header {
+  padding: 18px 20px;
+  background: rgba(20, 20, 20, 0.9);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.feedback-card__header h3 {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  color: #d4af37;
+}
+
+/* Inner content */
+.rating-summary {
+  padding: 18px 20px 22px;
+}
+
+/* Section title (Rating Distribution) */
+.rating-summary__title {
+  margin: 0 0 14px;
+  color: #d4af37;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Row */
+.rating-bar {
+  display: grid;
+  grid-template-columns: 80px 1fr 42px;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+/* Left label (5 Stars, 4 Stars, ...) */
+.rating-label {
+  color: #cfcfcf;
+  font-size: 13px;
+}
+
+/* Middle progress track */
+.rating-progress {
+  height: 8px;
+  background: #2a2a2a;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+/* Filled part */
+.rating-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f9f295, #d4af37);
+  border-radius: 999px;
+  transition: width 300ms ease;
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.35);
+}
+
+/* Right count */
+.rating-count {
+  text-align: right;
+  color: #bdbdbd;
+  font-size: 13px;
+}
+
+/* Match the screenshot’s rounded container spacing on page */
+.content-container {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+}
+@media (max-width: 1024px) {
+  .content-container {
+    grid-template-columns: 1fr;
+  }
+}

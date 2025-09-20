@@ -1,0 +1,465 @@
+/* === Reset & base === */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.myfeedback-root {
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  color: #f5f5f5;
+  overflow-x: hidden;
+  line-height: 1.6;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Particle Background */
+#particles-js {
+  position: fixed;
+  inset: 0;
+  z-index: 0; /* keep it behind content */
+}
+/* Make sure particles never eat clicks */
+#particles-js,
+#particles-js canvas {
+  pointer-events: none !important;
+}
+
+/* === Header === */
+#myfeedback-header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  padding: 20px 5%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 1000;
+  transition: 0.5s;
+  backdrop-filter: blur(10px);
+  background: rgba(10, 10, 10, 0.8);
+}
+
+#myfeedback-header.scrolled {
+  padding: 15px 5%;
+  background: rgba(10, 10, 10, 0.95);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+}
+
+#myfeedback-header .logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(to right, #d4af37, #f9f295);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: 1px;
+}
+
+#myfeedback-header .nav-links {
+  display: flex;
+  gap: 35px;
+}
+
+#myfeedback-header .nav-links a {
+  color: #e0e0e0;
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 500;
+  transition: 0.3s;
+  position: relative;
+}
+
+#myfeedback-header .nav-links a:hover {
+  color: #d4af37;
+}
+
+#myfeedback-header .nav-links a::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(to right, #d4af37, #f9f295);
+  transition: 0.3s;
+}
+
+#myfeedback-header .nav-links a:hover::after {
+  width: 100%;
+}
+
+#myfeedback-header .header-actions {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+#myfeedback-header .header-actions i {
+  font-size: 20px;
+  color: #e0e0e0;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+#myfeedback-header .header-actions i:hover {
+  color: #d4af37;
+}
+
+/* === Page header (banner) === */
+.page-header {
+  text-align: center;
+  padding: 150px 5% 50px;
+  background: linear-gradient(to bottom, rgba(10, 10, 10, 0.9), rgba(26, 26, 26, 0.8)),
+    url('https://images.unsplash.com/photo-1599643478517-a313f52cc3c3?auto=format&fit=crop&w=1074&q=80');
+  background-size: cover;
+  background-position: center;
+  margin-bottom: 50px;
+}
+
+.page-header h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 48px;
+  margin-bottom: 15px;
+  color: #f5f5f5;
+}
+
+.page-header p {
+  color: #d4af37;
+  max-width: 600px;
+  margin: 0 auto;
+  font-size: 18px;
+}
+
+/* === Tabs === */
+.tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+  padding: 0 5%;
+  position: relative;
+  z-index: 2; /* keep above particles */
+}
+
+.tab-btn {
+  padding: 12px 30px;
+  background: rgba(26, 26, 26, 0.7);
+  border: none;
+  color: #b0b0b0;
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.3s;
+  border-bottom: 2px solid transparent;
+  position: relative;
+  z-index: 3; /* clickable */
+}
+
+.tab-btn:first-child {
+  border-radius: 8px 0 0 8px;
+}
+
+.tab-btn:last-child {
+  border-radius: 0 8px 8px 0;
+}
+
+.tab-btn.active {
+  color: #d4af37;
+  border-bottom: 2px solid #d4af37;
+  background: rgba(212, 175, 55, 0.1);
+}
+
+/* === Content container === */
+.content-container {
+  padding: 0 5%;
+  margin-bottom: 50px;
+  position: relative;
+  z-index: 1;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* === Card === */
+.reviews-card {
+  background: rgba(26, 26, 26, 0.7);
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(212, 175, 55, 0.1);
+}
+
+.card-header {
+  padding: 20px;
+  background: rgba(20, 20, 20, 0.8);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.card-header h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px;
+  color: #d4af37;
+}
+
+/* === Items === */
+.review-item {
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s;
+}
+
+.review-item:hover {
+  background: rgba(212, 175, 55, 0.03);
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.reviewer-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.reviewer-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(45deg, #d4af37, #f9f295);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #0a0a0a;
+  font-weight: bold;
+  font-size: 20px;
+}
+
+.reviewer-details h4 {
+  color: #f5f5f5;
+  margin-bottom: 5px;
+}
+
+.reviewer-details p {
+  color: #b0b0b0;
+  font-size: 0.9rem;
+}
+
+.review-rating {
+  color: #d4af37;
+  font-size: 1.2rem;
+}
+
+.review-category {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin: 0 5px 10px 0;
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  color: #d4af37;
+}
+
+.review-content {
+  margin-bottom: 15px;
+  color: #e0e0e0;
+}
+
+.review-gem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(10, 10, 10, 0.5);
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-top: 15px;
+}
+
+.review-gem img {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.review-gem p {
+  color: #b0b0b0;
+  font-size: 0.9rem;
+}
+
+.review-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.review-action-btn {
+  background: none;
+  border: none;
+  color: #b0b0b0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.9rem;
+  transition: color 0.3s;
+}
+
+.review-action-btn:hover {
+  color: #d4af37;
+}
+
+/* Add button */
+.add-btn-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+  padding: 0 5%;
+  position: relative;
+  z-index: 5;
+}
+
+.add-btn {
+  padding: 12px 25px;
+  background: linear-gradient(45deg, #d4af37, #f9f295);
+  border: none;
+  border-radius: 30px;
+  color: #0a0a0a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.4s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
+  position: relative;
+  z-index: 6;
+}
+
+.add-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(212, 175, 55, 0.4);
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 50px 20px;
+  color: #b0b0b0;
+}
+
+.empty-state i {
+  font-size: 60px;
+  margin-bottom: 20px;
+  color: #d4af37;
+}
+
+.empty-state h3 {
+  font-family: 'Playfair Display', serif;
+  margin-bottom: 10px;
+  color: #f5f5f5;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .page-header {
+    padding: 130px 5% 30px;
+  }
+  .page-header h1 {
+    font-size: 36px;
+  }
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .review-header {
+    flex-direction: column;
+    gap: 15px;
+  }
+  .add-btn-container {
+    justify-content: center;
+  }
+  .tabs { z-index: 3; }
+  #myfeedback-header .nav-links {
+    display: none;
+  }
+}
+/* --- Fix action buttons look & feel --- */
+.item-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.item-actions .edit-btn,
+.item-actions .delete-btn {
+  /* wipe default browser button styles */
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+  transition: transform .15s ease, box-shadow .15s ease, background .2s ease, border-color .2s ease, color .2s ease;
+  user-select: none;
+}
+
+/* edit = gold pill */
+.item-actions .edit-btn {
+  background: rgba(212, 175, 55, 0.10);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  color: #d4af37;
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.15);
+}
+.item-actions .edit-btn:hover {
+  background: rgba(212, 175, 55, 0.18);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(212, 175, 55, 0.25);
+}
+
+/* delete = red pill */
+.item-actions .delete-btn {
+  background: rgba(255, 107, 107, 0.10);
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  color: #ff6b6b;
+  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.15);
+}
+.item-actions .delete-btn:hover {
+  background: rgba(255, 107, 107, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(255, 107, 107, 0.25);
+}
+
+/* make the FA icons align nicely */
+.item-actions .edit-btn i,
+.item-actions .delete-btn i {
+  font-size: 14px;
+  margin-right: 2px;
+}
+
+.hidden-badge{
+  display:inline-block;margin-left:8px;padding:3px 8px;border-radius:12px;
+  font-size:12px;font-weight:600;background:#ff4757;color:#fff
+}
+

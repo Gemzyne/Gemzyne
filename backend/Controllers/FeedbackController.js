@@ -1,0 +1,232 @@
+// backend/Controllers/FeedbackController.js
+const Feedback = require("../Models/FeedbackModel");
+
+/* ========================
+ * CREATE
+ * ====================== */
+exports.createFeedback = async (req, res) => {
+  try {
+    const {
+      type,             // "review" | "complaint"
+      firstName, lastName, email, phone,
+      productId, productName,
+      categories = [],
+      feedbackText,
+      images = [],
+      rating,           // reviews
+      complaintCategory,// complaints
+      orderDate,
+      orderId
+    } = req.body;
+
+    if (!type || !["review", "complaint"].includes(type)) {
+      return res.status(400).json({ success: false, message: "type must be 'review' or 'complaint'" });
+    }
+    if (!feedbackText?.trim()) {
+      return res.status(400).json({ success: false, message: "feedbackText is required" });
+    }
+    if (type === "review" && (!rating || rating < 1 || rating > 5)) {
+      return res.status(400).json({ success: false, message: "rating (1-5) required for reviews" });
+    }
+
+    const doc = new Feedback({
+      type,
+      // user: req.user?._id, // enable later when you add auth
+      firstName, lastName, email, phone,
+      productId, productName,
+      categories,
+      feedbackText,
+      images,
+      rating: type === "review" ? rating : undefined,
+      complaintCategory: type === "complaint" ? complaintCategory : undefined,
+      orderDate: type === "complaint" && orderDate ? new Date(orderDate) : undefined,
+      orderId: type === "complaint" ? orderId : undefined,
+      status: type === "complaint" ? "Pending" : undefined,
+      // isAdminHidden defaults to false in the schema
+    });
+
+    const saved = await doc.save();
+    res.status(201).json({ success: true, feedback: saved });
+  } catch (err) {
+    console.error("createFeedback error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/* ========================
+ * READ (supports visibility + includeHidden for compatibility)
+ * ====================== */
+exports.getFeedback = async (req, res) => {
+  try {
+    const { type, visibility } = req.query;
+    // Back-compat flag: ?includeHidden=1
+    const includeHidden = req.query.includeHidden === "1" || req.query.includeHidden === "true";
+
+    const find = {};
+    if (type && ["review", "complaint"].includes(type)) find.type = type;
+
+    // Visibility logic
+    // - default/public: exclude hidden
+    // - hidden: only hidden
+    // - all or includeHidden flag: include both
+    if (includeHidden) {
+      // no filter -> include hidden + visible
+    } else if (!visibility || visibility === "public") {
+      find.$or = [{ isAdminHidden: { $exists: false } }, { isAdminHidden: false }];
+    } else if (visibility === "hidden") {
+      find.isAdminHidden = true;
+    } // visibility === "all" -> no filter
+
+    const list = await Feedback.find(find).sort({ createdAt: -1 });
+    res.json({ success: true, feedback: list });
+  } catch (err) {
+    console.error("getFeedback error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/* ========================
+ * SOFT-DELETE (default) or HARD DELETE with ?hard=true
+ * Keep for backward compatibility, but prefer PATCH /:id/hide
+ * ====================== */
+exports.deleteFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { hard } = req.query; // ?hard=true to actually remove
+    const reason = req.body?.reason; // may be undefined if client doesn't send body with DELETE
+
+    if (hard === "true") {
+      const del = await Feedback.findByIdAndDelete(id);
+      if (!del) return res.status(404).json({ success: false, message: "Not found" });
+      return res.json({ success: true, hard: true });
+    }
+
+    // Soft hide (same effect as PATCH /:id/hide)
+    const doc = await Feedback.findById(id);
+    if (!doc) return res.status(404).json({ success: false, message: "Not found" });
+
+    // If you wire auth later, read role from req.user
+    const role = "admin"; // default mock role for now
+    doc.isAdminHidden = true;
+    doc.hiddenByRole = role;
+    doc.hiddenAt = new Date();
+    if (reason) doc.hiddenReason = reason;
+
+    await doc.save();
+    return res.json({ success: true, soft: true, feedback: doc });
+  } catch (err) {
+    console.error("deleteFeedback error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/* ========================
+ * PATCH /:id/hide (preferred soft-delete)
+ * ====================== */
+exports.hideFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const reason = req.body?.reason;
+    const role = "admin"; // later: req.user?.role
+
+    const doc = await Feedback.findById(id);
+    if (!doc) return res.status(404).json({ success: false, message: "Not found" });
+
+    doc.isAdminHidden = true;
+    doc.hiddenByRole = role;
+    doc.hiddenAt = new Date();
+    if (reason) doc.hiddenReason = reason;
+
+    await doc.save();
+    res.json({ success: true, feedback: doc });
+  } catch (err) {
+    console.error("hideFeedback error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/* ========================
+ * PATCH /:id/unhide
+ * ====================== */
+exports.unhideFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const doc = await Feedback.findById(id);
+    if (!doc) return res.status(404).json({ success: false, message: "Not found" });
+
+    doc.isAdminHidden = false;
+    doc.hiddenByRole = null;
+    doc.hiddenAt = null;
+    doc.hiddenReason = null;
+
+    await doc.save();
+    res.json({ success: true, feedback: doc });
+  } catch (err) {
+    console.error("unhideFeedback error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/* ========================
+ * RESTORE legacy alias
+ * ====================== */
+exports.restoreFeedback = exports.unhideFeedback;
+
+/* ========================
+ * UPDATE
+ * ====================== */
+exports.updateFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      type,                   // "review" | "complaint"
+      firstName, lastName, email, phone,
+      productId, productName,
+      categories,
+      feedbackText,
+      images,
+      rating,
+      complaintCategory,
+      orderDate,
+      orderId,
+      status,
+    } = req.body;
+
+    const doc = await Feedback.findById(id);
+    if (!doc) return res.status(404).json({ success: false, message: "Not found" });
+
+    if (type && !["review", "complaint"].includes(type)) {
+      return res.status(400).json({ success: false, message: "type must be 'review' or 'complaint'" });
+    }
+    if (type === "review" && (rating && (rating < 1 || rating > 5))) {
+      return res.status(400).json({ success: false, message: "rating (1-5) invalid for reviews" });
+    }
+
+    // Update only provided fields
+    if (type) doc.type = type;
+    if (firstName != null) doc.firstName = firstName;
+    if (lastName  != null) doc.lastName  = lastName;
+    if (email     != null) doc.email     = email;
+    if (phone     != null) doc.phone     = phone;
+
+    if (productId   != null) doc.productId   = productId;
+    if (productName != null) doc.productName = productName;
+
+    if (Array.isArray(categories)) doc.categories = categories;
+    if (feedbackText != null) doc.feedbackText = feedbackText;
+    if (Array.isArray(images)) doc.images = images;
+
+    if (type === "review" || rating != null) doc.rating = rating;
+    if (type === "complaint" || complaintCategory != null) doc.complaintCategory = complaintCategory;
+
+    if (orderDate != null) doc.orderDate = orderDate ? new Date(orderDate) : undefined;
+    if (orderId   != null) doc.orderId   = orderId;
+    if (status    != null) doc.status    = status;
+
+    const saved = await doc.save();
+    res.json({ success: true, feedback: saved });
+  } catch (err) {
+    console.error("updateFeedback error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

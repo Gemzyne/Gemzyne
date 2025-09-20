@@ -26,10 +26,10 @@ export default function UserSidebar() {
 
         <ul className="dashboard-menu">
           <li><NavLink to="/udashboard"><i className="fas fa-th-large"></i> Dashboard</NavLink></li>
-          <li><a href="#"><i className="fas fa-shopping-bag"></i> Orders</a></li>
+           <li><NavLink to="/my-orders"><i className="fas fa-shopping-bag"></i> Orders</NavLink></li>
           <li><NavLink to="/payment-history"><i className="fas fa-credit-card"></i> Payments</NavLink></li>
           <li><a href="#"><i className="fas fa-gavel"></i> Auctions</a></li>
-          <li><a href="#"><i className="fas fa-star"></i> Reviews</a></li>
+          <li><NavLink to="/my-feedback"><i className="fas fa-star"></i> My Feedback</NavLink></li>
           <li><NavLink to="/settings"><i className="fas fa-cog"></i> Settings</NavLink></li>
           <li>
             <a href="#" onClick={(e) => { e.preventDefault(); setShowLogoutModal(true); }}>

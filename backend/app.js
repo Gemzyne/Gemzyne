@@ -22,8 +22,8 @@ const AdminMetricsRoutes = require("./Routes/AdminMetricsRoutes"); // <-- add
 const orderRoutes = require('./Routes/OrderRoutes');
 const errorMiddleware = require('./Middleware/CustomError');
 const paymentRoutes = require('./Routes/PaymentRoutes'); // <-- add
-const reviewRoutes = require('./Routes/ReviewRoutes'); // <-- add
-const complaintRoutes = require('./Routes/ComplaintRoutes');
+const feedbackRoutes = require('./Routes/FeedbackRoutes');
+
 
 const app = express();
 
@@ -43,9 +43,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use("/users", meRoutes);
 app.use("/auth", authRoutes);
 
-// reviews api
-app.use("/api/reviews", reviewRoutes);
-app.use("/api/complaints", complaintRoutes);
+// feedback api
+app.use('/api/feedback', feedbackRoutes);
+
 
 
 //admin routes

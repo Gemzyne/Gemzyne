@@ -1,8 +1,9 @@
 // src/pages/ReviewsPage/ReviewsPage.js
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import "./ReviewsPage.css";
 import { apiRequest } from "../../lib/api";
+import Header from "../../Components/Header";
+import Footer from "../../Components/Footer";
 
 const PLACEHOLDER_IMG =
   "https://images.unsplash.com/photo-1606760227093-899b6c7e5eeb?auto=format&fit=crop&w=800&q=80";
@@ -11,19 +12,12 @@ function initialsFromName(first = "", last = "", email = "") {
   const a = (first || "").trim()[0];
   const b = (last || "").trim()[0];
   if (a || b) return `${a ?? ""}${b ?? ""}`.toUpperCase();
-  // fallback to email initials
-  if (email) return email.slice(0, 2).toUpperCase();
-  return "GG";
+  return email ? email.slice(0, 2).toUpperCase() : "GG";
 }
-
-function capFirst(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-}
-
-function formatDate(iso) {
+const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+const formatDate = (iso) => {
   try {
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, {
+    return new Date(iso).toLocaleDateString(undefined, {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -31,10 +25,10 @@ function formatDate(iso) {
   } catch {
     return "";
   }
-}
+};
 
 const ReviewsPage = () => {
-  // ---- Particles.js loader & init ----
+  // Particles
   const particlesLoaded = useRef(false);
   useEffect(() => {
     const ensureParticles = () =>
@@ -88,11 +82,7 @@ const ReviewsPage = () => {
         },
         interactivity: {
           detect_on: "canvas",
-          events: {
-            onhover: { enable: true, mode: "grab" },
-            onclick: { enable: true, mode: "push" },
-            resize: true,
-          },
+          events: { onhover: { enable: true, mode: "grab" }, onclick: { enable: true, mode: "push" }, resize: true },
           modes: { grab: { distance: 140, line_linked: { opacity: 0.5 } } },
         },
         retina_detect: true,
@@ -102,9 +92,9 @@ const ReviewsPage = () => {
     return () => destroyParticles();
   }, []);
 
-  // ---- Header scroll effect ----
+  // Optional header scroll effect
   useEffect(() => {
-    const header = document.getElementById("reviews-header");
+    const header = document.querySelector("header");
     const onScroll = () => {
       if (!header) return;
       if (window.scrollY > 100) header.classList.add("scrolled");
@@ -115,8 +105,8 @@ const ReviewsPage = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // ---- Fetch reviews from API ----
-  const [reviews, setReviews] = useState([]);       // normalized for UI
+  // Fetch reviews
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -126,26 +116,22 @@ const ReviewsPage = () => {
       try {
         setLoading(true);
         setError("");
-        const data = await apiRequest("/api/reviews"); // GET (success:true,reviews:[...])
-        const items = (data?.reviews ?? []).map((r) => ({
-          id: r._id,
-          initials: initialsFromName(r.firstName, r.lastName, r.email),
+        const data = await apiRequest("/api/feedback?type=review");
+        const list = Array.isArray(data?.feedback) ? data.feedback : [];
+        const items = list.map((f) => ({
+          id: f._id,
+          initials: initialsFromName(f.firstName, f.lastName, f.email),
           name:
-            [r.firstName, r.lastName].filter(Boolean).join(" ") ||
-            r.email ||
+            [f.firstName, f.lastName].filter(Boolean).join(" ") ||
+            f.email ||
             "Anonymous",
-          date: formatDate(r.createdAt),
-          stars: Number(r.rating) || 0,
-          tags: (r.categories || []).map((t) => capFirst(t)),
-          text: r.reviewText || "",
-          gemImg: (r.images && r.images[0]) || PLACEHOLDER_IMG,
-          gemDesc:
-            (r.productName
-              ? `${r.productName}`
-              : r.productId
-              ? `${r.productId}`
-              : "Gemstone") + (r.productId ? ` • ${r.productId}` : ""),
-          helpful: 0, // you can wire this later
+          date: formatDate(f.createdAt),
+          stars: Number(f.rating) || 0,
+          tags: (f.categories || []).map(capFirst),
+          text: f.feedbackText || "",
+          gemImg: (f.images && f.images[0]) || PLACEHOLDER_IMG,
+          gemDesc: f.productName || f.productId || "Gemstone",
+          helpful: 0,
         }));
         if (mounted) setReviews(items);
       } catch (e) {
@@ -159,17 +145,14 @@ const ReviewsPage = () => {
     };
   }, []);
 
-  // ---- Sidebar stats from live data ----
-  const { total, avg, dist } = useMemo(() => {
-    const total = reviews.length;
-    const sum = reviews.reduce((s, r) => s + (r.stars || 0), 0);
-    const avg = total ? (sum / total).toFixed(1) : "0.0";
+  // Only keep rating distribution for sidebar
+  const { dist } = useMemo(() => {
     const dist = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     reviews.forEach((r) => {
       const k = Math.max(1, Math.min(5, Math.round(r.stars || 0)));
       dist[k] += 1;
     });
-    return { total, avg, dist };
+    return { dist };
   }, [reviews]);
 
   const bars = [
@@ -187,24 +170,7 @@ const ReviewsPage = () => {
       <div id="particles-js" />
 
       {/* Header */}
-      <header id="reviews-header">
-        <div className="logo">LUX GEMS</div>
-        <nav className="nav-links">
-          <Link to="/">Home</Link>
-          <Link to="/collection">Collection</Link>
-          <Link to="/about">About</Link>
-          <Link to="/certification">Certification</Link>
-          <Link to="/contact">Contact</Link>
-        </nav>
-        <div className="header-actions">
-          <i className="fas fa-search" />
-          <i className="fas fa-user" />
-          <i className="fas fa-shopping-bag">
-            <span className="cart-count">3</span>
-          </i>
-          <button className="btn">View Collection</button>
-        </div>
-      </header>
+      <Header />
 
       {/* Page Header */}
       <section className="page-header">
@@ -214,7 +180,7 @@ const ReviewsPage = () => {
 
       {/* Main */}
       <div className="content-container">
-        {/* Reviews */}
+        {/* Reviews list */}
         <div className="reviews-card">
           <div className="card-header">
             <h3>Customer Reviews</h3>
@@ -254,7 +220,7 @@ const ReviewsPage = () => {
 
               <div>
                 {r.tags.map((t) => (
-                  <span className="review-category" key={t}>
+                  <span className="review-category" key={`${r.id}-${t}`}>
                     {t}
                   </span>
                 ))}
@@ -268,181 +234,40 @@ const ReviewsPage = () => {
                 <img src={r.gemImg} alt="Gem" />
                 <p>{r.gemDesc}</p>
               </div>
-
-              <div className="review-actions">
-                <button className="review-action-btn">
-                  <i className="fas fa-thumbs-up" /> Helpful ({r.helpful})
-                </button>
-                <button className="review-action-btn">
-                  <i className="fas fa-comment" /> Reply
-                </button>
-                <button className="review-action-btn">
-                  <i className="fas fa-flag" /> Report
-                </button>
-              </div>
             </div>
           ))}
         </div>
 
-        {/* Sidebar */}
-        <aside className="sidebar">
-          <div className="sidebar-title">Feedback Overview</div>
-          <div className="stats-container">
-            <div className="stat-item">
-              <span>Total Reviews</span>
-              <span className="stat-value">{total}</span>
-            </div>
-            <div className="stat-item">
-              <span>Average Rating</span>
-              <span className="stat-value">{avg}</span>
-            </div>
-            {/* You can compute real “Positive Reviews %” if you want.
-                For now, show percent of 4★ and 5★ */}
-            <div className="stat-item">
-              <span>Positive Reviews</span>
-              <span className="stat-value">
-                {total ? Math.round(((dist[4] + dist[5]) / total) * 100) : 0}%
-              </span>
-            </div>
-            <div className="stat-item">
-              <span>Response Rate</span>
-              <span className="stat-value">98%</span>
-            </div>
+        {/* Sidebar: ONLY rating distribution */}
+       <aside className="sidebar">
+  <div className="feedback-card">
+    <div className="feedback-card__header">
+      <h3>Feedback Overview</h3>
+    </div>
 
-            <div className="rating-summary">
-              <h4 style={{ color: "#d4af37", marginBottom: 15 }}>
-                Rating Distribution
-              </h4>
+    <div className="rating-summary">
+      <h4 className="rating-summary__title">Rating Distribution</h4>
 
-              {bars.map((row) => {
-                const widthPct =
-                  maxCount === 0 ? "0%" : `${(row.count / maxCount) * 100}%`;
-                return (
-                  <div className="rating-bar" key={row.label}>
-                    <span className="rating-label">{row.label}</span>
-                    <div className="rating-progress">
-                      <div
-                        className="rating-progress-fill"
-                        style={{ width: widthPct }}
-                      />
-                    </div>
-                    <span className="rating-count">{row.count}</span>
-                  </div>
-                );
-              })}
+      {bars.map((row) => {
+        const widthPct = maxCount === 0 ? "0%" : `${(row.count / maxCount) * 100}%`;
+        return (
+          <div className="rating-bar" key={row.label}>
+            <span className="rating-label">{row.label}</span>
+            <div className="rating-progress">
+              <div className="rating-progress-fill" style={{ width: widthPct }} />
             </div>
+            <span className="rating-count">{row.count}</span>
           </div>
-        </aside>
-      </div>
+        );
+      })}
+    </div>
+  </div>
+</aside>
 
-      {/* Bottom buttons */}
-      <div className="action-buttons-bottom">
-        <Link to="/add-review" className="action-btn">
-          <i className="fas fa-star" /> Add Review
-        </Link>
-        <Link to="/add-complaint" className="action-btn secondary">
-          <i className="fas fa-exclamation-circle" /> Add Complaint
-        </Link>
       </div>
 
       {/* Footer */}
-      <footer>
-        <div className="footer-grid">
-          <div className="footer-col">
-            <h3>LUX GEMS</h3>
-            <p>
-              Discover the world&apos;s most exceptional gemstones, curated for
-              discerning collectors.
-            </p>
-          </div>
-          <div className="footer-col">
-            <h3>Gemstones</h3>
-            <ul>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-gem" /> Sapphires
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-gem" /> Rubies
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-gem" /> Emeralds
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-gem" /> Diamonds
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-gem" /> Rare Gems
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div className="footer-col">
-            <h3>Information</h3>
-            <ul>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-info-circle" /> About Us
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-certificate" /> Certification
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-leaf" /> Ethical Sourcing
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-book" /> Care Guide
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-question-circle" /> FAQ
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div className="footer-col">
-            <h3>Contact</h3>
-            <ul>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-map-marker-alt" /> 123 Diamond Street
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-phone" /> +1 (555) 123-4567
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-envelope" /> contact@luxgems.com
-                </a>
-              </li>
-            </ul>
-          </div>
-        </div>
-        <div className="footer-bottom">
-          <p>
-            &copy; 2023 LUX GEMS. All rights reserved. Premium Gemstone
-            Collection.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };

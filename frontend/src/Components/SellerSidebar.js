@@ -30,7 +30,7 @@ export default function SellerSidebar() {
           <li><a href="#"><i className="fas fa-gem"></i> Gems</a></li>
           <li><a href="#"><i className="fas fa-shopping-bag"></i> Orders</a></li>
           <li><NavLink to="/seller/payments"><i className="fas fa-credit-card"></i> Payments</NavLink></li>
-          <li><a href="#"><i className="fas fa-star"></i> Reviews</a></li>
+          <li><NavLink to="/admin/feedback"> <i className="fas fa-star"></i> Reviews</NavLink></li>
           <li><NavLink to="/seller/settings"><i className="fas fa-cog"></i> Settings</NavLink></li>
           <li>
             <a href="#" onClick={(e) => { e.preventDefault(); setShowLogoutModal(true); }}>

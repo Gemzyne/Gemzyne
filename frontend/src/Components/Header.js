@@ -1,5 +1,4 @@
 import React from "react";
-import { Link } from "react-router-dom";   
 import "./HeaderFooter.css";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -58,7 +57,7 @@ const Header = () => {
         </Link>
         <Link to="/auction">Auction</Link>
         <Link to="/about">About</Link>
-        <Link to="/review">Review & Feedback</Link>
+        <Link to="/reviews">Review & Feedback</Link>
       </nav>
       <div className="header-actions">
         <i className="fas fa-search"></i>
