@@ -2,6 +2,8 @@
 const Payment = require('../Models/PaymentModel');
 const CustomOrder = require('../Models/CustomOrderModel');
 const { encrypt } = require('../Utills/Crypto');
+const Winner = require('../Models/Winner');
+const Auction = require('../Models/Auction');
 
 function getShipping(country) {
   if (!country) return 0;
@@ -108,6 +110,35 @@ exports.checkout = async (req, res, next) => {
         order.status = 'pending';
         await order.save();
       }
+    }
+
+    // === NEW: Sync Winner.purchaseStatus based on Payment ===
+    // Lookup Winner by auctionCode == order.orderNo (for auction-originated orders)
+    // If no Winner found, it's probably a regular custom order — skip safely.
+    try {
+      let w = await Winner.findOne({ auctionCode: order.orderNo, user: order.buyerId });
+    if (!w) {
+      // Fallback: find auction by its human code then winner by auction _id
+      const a = await Auction.findOne({ auctionId: order.orderNo }).select('_id');
+      if (a) w = await Winner.findOne({ auction: a._id, user: order.buyerId });
+    }
+      if (w) {
+        // reflect current payment status
+        if (paymentBlock.status === 'paid') {
+          w.purchaseStatus = 'paid';
+          w.paymentId = paymentDoc._id;
+        } else if (paymentBlock.status === 'pending') {
+          w.purchaseStatus = 'pending';
+          w.paymentId = paymentDoc._id; // keep link even when pending
+        } else if (paymentBlock.status === 'cancelled') {
+          w.purchaseStatus = 'cancelled';
+          w.paymentId = null;
+        }
+        await w.save();
+      }
+    } catch (e) {
+      // don’t fail checkout if winner sync fails; just log
+      console.warn('Winner sync (checkout) error:', e.message);
     }
 
     return res.json({
@@ -217,6 +248,19 @@ exports.markBankPaid = async (req, res, next) => {
 
     // sync order
     await CustomOrder.findByIdAndUpdate(p.orderId, { $set: { status: 'paid' } });
+
+    // === NEW: Sync Winner.purchaseStatus too ===
+    try {
+      // For auction-originated orders, orderNo is the auctionCode (AUC-YYYY-###)
+      const w = await Winner.findOne({ auctionCode: p.orderNo, user: p.buyerId });
+      if (w) {
+        w.purchaseStatus = 'paid';
+        w.paymentId = p._id;
+        await w.save();
+      }
+    } catch (e) {
+      console.warn('Winner sync (markBankPaid) error:', e.message);
+    }
 
     res.json({ ok: true, message: 'Marked as paid', payment: p });
   } catch (err) { next(err); }

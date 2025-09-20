@@ -27,7 +27,7 @@ const CustomOrderSchema = new mongoose.Schema({
   selections: { type: SelectionSchema, required: true },
   pricing: { type: PricingSchema, required: true },
   currency: { type: String, default: 'USD' },
-  estimatedFinishDate: { type: Date, required: true },
+  estimatedFinishDate: { type: Date, required: false, default: undefined },
 
   status: { type: String, enum: ['pending', 'paid', 'cancelled'], default: 'pending' },
 }, { timestamps: true });

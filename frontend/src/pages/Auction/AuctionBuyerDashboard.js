@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
 import "./AuctionBuyerDashboard.css";
-import { request } from "../../api";
+import { request,api } from "../../api";
 
 /* ================================
    CONFIG
@@ -201,6 +201,43 @@ export default function BuyerDashboard() {
     const my = await request("/api/bids/my");
     setYourBids((my.items || []).filter((x) => isActive(x.endTime)));
   }
+
+  // NEW: winner → bridge order → go to /payment
+  async function startWinnerCheckout(win) {
+    try {
+      const idOrCode = win.auctionMongoId || win.auctionCode || win.id;
+      const res = await api.wins.createPurchase(idOrCode);
+    if (!res?.ok) {
+      alert(res?.message || "Could not prepare purchase");
+      return;
+    }
+    // Save pendingOrder like Custom Orders
+    localStorage.setItem(
+      "pendingOrder",
+      JSON.stringify({
+        orderId: res.orderId,
+        orderNo: res.orderNo,
+        amount: win.finalPrice,
+        currency: "USD",
+      })
+    );
+      // Save minimal auction context for banner
+      localStorage.setItem(
+      "auctionContext",
+      JSON.stringify({
+        code: res.orderNo, // NEW: canonical, matches the order we just created
+        title: win.title || "",
+        finalPrice: win.finalPrice || 0,
+      })
+    );
+      // Navigate to payment page
+      window.location.href = "/payment";
+  } catch (e) {
+    console.error(e);
+    alert("Failed to start purchase. Please try again.");
+  }
+}
+
 
   /* ---- drawer helpers ---- */
   function openDetails(a, type = "ongoing", bidRecord = null) {
@@ -416,7 +453,11 @@ export default function BuyerDashboard() {
                     Final Price: <span>${fmtMoney(w.finalPrice)}</span>
                   </div>
                   <p className="bd-small">Ended: {fmtDate(w.endTime)}</p>
-                  <button className="bd-btn bd-btn--outline">Complete Purchase</button>
+
+                  <button className="bd-btn bd-btn--outline" onClick={() => startWinnerCheckout(w)}>
+                  Complete Purchase
+                  </button>
+
                 </article>
               ))}
             </Grid>

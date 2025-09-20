@@ -249,6 +249,14 @@ export const api = {
     },
   },
 
+  // Winner creates (or reuses) a payable order for an ended auction
+  wins: {
+    createPurchase: (auctionIdOrCode) =>
+      request(`/api/wins/purchase/${encodeURIComponent(auctionIdOrCode)}`, {
+        method: "POST",
+     }),
+  },
+
   // === AUCTION (multipart-aware; safe to paste over just this block) ===
   auctions: {
     // public lists

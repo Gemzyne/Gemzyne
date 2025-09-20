@@ -13,6 +13,9 @@ router.get("/my", requireAuth, ctrl.listMyWins);
 // Auth: seller of the auction OR the winner can view full details for that auction
 router.get("/auction/:auctionId", requireAuth, ctrl.getByAuction);
 
+// NEW: winner turns an ended auction into a payable order (reuses /payment page)
+router.post("/purchase/:auctionId", requireAuth, ctrl.createWinnerPurchase);
+
 // Public: minimal winner summary for an ended auction (for center/history table)
 // Accepts :auctionId as Mongo _id or AUC-####-###
 router.get("/public/auction/:auctionId", ctrl.getPublicByAuction);

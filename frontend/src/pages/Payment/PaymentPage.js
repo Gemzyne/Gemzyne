@@ -28,6 +28,9 @@ export default function PaymentPage() {
   const { state } = useLocation() || {};
   const navigate = useNavigate();
 
+  // Auction banner context – we’ll set this only after we know the order
+  const [auctionCtx, setAuctionCtx] = useState(null);
+
   const orderIdFromNav =
     state?.orderId ||
     (() => {
@@ -50,6 +53,36 @@ export default function PaymentPage() {
 
   const [loading, setLoading] = useState(!!orderIdFromNav);
   const [order, setOrder] = useState(null);
+
+  // NEW: only show banner if this order is actually an auction (AUC-...) and context matches
+useEffect(() => {
+  if (!order) return;
+
+  const isAuctionOrder = typeof order.orderNo === 'string' && order.orderNo.startsWith('AUC-');
+
+  if (!isAuctionOrder) {
+    // custom order: make sure no stale auction banner is shown
+    localStorage.removeItem('auctionContext');
+    setAuctionCtx(null);
+    return;
+  }
+
+  // auction order: load and verify the context matches this order
+  try {
+    const raw = localStorage.getItem('auctionContext');
+    const ctx = raw ? JSON.parse(raw) : null;
+    if (ctx && ctx.code === order.orderNo) {
+      setAuctionCtx(ctx);
+    } else {
+      // stale/mismatched context: clear it
+      localStorage.removeItem('auctionContext');
+      setAuctionCtx(null);
+    }
+  } catch {
+    localStorage.removeItem('auctionContext');
+    setAuctionCtx(null);
+  }
+}, [order]);
 
   // Modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -213,6 +246,7 @@ export default function PaymentPage() {
           "Thanks! Your card payment was processed and your order is confirmed.",
           () => {
             localStorage.removeItem("pendingOrder");
+            localStorage.removeItem("auctionContext"); // NEW: clear banner context
             navigate("/");
           }
         );
@@ -254,6 +288,7 @@ export default function PaymentPage() {
           () => {
             clearFile();
             localStorage.removeItem("pendingOrder");
+            localStorage.removeItem("auctionContext"); // NEW: clear banner context
             navigate("/");
           }
         );
@@ -279,6 +314,36 @@ export default function PaymentPage() {
       <div id="particles-js" />
 
       <div className="payment-container">
+
+        {auctionCtx && (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: "10px 14px",
+              borderRadius: 10,
+              background:
+               "linear-gradient(135deg, rgba(212,175,55,.15), rgba(249,242,149,.1))",
+             border: "1px solid rgba(212,175,55,.35)",
+              color: "#eaeaea",
+              display: "flex",
+              gap: 12,
+              alignItems: "center",
+            }}
+            role="note"
+            aria-label="Auction purchase"
+          >
+            <i className="fas fa-gavel" aria-hidden="true" />
+            <div style={{ lineHeight: 1.3 }}>
+              <div style={{ fontWeight: 600 }}>
+                Auction Purchase{auctionCtx.code ? ` • ${auctionCtx.code}` : ""}
+              </div>
+              {auctionCtx.title ? (
+                <div style={{ opacity: 0.85, fontSize: 13 }}>{auctionCtx.title}</div>
+             ) : null}
+            </div>
+          </div>
+        )}
+
         <div className="payment-header">
           <h1>Complete Your Purchase</h1>
           <p>Securely pay for your premium gemstones using your preferred payment method</p>
