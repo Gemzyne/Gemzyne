@@ -147,6 +147,24 @@ exports.listGems = async (req, res) => {
   }
 };
 
+// --- RANDOM (public): GET /api/gems/random?limit=6
+// Returns a random sample of active/in-stock-ish gems for homepage discovery
+exports.publicRandom = async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit || '6', 10), 24);
+    // Treat "active" inventory as anything not sold/out_of_stock
+    const items = await Gem.aggregate([
+      { $match: { isActive: true, status: { $nin: ['sold','out_of_stock'] } } },
+      { $sample: { size: limit } },
+      { $project: { title: '$name', type: 1, priceUSD: 1, images: 1 } }
+    ]);
+    res.json({ ok: true, items });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
 // --- LIST MINE (protected seller/admin) : GET /api/gems/mine
 exports.listMine = async (req, res) => {
   try {

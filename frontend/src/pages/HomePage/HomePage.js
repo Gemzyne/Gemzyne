@@ -1,250 +1,309 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import "./HomePage.css";
 import Header from "../../Components/Header";
+import { request } from "../../api";
 import Footer from "../../Components/Footer";
 
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 const HomePage = () => {
+  // ---------- Random Gems ----------
+  const [cards, setCards] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const imgUrl = (p) => {
+    if (!p) return "/assets/fallback-gem.jpg";
+    if (/^https?:\/\//i.test(p) || /^data:/i.test(p)) return p;
+    return `${API_BASE}${p.startsWith("/") ? "" : "/"}${p}`;
+  };
+
+  const loadRandom = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await request("/api/gems/random?limit=3");
+      const arr = (data?.items || []).map((g) => ({
+        id: g._id,
+        name: g.title || g.name,
+        price: `$${Number(g.priceUSD || 0).toLocaleString()}`,
+        specA: (g.type || "Gem").toUpperCase(),
+        specB: "Certified",
+        img: imgUrl((g.images || [])[0]),
+      }));
+      setCards(arr);
+    } catch {
+      setCards([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ---------- Effects (Particles + Header + Main GLB) ----------
   useEffect(() => {
-    // Particles.js
+    // Enhanced Particles.js with gold theme
     if (window.particlesJS) {
       window.particlesJS("particles-js", {
         particles: {
-          number: { value: 60, density: { enable: true, value_area: 800 } },
+          number: { value: 80, density: { enable: true, value_area: 1000 } },
           color: { value: "#d4af37" },
-          shape: { type: "circle" },
-          opacity: { value: 0.3, random: true },
-          size: { value: 3, random: true },
+          shape: {
+            type: "circle",
+            stroke: { width: 0, color: "#000000" },
+            polygon: { nb_sides: 5 },
+          },
+          opacity: {
+            value: 0.4,
+            random: true,
+            anim: { enable: true, speed: 1, opacity_min: 0.1, sync: false },
+          },
+          size: {
+            value: 4,
+            random: true,
+            anim: { enable: true, speed: 2, size_min: 0.1, sync: false },
+          },
           line_linked: {
             enable: true,
             distance: 150,
             color: "#d4af37",
-            opacity: 0.1,
-            width: 1,
+            opacity: 0.2,
+            width: 1.5,
           },
           move: {
             enable: true,
-            speed: 1,
+            speed: 1.5,
             direction: "none",
             random: true,
             straight: false,
             out_mode: "out",
             bounce: false,
+            attract: { enable: true, rotateX: 600, rotateY: 1200 },
           },
         },
         interactivity: {
           detect_on: "canvas",
           events: {
-            onhover: { enable: true, mode: "repulse" },
-            onclick: { enable: true, mode: "push" },
+            onhover: { enable: true, mode: "bubble" },
+            onclick: { enable: true, mode: "repulse" },
             resize: true,
+          },
+          modes: {
+            bubble: {
+              distance: 250,
+              size: 6,
+              duration: 2,
+              opacity: 0.8,
+              speed: 3,
+            },
+            repulse: { distance: 200, duration: 0.4 },
           },
         },
         retina_detect: true,
       });
     }
 
-    // Header scroll effect
+    // Header shadow on scroll
     const handleScroll = () => {
       const header = document.getElementById("header");
+      if (!header) return;
       if (window.scrollY > 100) header.classList.add("scrolled");
       else header.classList.remove("scrolled");
     };
     window.addEventListener("scroll", handleScroll);
 
-    // Three.js main gem and featured gems
+    // Enhanced Three.js premium gem rendering with gold/amber theme
     const initGems = () => {
       const gemContainer = document.getElementById("gem-container");
       if (!gemContainer || !window.THREE) return;
 
-      // Main Gem
-      let mainScene, mainCamera, mainRenderer, mainGem;
-      let pointLights = [];
+      const THREE = window.THREE;
+      const scene = new THREE.Scene();
+      scene.background = null;
 
-      mainScene = new window.THREE.Scene();
-      mainCamera = new window.THREE.PerspectiveCamera(
-        45,
+      // Enhanced camera with cinematic positioning
+      const camera = new THREE.PerspectiveCamera(
+        35,
         gemContainer.clientWidth / gemContainer.clientHeight,
         0.1,
         1000
       );
-      mainCamera.position.z = 12;
-      mainRenderer = new window.THREE.WebGLRenderer({
+      camera.position.set(0, 0.8, 8.5);
+
+      // Premium renderer settings
+      const renderer = new THREE.WebGLRenderer({
         antialias: true,
         alpha: true,
+        powerPreference: "high-performance",
       });
-      mainRenderer.setSize(gemContainer.clientWidth, gemContainer.clientHeight);
-      mainRenderer.setPixelRatio(window.devicePixelRatio);
-      gemContainer.appendChild(mainRenderer.domElement);
+      renderer.setSize(gemContainer.clientWidth, gemContainer.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.2;
+      gemContainer.appendChild(renderer.domElement);
 
-      // Lights
-      const ambientLight = new window.THREE.AmbientLight(0xffffff, 2.0);
-      mainScene.add(ambientLight);
-      const dirLight1 = new window.THREE.DirectionalLight(0xffffff, 3);
-      dirLight1.position.set(10, 10, 10);
-      mainScene.add(dirLight1);
-      const dirLight2 = new window.THREE.DirectionalLight(0x3498db, 2);
-      dirLight2.position.set(-10, 10, 5);
-      mainScene.add(dirLight2);
+      // Enhanced lighting setup with warm golden tones
+      const ambientLight = new THREE.AmbientLight(0x332900, 0.6);
+      scene.add(ambientLight);
 
-      const point1 = new window.THREE.PointLight(0xffe0b2, 2, 50);
-      point1.position.set(5, 5, 5);
-      mainScene.add(point1);
-      pointLights.push(point1);
-      const point2 = new window.THREE.PointLight(0xd4af37, 2, 50);
-      point2.position.set(-5, -5, 5);
-      mainScene.add(point2);
-      pointLights.push(point2);
+      // Main key light (golden)
+      const keyLight = new THREE.DirectionalLight(0xffd700, 2.5);
+      keyLight.position.set(5, 8, 5);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.width = 1024;
+      keyLight.shadow.mapSize.height = 1024;
+      scene.add(keyLight);
 
-      const hemiLight = new window.THREE.HemisphereLight(
-        0xffffbb,
-        0x080820,
-        1.5
-      );
-      mainScene.add(hemiLight);
+      // Fill light (warm amber)
+      const fillLight = new THREE.DirectionalLight(0xffb347, 1.2);
+      fillLight.position.set(-5, 3, 5);
+      scene.add(fillLight);
 
-      // Load main gem
-      const loader = new window.THREE.GLTFLoader();
+      // Rim/back light (golden)
+      const rimLight = new THREE.DirectionalLight(0xffe0a3, 1.8);
+      rimLight.position.set(0, 2, -8);
+      scene.add(rimLight);
+
+      // Accent point lights for golden sparkle effect
+      const pointLight1 = new THREE.PointLight(0xffd700, 1.5, 20);
+      pointLight1.position.set(3, 2, 3);
+      scene.add(pointLight1);
+
+      const pointLight2 = new THREE.PointLight(0xffaa00, 1.2, 20);
+      pointLight2.position.set(-3, -1, 4);
+      scene.add(pointLight2);
+
+      // Load premium diamond model
+      const loader = new THREE.GLTFLoader();
+      let gem = null;
+
+      const deg = (d) => (d * Math.PI) / 180;
+
       loader.load(
-        "gem.glb",
-        function (gltf) {
-          mainGem = gltf.scene;
-          mainGem.traverse((child) => {
+        "gem2.glb", // Keep the same model but enhance materials
+        (gltf) => {
+          gem = gltf.scene;
+          gem.traverse((child) => {
             if (child.isMesh) {
-              child.material.color.set(0xffffff);
-              child.material.emissive = new window.THREE.Color(0xaaaaaa);
-              child.material.emissiveIntensity = 0.5;
-              child.material.metalness = 0.7;
-              child.material.roughness = 0.1;
+              // Premium golden amber gem material properties
+              child.material = new THREE.MeshPhysicalMaterial({
+                color: 0xd4af37, // Golden base color
+                emissive: 0x332200, // Dark gold emissive
+                metalness: 0.8,
+                roughness: 0.15,
+                transmission: 0.4,
+                ior: 1.8,
+                thickness: 0.9,
+                specularIntensity: 1.4,
+                clearcoat: 0.9,
+                clearcoatRoughness: 0.08,
+                envMapIntensity: 2.0,
+              });
+              child.castShadow = true;
+              child.receiveShadow = true;
             }
           });
-          mainGem.scale.set(3, 3, 3);
-          mainGem.position.y = -0.5;
-          mainGem.rotation.x = Math.PI / 6;
-          mainScene.add(mainGem);
-          gemContainer.querySelector(".loader").style.display = "none";
+
+          // Premium positioning and scaling
+          gem.scale.set(1.8, 1.8, 1.8);
+          gem.position.set(0, 0, 0);
+          gem.rotation.set(deg(-15), deg(25), deg(5));
+
+          scene.add(gem);
+
+          const ld = gemContainer.querySelector(".loader");
+          if (ld) ld.style.display = "none";
         },
         undefined,
-        function (error) {
-          console.error(error);
-          gemContainer.querySelector(".loader").style.display = "none";
+        () => {
+          const ld = gemContainer.querySelector(".loader");
+          if (ld) ld.style.display = "none";
           gemContainer.innerHTML =
-            '<div style="color:#d4af37;text-align:center;padding-top:40%;font-size:18px;">Gem Model Preview</div>';
+            '<div style="color:#d4af37;text-align:center;padding-top:40%;font-size:18px;">Premium Gem Preview</div>';
         }
       );
 
-      const animateMainGem = () => {
-        requestAnimationFrame(animateMainGem);
-        if (mainGem) mainGem.rotation.y += 0.005;
-        const time = Date.now() * 0.001;
-        pointLights.forEach((light, i) => {
-          light.position.x = Math.sin(time * 0.7 + i) * 8;
-          light.position.y = Math.cos(time * 0.5 + i) * 8;
-          light.position.z = Math.sin(time * 0.3 + i) * 8;
-        });
-        mainRenderer.render(mainScene, mainCamera);
+      // Add subtle environment for reflections (invisible but affects material)
+      const environment = new THREE.Mesh(
+        new THREE.SphereGeometry(20, 32, 32),
+        new THREE.MeshBasicMaterial({
+          color: 0x222222, // Dark environment for richer reflections
+          side: THREE.BackSide,
+        })
+      );
+      environment.visible = false; // Not rendered but affects reflections
+      scene.add(environment);
+
+      // Smooth animation
+      let raf = null;
+      const clock = new THREE.Clock();
+
+      const animate = () => {
+        raf = requestAnimationFrame(animate);
+        const delta = clock.getDelta();
+
+        if (gem) {
+          // Smooth, natural rotation
+          gem.rotation.y += 0.2 * delta;
+          gem.rotation.x = Math.sin(clock.elapsedTime * 0.3) * 0.1 - 0.15;
+        }
+
+        // Subtle camera movement for cinematic effect
+        camera.position.x = Math.sin(clock.elapsedTime * 0.2) * 0.2;
+        camera.position.y = Math.cos(clock.elapsedTime * 0.3) * 0.1 + 0.8;
+
+        renderer.render(scene, camera);
       };
-      animateMainGem();
-      window.addEventListener("resize", () => {
-        mainCamera.aspect =
-          gemContainer.clientWidth / gemContainer.clientHeight;
-        mainCamera.updateProjectionMatrix();
-        mainRenderer.setSize(
-          gemContainer.clientWidth,
-          gemContainer.clientHeight
-        );
-      });
+      animate();
 
-      // Featured Gems
-      const gemList = [
-        { id: "gem1", modelPath: "gem2.glb" },
-        { id: "gem2", modelPath: "gem2.glb" },
-        { id: "gem3", modelPath: "gem2.glb" },
-      ];
+      const onResize = () => {
+        camera.aspect = gemContainer.clientWidth / gemContainer.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(gemContainer.clientWidth, gemContainer.clientHeight);
+      };
+      window.addEventListener("resize", onResize);
 
-      gemList.forEach((container) => {
-        const gemElement = document.getElementById(container.id);
-        const parent = gemElement.parentElement;
-        const loader = parent.querySelector(".loader");
+      const onVis = () => {
+        if (document.hidden) {
+          if (raf) cancelAnimationFrame(raf);
+          raf = null;
+        } else if (!raf) {
+          animate();
+        }
+      };
+      document.addEventListener("visibilitychange", onVis);
 
-        const scene = new window.THREE.Scene();
-        const camera = new window.THREE.PerspectiveCamera(
-          45,
-          gemElement.clientWidth / gemElement.clientHeight,
-          0.1,
-          100
-        );
-        camera.position.z = 10;
-
-        const renderer = new window.THREE.WebGLRenderer({
-          antialias: true,
-          alpha: true,
-        });
-        renderer.setSize(gemElement.clientWidth, gemElement.clientHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        gemElement.appendChild(renderer.domElement);
-
-        scene.add(new window.THREE.AmbientLight(0xffffff, 1.5));
-        const dir1 = new window.THREE.DirectionalLight(0xffffff, 2);
-        dir1.position.set(5, 5, 5);
-        scene.add(dir1);
-        const dir2 = new window.THREE.DirectionalLight(0xd4af37, 1.5);
-        dir2.position.set(-5, 5, 5);
-        scene.add(dir2);
-        const pointLight = new window.THREE.PointLight(0xffffff, 2, 30);
-        pointLight.position.set(0, 0, 10);
-        scene.add(pointLight);
-
-        const modelLoader = new window.THREE.GLTFLoader();
-        modelLoader.load(
-          container.modelPath,
-          function (gltf) {
-            const gem = gltf.scene;
-            const box = new window.THREE.Box3().setFromObject(gem);
-            const center = box.getCenter(new window.THREE.Vector3());
-            gem.position.sub(center);
-            gem.traverse((child) => {
-              if (child.isMesh) {
-                child.material.color.set(0xffffff);
-                child.material.emissive = new window.THREE.Color(0x888888);
-                child.material.emissiveIntensity = 0.4;
-                child.material.metalness = 0.6;
-                child.material.roughness = 0.2;
-              }
-            });
-            gem.scale.set(2, 2, 2);
-            scene.add(gem);
-            loader.style.display = "none";
-
-            const animate = () => {
-              requestAnimationFrame(animate);
-              gem.rotation.y += 0.01;
-              renderer.render(scene, camera);
-            };
-            animate();
-          },
-          undefined,
-          function (error) {
-            console.error(error);
-            loader.style.display = "none";
-            gemElement.innerHTML =
-              '<div style="color:#d4af37;text-align:center;padding-top:40%;">Gem Preview</div>';
-          }
-        );
-      });
+      // Cleanup
+      return () => {
+        document.removeEventListener("visibilitychange", onVis);
+        window.removeEventListener("resize", onResize);
+        if (raf) cancelAnimationFrame(raf);
+        renderer.dispose?.();
+        renderer.forceContextLoss?.();
+        renderer.domElement?.remove();
+      };
     };
 
-    initGems();
+    const dispose = initGems();
 
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      dispose && dispose();
+    };
   }, []);
 
+  // Load random 3 gems on mount
+  useEffect(() => {
+    loadRandom();
+  }, [loadRandom]);
+
+  // ---------- JSX ----------
   return (
     <div className="home-container">
-      <div id="particles-js"></div>
+      <div id="particles-js" />
 
       <Header />
 
-      {/* Hero */}
+      {/* Premium Hero Section */}
       <section className="hero">
         <div className="hero-content">
           <h1>Rare Gems, Timeless Beauty</h1>
@@ -252,55 +311,63 @@ const HomePage = () => {
             Discover our exclusive collection of ethically sourced, premium
             quality gemstones for collectors and connoisseurs.
           </p>
-          <button className="btn">Explore Collection</button>
+          <div className="hero-actions">
+            <a className="btn btn-primary" href="/inventory">
+              Explore Collection
+            </a>
+            <a className="btn btn-secondary" href="/about">
+              Learn More
+            </a>
+          </div>
         </div>
         <div id="gem-container" className="gem-loading">
-          <div className="loader"></div>
+          <div className="loader">
+            <div className="loader-spinner"></div>
+            <p>Loading Premium Experience</p>
+          </div>
         </div>
       </section>
 
-      {/* Featured Gems */}
+      {/* Random Gems */}
       <section className="featured-gems">
         <div className="section-title">
           <h2>Exquisite Selection</h2>
-          <p>Handpicked gems of exceptional quality and brilliance</p>
+          <p>Handpicked gems from our premium collection</p>
         </div>
+
         <div className="gems-grid">
-          {["Royal Blue Sapphire", "Burmese Ruby", "Emerald Cut Diamond"].map(
-            (name, idx) => (
-              <div key={idx} className="gem-card">
-                <div className="gem-image gem-loading">
-                  <div className="loader"></div>
-                  <div className="gem-model" id={`gem${idx + 1}`}></div>
-                </div>
-                <div className="gem-info">
-                  <h3>{name}</h3>
-                  <div className="gem-price">
-                    {["$8,450", "$12,800", "$15,200"][idx]}
-                  </div>
-                  <div className="gem-specs">
-                    <span>
-                      {["3.25 Carat", "2.75 Carat", "2.10 Carat"][idx]}
-                    </span>
-                    <span>
-                      {["AAA Quality", "Pigeon Blood", "VVS1 Clarity"][idx]}
-                    </span>
-                  </div>
-                  <a href="#" className="cta-btn">
-                    View Details
+          {cards.map((g) => (
+            <div key={g.id} className="gem-card">
+              <div className="gem-image">
+                <div className="premium-badge">Premium</div>
+                <img src={g.img} alt={g.name} loading="lazy" />
+                <div className="gem-overlay">
+                  <a href={`/gems/${g.id}`} className="view-details-btn">
+                    Quick View
                   </a>
                 </div>
               </div>
-            )
-          )}
+              <div className="gem-info">
+                <h3>{g.name}</h3>
+                <div className="gem-price">{g.price}</div>
+                <div className="gem-specs">
+                  <span>{g.specA}</span>
+                  <span>{g.specB}</span>
+                </div>
+                <a href={`/gems/${g.id}`} className="cta-btn">
+                  View Details
+                </a>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* Benefits */}
       <section className="benefits">
         <div className="section-title">
-          <h2>Why Choose Lux Gems</h2>
-          <p>Our commitment to excellence in every facet</p>
+          <h2>Why Choose GemZyne</h2>
+          <p>Excellence in every facet of our service</p>
         </div>
         <div className="benefits-grid">
           {[
@@ -327,7 +394,7 @@ const HomePage = () => {
           ].map((b, i) => (
             <div key={i} className="benefit-card">
               <div className="benefit-icon">
-                <i className={b.icon}></i>
+                <i className={b.icon} />
               </div>
               <h3>{b.title}</h3>
               <p>{b.desc}</p>
@@ -336,16 +403,22 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Newsletter */}
+      {/* Premium Newsletter */}
       <section className="newsletter">
-        <h2>Join Our Exclusive List</h2>
-        <p>
-          Subscribe to receive updates on new arrivals, special offers, and
-          gemstone insights.
-        </p>
-        <div className="newsletter-form">
-          <input type="email" placeholder="Your email address" />
-          <button>Subscribe</button>
+        <div className="newsletter-content">
+          <h2>Join Our Exclusive Collector's Circle</h2>
+          <p>
+            Be the first to access new arrivals, private viewings, and special
+            offers.
+          </p>
+          <div className="newsletter-form">
+            <input
+              type="email"
+              placeholder="Your email address"
+              className="premium-input"
+            />
+            <button className="premium-button">Subscribe</button>
+          </div>
         </div>
       </section>
 

@@ -7,6 +7,7 @@ const { requireAuth, requireRoles } = require("../../Middleware/auth");
 
 // Public
 router.get("/", ctrl.listGems);
+router.get("/random", ctrl.publicRandom); // <-- must be before "/:id"
 router.get("/:id", ctrl.getGemById);
 
 // Seller/Admin
