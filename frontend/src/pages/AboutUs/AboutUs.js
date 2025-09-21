@@ -94,7 +94,7 @@ const AboutUs = () => {
         <div className="story-content">
           <div className="story-text">
             <p>
-              GemZyne was founded by <strong>Mr. Wickramarathna</strong>, a
+              GemZyne was founded by <strong>Mr. Hapuu</strong>, a
               master gemologist with deep roots in Ratnapura—Sri Lanka’s
               legendary “City of Gems.” For over three decades, our family has
               sourced exceptional stones directly from trusted miners and
