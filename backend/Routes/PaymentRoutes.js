@@ -17,4 +17,7 @@ router.get('/:id', ctrl.getPaymentById);
 // Seller/Admin: confirm bank transfers
 router.patch('/:id/mark-paid', requireRoles('seller', 'admin'), ctrl.markBankPaid);
 
+// Seller/Admin: generic status update (pending → paid | cancelled)
+router.patch('/:id/status', requireRoles('seller', 'admin'), ctrl.updateStatus);
+
 module.exports = router;

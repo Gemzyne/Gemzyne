@@ -265,3 +265,94 @@ exports.markBankPaid = async (req, res, next) => {
     res.json({ ok: true, message: 'Marked as paid', payment: p });
   } catch (err) { next(err); }
 };
+
+// PATCH /api/payments/:id/status  (seller/admin)
+// body: { status: 'pending' | 'paid' | 'cancelled' }
+exports.updateStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const nextStatus = String(req.body?.status || '').toLowerCase();
+
+    if (!['pending', 'paid', 'cancelled'].includes(nextStatus)) {
+      return res.status(400).json({ ok: false, message: 'Invalid status' });
+    }
+
+    const p = await Payment.findById(id);
+    if (!p) return res.status(404).json({ ok: false, message: 'Not found' });
+
+    // require seller/admin
+    const isStaff = ['seller', 'admin'].includes(req.user.role);
+    if (!isStaff) return res.status(403).json({ ok: false, message: 'Forbidden' });
+
+    // only bank payments can be manually changed
+    if (p.payment?.method !== 'bank') {
+      return res.status(400).json({ ok: false, message: 'Only bank payments can be manually changed' });
+    }
+
+    const cur = p.payment?.status || 'pending';
+    if (cur === nextStatus) {
+      return res.json({ ok: true, message: 'No change', payment: p });
+    }
+
+    // 'paid' and 'cancelled' are final
+    if (cur === 'paid') {
+      return res.status(400).json({ ok: false, message: 'Paid payments are final' });
+    }
+    if (cur === 'cancelled') {
+      return res.status(400).json({ ok: false, message: 'Cancelled payments are final' });
+    }
+
+    // helper: sync related docs (CustomOrder + Winner) based on status
+    async function syncRelated(orderStatus) {
+      // sync order
+      await CustomOrder.findByIdAndUpdate(p.orderId, { $set: { status: orderStatus } });
+
+      // sync winner (try by auctionCode == orderNo; fallback via Auction._id)
+      try {
+        let w = await Winner.findOne({ auctionCode: p.orderNo, user: p.buyerId });
+        if (!w) {
+          const a = await Auction.findOne({ auctionId: p.orderNo }).select('_id');
+          if (a) w = await Winner.findOne({ auction: a._id, user: p.buyerId });
+        }
+        if (w) {
+          if (orderStatus === 'paid') {
+            w.purchaseStatus = 'paid';
+            w.paymentId = p._id;
+          } else if (orderStatus === 'pending') {
+            w.purchaseStatus = 'pending';
+            w.paymentId = p._id;
+          } else if (orderStatus === 'cancelled') {
+            w.purchaseStatus = 'cancelled';
+            w.paymentId = null;
+          }
+          await w.save();
+        }
+      } catch (e) {
+        console.warn('Winner sync (updateStatus) error:', e.message);
+      }
+    }
+
+    // allowed transitions only from 'pending'
+    if (nextStatus === 'paid') {
+      p.payment.status = 'paid';
+      await p.save();
+      await syncRelated('paid');
+      return res.json({ ok: true, payment: p });
+    }
+
+    if (nextStatus === 'cancelled') {
+      p.payment.status = 'cancelled';
+      await p.save();
+      await syncRelated('cancelled');
+      return res.json({ ok: true, payment: p });
+    }
+
+    // pending -> pending (no-op but keep consistent)
+    p.payment.status = 'pending';
+    await p.save();
+    await syncRelated('pending');
+    return res.json({ ok: true, payment: p });
+  } catch (err) {
+    next(err);
+  }
+};
