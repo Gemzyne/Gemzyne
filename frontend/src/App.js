@@ -17,6 +17,7 @@ import CustomPage from "./pages/Custom/CustomPage";
 import PaymentPage from "./pages/Payment/PaymentPage";
 import PaymentHistory from "./pages/Payment/PaymentHistory";
 import SellerPayments from "./pages/Payment/SellerPayments";
+import AboutUs from "./pages/AboutUs/AboutUs";
 
 
 // Public shop pages
@@ -56,6 +57,7 @@ export default function App() {
       <Route path="/" element={<Navigate to="/mainhome" replace />} />
       <Route path="/mainhome" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/about" element={<AboutUs />} />
 
       {/* Public shop routes */}
      {/* <Route path="/collection" element={<GemInventory />} />*/}

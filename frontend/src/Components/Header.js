@@ -55,8 +55,6 @@ const Header = () => {
         <Link to="/auction" onClick={handleAuctionClick}>
           Auction
         </Link>
-        {/* === AUCTION: end */}
-        
         <Link to="/about">About</Link>
         <Link to="/review">Review & Feedback</Link>
       </nav>
