@@ -321,10 +321,6 @@ const HomePage = () => {
           </div>
         </div>
         <div id="gem-container" className="gem-loading">
-          <div className="loader">
-            <div className="loader-spinner"></div>
-            <p>Loading Premium Experience</p>
-          </div>
         </div>
       </section>
 
