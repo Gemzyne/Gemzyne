@@ -1,20 +1,18 @@
 // Seller dashboard (create, view, edit & history)
 //
-// ✅ Adds success messages:
-//   - “Auction created successfully!”
-//   - “Upcoming auction updated successfully!”
-//   - “Auction deleted successfully.”
-//
-// ✅ Uses asset() helper so images work from /uploads on the backend URL.
-// ✅ No changes to app.js or api.js needed.
+// Total Income and Items Sold:
+// - incomeOnlyPaid sums prices for rows that are actually paid.
+// - itemsSoldPaid counts how many rows are actually paid.
+// Paid detection uses winner status map first (purchaseStatus === "paid" or paymentId present)
+// and falls back to fields on the history row if needed.
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
 import "./AuctionDashboard.css";
 import { request } from "../../api";
 
-// === Image path resolver (fixes images served from backend /uploads) ===
+// Helper to make full image URLs from backend /uploads
 const BACKEND = process.env.REACT_APP_API_URL || "http://localhost:5000";
 const asset = (p) => {
   if (!p) return "";
@@ -27,6 +25,7 @@ const asset = (p) => {
   return `${BACKEND}${p.startsWith("/") ? "" : "/"}${p}`;
 };
 
+// Format helpers
 const fmtMoney = (n) =>
   "$" + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
 const fmtDateTime = (iso) =>
@@ -38,6 +37,7 @@ const fmtDateTime = (iso) =>
     minute: "2-digit",
   });
 
+// Simple countdown hook
 function useCountdown(targetISO) {
   const target = new Date(targetISO).getTime();
   const [now, setNow] = useState(() => Date.now());
@@ -53,6 +53,7 @@ function useCountdown(targetISO) {
   const seconds = Math.floor((total % 60000) / 1000);
   return { total, days, hours, minutes, seconds };
 }
+
 function TimeBox({ v, lbl }) {
   return (
     <div className="sd-timebox">
@@ -63,6 +64,7 @@ function TimeBox({ v, lbl }) {
 }
 
 export default function AuctionDashboard() {
+  // Main overview from backend
   const [overview, setOverview] = useState({
     totals: { income: 0, totalAuctions: 0, ongoing: 0, sold: 0 },
     live: [],
@@ -71,27 +73,36 @@ export default function AuctionDashboard() {
     history: [],
   });
 
+  // auctionId -> { purchaseStatus, paymentId, purchaseDeadline }
+  const [winStatusMap, setWinStatusMap] = useState({});
+
+  // Drawer and modal states
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState("live");
   const [drawerAuction, setDrawerAuction] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editForm, setEditForm] = useState(null);
 
-  // Winner details drawer state (optional)
+  // Winner details drawer
   const [winnerOpen, setWinnerOpen] = useState(false);
   const [winner, setWinner] = useState(null);
   const [loadingWinner, setLoadingWinner] = useState(false);
 
+  // Load overview then hydrate winner statuses for history
   useEffect(() => {
-    load().catch(() =>
-      setOverview((o) => ({ ...o, live: [], upcoming: [], history: [] }))
-    );
-    async function load() {
-      const data = await request("/api/auctions/seller/overview");
-      setOverview(data);
-    }
+    (async () => {
+      try {
+        const data = await request("/api/auctions/seller/overview");
+        setOverview(data);
+        await hydrateWinnerStatuses(data?.history || []);
+      } catch {
+        setOverview((o) => ({ ...o, live: [], upcoming: [], history: [] }));
+        setWinStatusMap({});
+      }
+    })();
   }, []);
 
+  // Prefill edit form when opening upcoming drawer
   useEffect(() => {
     if (drawerOpen && drawerMode === "upcoming" && drawerAuction) {
       setEditForm({
@@ -123,6 +134,31 @@ export default function AuctionDashboard() {
     setDrawerOpen(true);
   };
 
+  // Fetch winner status for each auction in history
+  async function hydrateWinnerStatuses(items) {
+    if (!items?.length) {
+      setWinStatusMap({});
+      return;
+    }
+    const ids = Array.from(new Set(items.map((h) => h._id)));
+    const results = await Promise.allSettled(
+      ids.map((id) => request(`/api/wins/auction/${id}`))
+    );
+    const map = {};
+    results.forEach((r, idx) => {
+      const auctionId = ids[idx];
+      if (r.status === "fulfilled" && r.value) {
+        const w = r.value;
+        map[auctionId] = {
+          purchaseStatus: (w.purchaseStatus || "").toLowerCase(),
+          paymentId: w.paymentId || null,
+          purchaseDeadline: w.purchaseDeadline || null,
+        };
+      }
+    });
+    setWinStatusMap(map);
+  }
+
   async function saveUpcomingEdit() {
     const id = drawerAuction?._id;
     await request(`/api/auctions/${id}`, {
@@ -138,8 +174,7 @@ export default function AuctionDashboard() {
     });
     const data = await request("/api/auctions/seller/overview");
     setOverview(data);
-
-    // ✅ success message
+    await hydrateWinnerStatuses(data?.history || []);
     alert("Upcoming auction updated successfully!");
   }
 
@@ -149,23 +184,32 @@ export default function AuctionDashboard() {
     await request(`/api/auctions/${id}`, { method: "DELETE" });
     const data = await request("/api/auctions/seller/overview");
     setOverview(data);
+    await hydrateWinnerStatuses(data?.history || []);
     setDrawerOpen(false);
-
-    // ✅ success message
     alert("Auction deleted successfully.");
   }
 
-  function afterCreate() {
-    request("/api/auctions/seller/overview").then(setOverview);
+  async function afterCreate() {
+    const data = await request("/api/auctions/seller/overview");
+    setOverview(data);
+    await hydrateWinnerStatuses(data?.history || []);
   }
 
-  // Winner Details drawer
+  // Winner details drawer open + sync back to map
   async function openWinnerDetails(auctionId) {
     try {
       setLoadingWinner(true);
       setWinnerOpen(true);
       const data = await request(`/api/wins/auction/${auctionId}`);
       setWinner(data);
+      setWinStatusMap((m) => ({
+        ...m,
+        [auctionId]: {
+          purchaseStatus: (data.purchaseStatus || "").toLowerCase(),
+          paymentId: data.paymentId || null,
+          purchaseDeadline: data.purchaseDeadline || null,
+        },
+      }));
     } catch (e) {
       setWinner(null);
     } finally {
@@ -173,17 +217,57 @@ export default function AuctionDashboard() {
     }
   }
 
+  // Compute income from only PAID items
+  const incomeOnlyPaid = useMemo(() => {
+    if (!past?.length) return 0;
+    return past.reduce((sum, h) => {
+      const win = winStatusMap[h._id] || {};
+      const purchaseStatus = (
+        win.purchaseStatus ||
+        h.purchaseStatus ||
+        h.winnerStatus ||
+        ""
+      ).toLowerCase();
+      const hasPaid =
+        purchaseStatus === "paid" || !!win.paymentId || !!h.paymentId;
+      if (!hasPaid) return sum;
+      const amount =
+        h.finalPrice != null
+          ? Number(h.finalPrice)
+          : Number(h.currentPrice || 0);
+      return sum + (isNaN(amount) ? 0 : amount);
+    }, 0);
+  }, [past, winStatusMap]);
+
+  // NEW: count Items Sold as only PAID items
+  const itemsSoldPaid = useMemo(() => {
+    if (!past?.length) return 0;
+    return past.reduce((count, h) => {
+      const win = winStatusMap[h._id] || {};
+      const purchaseStatus = (
+        win.purchaseStatus ||
+        h.purchaseStatus ||
+        h.winnerStatus ||
+        ""
+      ).toLowerCase();
+      const hasPaid =
+        purchaseStatus === "paid" || !!win.paymentId || !!h.paymentId;
+      return count + (hasPaid ? 1 : 0);
+    }, 0);
+  }, [past, winStatusMap]);
+
   return (
     <div className="sd-page">
       <Header />
       <main className="sd-container">
         <h1 className="sd-title">Auction Center</h1>
 
+        {/* Top widgets. Total Income and Items Sold now reflect only paid items */}
         <section className="sd-overview">
           <Widget
             icon="fa-coins"
             label="Total Income"
-            value={fmtMoney(totals.income)}
+            value={fmtMoney(incomeOnlyPaid)}
           />
           <Widget
             icon="fa-gavel"
@@ -195,7 +279,7 @@ export default function AuctionDashboard() {
             label="Ongoing"
             value={totals.ongoing}
           />
-          <Widget icon="fa-gem" label="Items Sold" value={totals.sold} />
+          <Widget icon="fa-gem" label="Items Sold" value={itemsSoldPaid} />
         </section>
 
         <Section title="Live Auctions">
@@ -248,20 +332,46 @@ export default function AuctionDashboard() {
                   </tr>
                 ) : (
                   past.map((h) => {
-                    // simple visual purchase window (7 days) – purely UI
-                    const deadline = new Date(
-                      new Date(h.endTime).getTime() + 7 * 86400000
-                    );
+                    const win = winStatusMap[h._id] || {};
+                    const purchaseStatus = (
+                      win.purchaseStatus ||
+                      h.purchaseStatus ||
+                      h.winnerStatus ||
+                      ""
+                    ).toLowerCase();
+                    const hasPaid =
+                      purchaseStatus === "paid" ||
+                      !!win.paymentId ||
+                      !!h.paymentId;
+
+                    const deadlineMs = win.purchaseDeadline
+                      ? new Date(win.purchaseDeadline).getTime()
+                      : h.purchaseDeadline
+                      ? new Date(h.purchaseDeadline).getTime()
+                      : new Date(
+                          new Date(h.endTime).getTime() + 7 * 86400000
+                        ).getTime();
+
                     const now = Date.now();
-                    let label = "Purchased",
+                    let label, cls;
+
+                    if (hasPaid) {
+                      label = "Paid";
                       cls = "sd-badge-ok";
-                    if (now <= deadline.getTime()) {
-                      label = "Awaiting Payment";
-                      cls = "sd-badge-warn";
-                    }
-                    if (now > deadline.getTime()) {
-                      label = "Expired (7d window over)";
+                    } else if (purchaseStatus === "cancelled") {
+                      label = "Cancelled";
                       cls = "sd-badge-bad";
+                    } else if (purchaseStatus === "expired") {
+                      label = "Expired";
+                      cls = "sd-badge-bad";
+                    } else {
+                      if (now > deadlineMs) {
+                        label = "Expired (7d window over)";
+                        cls = "sd-badge-bad";
+                      } else {
+                        label = "Awaiting Payment";
+                        cls = "sd-badge-warn";
+                      }
                     }
 
                     return (
@@ -331,10 +441,10 @@ export default function AuctionDashboard() {
           drawerMode === "upcoming" && drawerAuction ? (
             <div className="sd-drawer-actions">
               <button className="sd-btn-danger" onClick={deleteUpcoming}>
-                <i className="fa-solid fa-trash" /> Delete
+                Delete
               </button>
               <button className="sd-btn" onClick={saveUpcomingEdit}>
-                <i className="fa-solid fa-floppy-disk" /> Save Changes
+                Save Changes
               </button>
             </div>
           ) : null
@@ -351,7 +461,6 @@ export default function AuctionDashboard() {
         )}
       </SideDrawer>
 
-      {/* Winner Details Drawer */}
       <SideDrawer
         open={winnerOpen}
         onClose={() => {
@@ -389,6 +498,7 @@ function Section({ title, children }) {
     </section>
   );
 }
+
 function Widget({ icon, label, value }) {
   return (
     <div className="sd-widget">
@@ -432,7 +542,7 @@ function LiveCard({ a, onOpen }) {
       <p className="sd-line">
         <strong>Ends:</strong> {fmtDateTime(a.endTime)}
       </p>
-      
+
       <div className="sd-actions">
         <button className="sd-btn-outline sd-btn-wide" onClick={onOpen}>
           <i className="fa-solid fa-eye" /> View Details
@@ -454,7 +564,7 @@ function UpcomingCard({ a, onOpen }) {
       >
         {started ? "STARTED" : "UPCOMING"}
       </div>
-       <div className="sd-countdown">
+      <div className="sd-countdown">
         {started ? (
           <span className="sd-muted">Auction started</span>
         ) : (
@@ -479,7 +589,6 @@ function UpcomingCard({ a, onOpen }) {
       <p className="sd-line">
         <strong>End:</strong> {fmtDateTime(a.endTime)}
       </p>
-     
       <div className="sd-actions">
         <button className="sd-btn-outline sd-btn-wide" onClick={onOpen}>
           <i className="fa-solid fa-pen-to-square" /> Details / Edit
@@ -540,7 +649,6 @@ function LiveDrawerContent({ a }) {
       </div>
       <p className="sd-drawer-desc">{a.description}</p>
       <h4 className="sd-subtitle">Top Bids (live)</h4>
-      {/* Optionally fetch /api/bids/auction/:id here */}
     </div>
   );
 }
@@ -728,7 +836,6 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
 
   async function submit(e) {
     e.preventDefault();
-    // Use FormData to allow large images without hitting JSON parser size limits
     const fd = new FormData();
     fd.append("title", form.name.trim());
     fd.append("type", form.type);
@@ -740,10 +847,7 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
     else if (form.imageDataUrl) fd.append("imageUrl", form.imageDataUrl);
 
     await request("/api/auctions", { method: "POST", body: fd });
-
-    // ✅ success message
     alert("Auction created successfully!");
-
     onCreate?.();
     onClose();
   }
@@ -766,7 +870,6 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
           </button>
         </div>
 
-        {/* Steps */}
         <div className="sd-steps">
           {["Gem Details", "Pricing", "Schedule", "Review"].map((label, i) => {
             const n = i + 1;
@@ -787,8 +890,7 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
                 <i className="fa-solid fa-shield-halved" />
                 <span>
                   {" "}
-                  Your information is protected by{" "}
-                  <strong>bank-level encryption</strong>.
+                  Your information is protected by bank-level encryption.
                 </span>
               </div>
               <div className="sd-form-group sd-col-full">
@@ -841,9 +943,9 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
                   >
                     <i className="fa-solid fa-cloud-arrow-up sd-upload-icon" />
                     <p className="sd-upload-text">
-                      Drag & drop your image here or <span>browse</span>
+                      Drag and drop your image here or <span>browse</span>
                     </p>
-                    <p className="sd-upload-hint">JPG/PNG up to 5MB</p>
+                    <p className="sd-upload-hint">JPG or PNG up to 5MB</p>
                   </div>
                 )}
                 {form.imageDataUrl && (
@@ -855,7 +957,7 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
                         className="sd-btn-secondary"
                         onClick={() => fileRef.current?.click()}
                       >
-                        <i className="fa-solid fa-pen-to-square" /> Change
+                        Change
                       </button>
                       <button
                         type="button"
@@ -866,7 +968,7 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
                           if (fileRef.current) fileRef.current.value = "";
                         }}
                       >
-                        <i className="fa-solid fa-trash" /> Remove
+                        Remove
                       </button>
                     </div>
                   </div>

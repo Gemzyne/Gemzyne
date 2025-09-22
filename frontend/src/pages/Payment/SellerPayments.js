@@ -18,7 +18,8 @@ async function apiRequest(
   const h = new Headers(headers);
   if (!isForm && body && !h.has("Content-Type"))
     h.set("Content-Type", "application/json");
-  if (token && !h.has("Authorization")) h.set("Authorization", `Bearer ${token}`);
+  if (token && !h.has("Authorization"))
+    h.set("Authorization", `Bearer ${token}`);
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: h,
@@ -67,8 +68,18 @@ function isImageUrl(u) {
 }
 
 const MONTHS = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December"
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 // ---------- robust PDF loader with fallbacks ----------
@@ -118,7 +129,8 @@ async function ensureJsPdf() {
     ],
     "autotable-cdn"
   );
-  if (!window.jspdf?.jsPDF) throw new Error("jsPDF not available after loading");
+  if (!window.jspdf?.jsPDF)
+    throw new Error("jsPDF not available after loading");
   if (!window.jspdf?.jsPDF?.API?.autoTable)
     throw new Error("autoTable plugin not available after loading");
   return window.jspdf.jsPDF;
@@ -145,7 +157,7 @@ function buildReportRows(items) {
         ? "Card"
         : p?.payment?.method === "bank"
         ? "Bank Transfer"
-        : (p?.payment?.method || "—");
+        : p?.payment?.method || "—";
     const status = p?.payment?.status || "—";
     const ccy = p?.currency || "USD";
     const total = Number(p?.amounts?.total || 0);
@@ -223,13 +235,20 @@ async function generateMonthlyPdf({ items, month, year }) {
   doc.setFont("helvetica", "normal");
   const s = summary;
   const line1 = `Orders: ${s.count}   |   Paid: ${s.paid}   Pending: ${s.pending}   Cancelled: ${s.cancelled}`;
-  const line2 =
-    `Totals — Paid: ${money(s.sumPaid, s.ccy)}   |   Pending: ${money(s.sumPending, s.ccy)}   |   Cancelled: ${money(s.sumCancelled, s.ccy)}   |   Grand: ${money(s.grand, s.ccy)}`;
+  const line2 = `Totals — Paid: ${money(
+    s.sumPaid,
+    s.ccy
+  )}   |   Pending: ${money(s.sumPending, s.ccy)}   |   Cancelled: ${money(
+    s.sumCancelled,
+    s.ccy
+  )}   |   Grand: ${money(s.grand, s.ccy)}`;
   doc.text(line1, pad, y0 + 18);
   doc.text(line2, pad, y0 + 36);
 
   // Table
-  const head = [["Date/Time", "Order No", "Product", "Buyer", "Method", "Status", "Amount"]];
+  const head = [
+    ["Date/Time", "Order No", "Product", "Buyer", "Method", "Status", "Amount"],
+  ];
   const body = rows.map((r) => [
     r.dateTime,
     r.orderNo,
@@ -260,7 +279,11 @@ async function generateMonthlyPdf({ items, month, year }) {
     didDrawPage: (data) => {
       const str = `Page ${doc.internal.getNumberOfPages()}`;
       doc.setFontSize(10);
-      doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 20);
+      doc.text(
+        str,
+        data.settings.margin.left,
+        doc.internal.pageSize.height - 20
+      );
     },
   });
 
@@ -309,7 +332,11 @@ export default function SellerPayments() {
               opacity: { value: 0.3, random: true },
               size: { value: 3, random: true },
               line_linked: {
-                enable: true, distance: 150, color: "#d4af37", opacity: 0.1, width: 1,
+                enable: true,
+                distance: 150,
+                color: "#d4af37",
+                opacity: 0.1,
+                width: 1,
               },
               move: { enable: true, speed: 1 },
             },
@@ -336,7 +363,9 @@ export default function SellerPayments() {
       setErr("");
       const qs = new URLSearchParams();
       if (orderNoFilter) qs.set("orderNo", orderNoFilter.trim());
-      const data = await apiRequest(`/api/payments${qs.toString() ? `?${qs}` : ""}`);
+      const data = await apiRequest(
+        `/api/payments${qs.toString() ? `?${qs}` : ""}`
+      );
       setItems(data.items || []);
     } catch (e) {
       setErr(e?.message || "Failed to load payments");
@@ -352,10 +381,13 @@ export default function SellerPayments() {
 
   // derived stats
   const stats = useMemo(() => {
-    const paid = items.filter(p => p?.payment?.status === "paid");
-    const pending = items.filter(p => p?.payment?.status === "pending");
-    const cancelled = items.filter(p => p?.payment?.status === "cancelled");
-    const totalRevenue = paid.reduce((s, p) => s + Number(p?.amounts?.total || 0), 0);
+    const paid = items.filter((p) => p?.payment?.status === "paid");
+    const pending = items.filter((p) => p?.payment?.status === "pending");
+    const cancelled = items.filter((p) => p?.payment?.status === "cancelled");
+    const totalRevenue = paid.reduce(
+      (s, p) => s + Number(p?.amounts?.total || 0),
+      0
+    );
     const ccy = items[0]?.currency || "USD";
     return {
       totalRevenue: money(totalRevenue, ccy),
@@ -366,16 +398,16 @@ export default function SellerPayments() {
   }, [items]);
 
   // sticky header effect
-    useEffect(() => {
-      const onScroll = () => {
-        const header = document.getElementById("header");
-        if (!header) return;
-        if (window.scrollY > 100) header.classList.add("scrolled");
-        else header.classList.remove("scrolled");
-      };
-      window.addEventListener("scroll", onScroll);
-      return () => window.removeEventListener("scroll", onScroll);
-    }, []);
+  useEffect(() => {
+    const onScroll = () => {
+      const header = document.getElementById("header");
+      if (!header) return;
+      if (window.scrollY > 100) header.classList.add("scrolled");
+      else header.classList.remove("scrolled");
+    };
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // filter by order no (debounced)
   useEffect(() => {
@@ -399,13 +431,16 @@ export default function SellerPayments() {
   async function updateStatus(id, status) {
     try {
       setBusyId(id);
-      await apiRequest(`/api/payments/${id}/status`, { method: "PATCH", body: { status } });
+      await apiRequest(`/api/payments/${id}/status`, {
+        method: "PATCH",
+        body: { status },
+      });
       await fetchPayments(orderNo);
     } catch (e) {
       setErr(
         e?.status === 404
           ? "Backend route /api/payments/:id/status missing. Add it per previous snippet."
-          : (e?.message || "Failed to update status")
+          : e?.message || "Failed to update status"
       );
     } finally {
       setBusyId(null);
@@ -440,230 +475,301 @@ export default function SellerPayments() {
       <div id="particles-js" />
 
       <div className="dashboard-container seller-payments">
-+      <SellerSidebar />
-      <main className="dashboard-content">
-        <div className="dashboard-header">
-          <h2 className="dashboard-title">Seller Payments</h2>
-          <div className="dashboard-controls">
-            <input
-              type="text"
-              className="filter-input"
-              placeholder="Filter by Order No"
-              value={orderNo}
-              onChange={(e) => setOrderNo(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="stats-summary">
-          <div className="stat-card">
-            <div className="stat-icon"><i className="fas fa-money-bill-wave" /></div>
-            <div className="stat-info">
-              <h3 id="totalRevenue">{stats.totalRevenue}</h3>
-              <p>Total Revenue</p>
+        + <SellerSidebar />
+        <main className="dashboard-content">
+          <div className="dashboard-header">
+            <h2 className="dashboard-title">Seller Payments</h2>
+            <div className="dashboard-controls">
+              <input
+                type="text"
+                className="filter-input"
+                placeholder="Filter by Order No"
+                value={orderNo}
+                onChange={(e) => setOrderNo(e.target.value)}
+              />
             </div>
           </div>
-          <div className="stat-card">
-            <div className="stat-icon"><i className="fas fa-check-circle" /></div>
-            <div className="stat-info">
-              <h3 id="completedPayments">{stats.completedPayments}</h3>
-              <p>Completed Payments</p>
+
+          {/* Stats */}
+          <div className="stats-summary">
+            <div className="stat-card">
+              <div className="stat-icon">
+                <i className="fas fa-money-bill-wave" />
+              </div>
+              <div className="stat-info">
+                <h3 id="totalRevenue">{stats.totalRevenue}</h3>
+                <p>Total Revenue</p>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">
+                <i className="fas fa-check-circle" />
+              </div>
+              <div className="stat-info">
+                <h3 id="completedPayments">{stats.completedPayments}</h3>
+                <p>Completed Payments</p>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">
+                <i className="fas fa-clock" />
+              </div>
+              <div className="stat-info">
+                <h3 id="pendingPayments">{stats.pendingPayments}</h3>
+                <p>Pending Approval</p>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">
+                <i className="fas fa-times-circle" />
+              </div>
+              <div className="stat-info">
+                <h3 id="cancelledPayments">{stats.cancelledPayments}</h3>
+                <p>Cancelled Payments</p>
+              </div>
             </div>
           </div>
-          <div className="stat-card">
-            <div className="stat-icon"><i className="fas fa-clock" /></div>
-            <div className="stat-info">
-              <h3 id="pendingPayments">{stats.pendingPayments}</h3>
-              <p>Pending Approval</p>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon"><i className="fas fa-times-circle" /></div>
-            <div className="stat-info">
-              <h3 id="cancelledPayments">{stats.cancelledPayments}</h3>
-              <p>Cancelled Payments</p>
-            </div>
-          </div>
-        </div>
 
-        {/* Table + Report actions */}
-        <div className="payment-history-section">
-          <div className="section-header" style={{ gap: 12 }}>
-            <h3 className="section-title">All payment transactions</h3>
+          {/* Table + Report actions */}
+          <div className="payment-history-section">
+            <div className="section-header" style={{ gap: 12 }}>
+              <h3 className="section-title">All payment transactions</h3>
 
-            {/* Report action bar */}
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <select
-                value={month}
-                onChange={(e) => setMonth(Number(e.target.value))}
-                className="status-select"
-                title="Month"
-              >
-                {MONTHS.map((m, i) => (
-                  <option key={m} value={i + 1}>{m}</option>
-                ))}
-              </select>
-
-              <select
-                value={year}
-                onChange={(e) => setYear(Number(e.target.value))}
-                className="status-select"
-                title="Year"
-              >
-                {yearOptions.map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-
-              <button
-                onClick={onDownloadMonthlyPdf}
-                disabled={downloading || loading || items.length === 0}
+              {/* Report action bar */}
+              <div
                 style={{
-                  padding: "10px 14px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(212,175,55,.35)",
-                  background:
-                    "linear-gradient(135deg, rgba(212,175,55,.22), rgba(249,242,149,.18))",
-                  color: "#f5f5f5",
-                  cursor: downloading || loading || items.length === 0 ? "not-allowed" : "pointer",
-                  display: "inline-flex",
-                  gap: 8,
+                  display: "flex",
+                  gap: 10,
                   alignItems: "center",
+                  flexWrap: "wrap",
                 }}
-                title="Download Monthly PDF"
               >
-                <i className="fas fa-file-pdf" />
-                {downloading ? "Preparing…" : "Download Monthly PDF"}
-              </button>
-            </div>
-          </div>
+                <select
+                  value={month}
+                  onChange={(e) => setMonth(Number(e.target.value))}
+                  className="status-select"
+                  title="Month"
+                >
+                  {MONTHS.map((m, i) => (
+                    <option key={m} value={i + 1}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
 
-          {err && (
-            <div style={{ padding: 12, marginBottom: 8, background: "#b00020", borderRadius: 8 }}>
-              {err}
-            </div>
-          )}
+                <select
+                  value={year}
+                  onChange={(e) => setYear(Number(e.target.value))}
+                  className="status-select"
+                  title="Year"
+                >
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
 
-          {loading ? (
-            <div className="sp-loader">Loading…</div>
-          ) : (
-            <div className="sp-table-wrap">
-              <table className="payment-table">
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Order No</th>
-                    <th>Product</th>
-                    <th>Buyer</th>
-                    <th>Method</th>
-                    <th>Status</th>
-                    <th>Amount</th>
-                    <th>Slip</th>
-                  </tr>
-                </thead>
-                <tbody id="paymentTableBody">
-                  {items.length === 0 ? (
+                <button
+                  onClick={onDownloadMonthlyPdf}
+                  disabled={downloading || loading || items.length === 0}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(212,175,55,.35)",
+                    background:
+                      "linear-gradient(135deg, rgba(212,175,55,.22), rgba(249,242,149,.18))",
+                    color: "#f5f5f5",
+                    cursor:
+                      downloading || loading || items.length === 0
+                        ? "not-allowed"
+                        : "pointer",
+                    display: "inline-flex",
+                    gap: 8,
+                    alignItems: "center",
+                  }}
+                  title="Download Monthly PDF"
+                >
+                  <i className="fas fa-file-pdf" />
+                  {downloading ? "Preparing…" : "Download Monthly PDF"}
+                </button>
+              </div>
+            </div>
+
+            {err && (
+              <div
+                style={{
+                  padding: 12,
+                  marginBottom: 8,
+                  background: "#b00020",
+                  borderRadius: 8,
+                }}
+              >
+                {err}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="sp-loader">Loading…</div>
+            ) : (
+              <div className="sp-table-wrap">
+                <table className="payment-table">
+                  <thead>
                     <tr>
-                      <td colSpan={8} style={{ textAlign: "center", padding: 30, color: "#b0b0b0" }}>
-                        <i
-                          className="fas fa-receipt"
-                          style={{ fontSize: 24, marginBottom: 10, display: "block", opacity: 0.5 }}
-                        />
-                        No payments found with selected filters.
-                      </td>
+                      <th>Time</th>
+                      <th>Order No</th>
+                      <th>Product</th>
+                      <th>Buyer</th>
+                      <th>Method</th>
+                      <th>Status</th>
+                      <th>Amount</th>
+                      <th>Slip</th>
                     </tr>
-                  ) : (
-                    items.map((p, idx) => {
-                      const created = p.createdAt ? new Date(p.createdAt).toLocaleString() : "—";
-                      const orderNoCell = p?.orderNo || (p?.orderId?._id || "");
-                      const title = p?.orderId?.title || "Product";
-                      const buyerName = p?.buyerId?.fullName || "—";
-                      const buyerEmail = p?.buyerId?.email || "—";
-                      const buyerIdStr = p?.buyerId?._id || p?.buyerId || "";
-                      const method = p?.payment?.method || "—";
-                      const status = p?.payment?.status || "—";
-                      const ccy = p?.currency || "USD";
-                      const totalAmt = p?.amounts?.total ?? 0;
-                      const slipUrl = slipUrlFromPath(p?.payment?.bankSlipPath);
-                      const slipIsImage = isImageUrl(slipUrl);
+                  </thead>
+                  <tbody id="paymentTableBody">
+                    {items.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={8}
+                          style={{
+                            textAlign: "center",
+                            padding: 30,
+                            color: "#b0b0b0",
+                          }}
+                        >
+                          <i
+                            className="fas fa-receipt"
+                            style={{
+                              fontSize: 24,
+                              marginBottom: 10,
+                              display: "block",
+                              opacity: 0.5,
+                            }}
+                          />
+                          No payments found with selected filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      items.map((p, idx) => {
+                        const created = p.createdAt
+                          ? new Date(p.createdAt).toLocaleString()
+                          : "—";
+                        const orderNoCell = p?.orderNo || p?.orderId?._id || "";
+                        const title = p?.orderId?.title || "Product";
+                        const buyerName = p?.buyerId?.fullName || "—";
+                        const buyerEmail = p?.buyerId?.email || "—";
+                        const buyerIdStr = p?.buyerId?._id || p?.buyerId || "";
+                        const method = p?.payment?.method || "—";
+                        const status = p?.payment?.status || "—";
+                        const ccy = p?.currency || "USD";
+                        const totalAmt = p?.amounts?.total ?? 0;
+                        const slipUrl = slipUrlFromPath(
+                          p?.payment?.bankSlipPath
+                        );
+                        const slipIsImage = isImageUrl(slipUrl);
 
-                      const badgeClass =
-                        status === "paid"
-                          ? "status-paid"
-                          : status === "pending"
-                          ? "status-pending"
-                          : "status-cancelled";
+                        const badgeClass =
+                          status === "paid"
+                            ? "status-paid"
+                            : status === "pending"
+                            ? "status-pending"
+                            : "status-cancelled";
 
-                      return (
-                        <tr key={p._id || idx}>
-                          <td>{created}</td>
-                          <td><span className="order-id">{orderNoCell}</span></td>
-                          <td>{title}</td>
-                          <td>
-                            <div className="buyer-info">
-                              <div className="buyer-name">{buyerName}</div>
-                              <div className="buyer-email">
-                                {buyerEmail} · {shortId(buyerIdStr)}
+                        return (
+                          <tr key={p._id || idx}>
+                            <td>{created}</td>
+                            <td>
+                              <span className="order-id">{orderNoCell}</span>
+                            </td>
+                            <td>{title}</td>
+                            <td>
+                              <div className="buyer-info">
+                                <div className="buyer-name">{buyerName}</div>
+                                <div className="buyer-email">
+                                  {buyerEmail} · {shortId(buyerIdStr)}
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td>{method === "card" ? "Card" : method === "bank" ? "Bank Transfer" : method}</td>
-                          <td>
-                            {method === "bank" ? (
-                              <select
-                                className="status-select"
-                                value={status}
-                                onChange={(e) => onChangeStatus(p, e.target.value)}
-                                disabled={busyId === p._id}
-                              >
-                                <option value="pending">Pending</option>
-                                <option value="paid">Paid</option>
-                                <option value="cancelled">Cancelled</option>
-                              </select>
-                            ) : (
-                              <span className={`status ${badgeClass}`}>
-                                <i
-                                  className={`fas ${
-                                    status === "paid"
-                                      ? "fa-check-circle"
-                                      : status === "pending"
-                                      ? "fa-clock"
-                                      : "fa-times-circle"
-                                  }`}
-                                />
-                                {status.charAt(0).toUpperCase() + status.slice(1)}
-                              </span>
-                            )}
-                          </td>
-                          <td className="total-amount">{money(totalAmt, ccy)}</td>
-                          <td>
-                            {slipUrl ? (
-                              <>
-                                {slipIsImage ? (
-                                  <a href={slipUrl} target="_blank" rel="noreferrer">
-                                    <img src={slipUrl} alt="Bank slip" className="slip-thumb" />
-                                  </a>
-                                ) : (
-                                  <a className="order-id" href={slipUrl} target="_blank" rel="noreferrer">
-                                    View
-                                  </a>
-                                )}
-                              </>
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </main>
+                            </td>
+                            <td>
+                              {method === "card"
+                                ? "Card"
+                                : method === "bank"
+                                ? "Bank Transfer"
+                                : method}
+                            </td>
+                            <td>
+                              {method === "bank" ? (
+                                <select
+                                  className="status-select"
+                                  value={status}
+                                  onChange={(e) =>
+                                    onChangeStatus(p, e.target.value)
+                                  }
+                                  disabled={busyId === p._id}
+                                >
+                                  <option value="pending">Pending</option>
+                                  <option value="paid">Paid</option>
+                                  <option value="cancelled">Cancelled</option>
+                                </select>
+                              ) : (
+                                <span className={`status ${badgeClass}`}>
+                                  <i
+                                    className={`fas ${
+                                      status === "paid"
+                                        ? "fa-check-circle"
+                                        : status === "pending"
+                                        ? "fa-clock"
+                                        : "fa-times-circle"
+                                    }`}
+                                  />
+                                  {status.charAt(0).toUpperCase() +
+                                    status.slice(1)}
+                                </span>
+                              )}
+                            </td>
+                            <td className="total-amount">
+                              {money(totalAmt, ccy)}
+                            </td>
+                            <td>
+                              {slipUrl ? (
+                                <>
+                                  {slipIsImage ? (
+                                    <a
+                                      href={slipUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                    >
+                                      <img
+                                        src={slipUrl}
+                                        alt="Bank slip"
+                                        className="slip-thumb"
+                                      />
+                                    </a>
+                                  ) : (
+                                    <a
+                                      className="order-id"
+                                      href={slipUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                    >
+                                      View
+                                    </a>
+                                  )}
+                                </>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </main>
       </div>
     </>
   );

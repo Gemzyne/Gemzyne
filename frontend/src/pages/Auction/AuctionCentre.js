@@ -11,13 +11,22 @@ import { request } from "../../api";
 const BACKEND = process.env.REACT_APP_API_URL || "http://localhost:5000";
 const asset = (p) => {
   if (!p) return "";
-  if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) return p;
+  if (
+    p.startsWith("http://") ||
+    p.startsWith("https://") ||
+    p.startsWith("data:")
+  )
+    return p;
   return `${BACKEND}${p.startsWith("/") ? "" : "/"}${p}`;
 };
 const fmtMoney = (n) =>
   "$" + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
 const fmtDate = (iso) =>
-  new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 
 /* ================================
    UTILS — useCountdown
@@ -98,7 +107,9 @@ export default function AuctionCentre() {
   useEffect(() => {
     const load = async () => {
       const qs = (s) =>
-        `/api/auctions/public?status=${s}&type=${encodeURIComponent(category)}&q=${encodeURIComponent(search)}`;
+        `/api/auctions/public?status=${s}&type=${encodeURIComponent(
+          category
+        )}&q=${encodeURIComponent(search)}`;
       const [og, up, hi] = await Promise.all([
         request(qs("ongoing")),
         request(qs("upcoming")),
@@ -126,7 +137,11 @@ export default function AuctionCentre() {
   return (
     <div className="ac-page">
       {/* particles canvas (fixed, behind content) */}
-      <div id="particles-js" className="ac-particles" style={{ position: "fixed", inset: 0, zIndex: 0 }} />
+      <div
+        id="particles-js"
+        className="ac-particles"
+        style={{ position: "fixed", inset: 0, zIndex: 0 }}
+      />
 
       {/* page content above particles */}
       <div className="ac-content" style={{ position: "relative", zIndex: 1 }}>
@@ -146,7 +161,11 @@ export default function AuctionCentre() {
               />
             </div>
 
-            <select className="ac-filter" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <select
+              className="ac-filter"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
               <option value="all">All Categories</option>
               <option value="diamond">Diamonds</option>
               <option value="sapphire">Sapphires</option>
@@ -155,7 +174,11 @@ export default function AuctionCentre() {
               <option value="other">Other Gems</option>
             </select>
 
-            <select className="ac-filter" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <select
+              className="ac-filter"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
               <option value="all">All Statuses</option>
               <option value="ongoing">Ongoing</option>
               <option value="upcoming">Upcoming</option>
@@ -166,10 +189,16 @@ export default function AuctionCentre() {
             <Section title="Ongoing Auctions">
               <div className="ac-list">
                 {ongoing.length === 0 ? (
-                  <p className="ac-empty">No ongoing auctions match your filters.</p>
+                  <p className="ac-empty">
+                    No ongoing auctions match your filters.
+                  </p>
                 ) : (
                   ongoing.map((a) => (
-                    <OngoingCard key={a._id} auction={a} onBid={() => goLogin(`/auction/${a._id}`)} />
+                    <OngoingCard
+                      key={a._id}
+                      auction={a}
+                      onBid={() => goLogin(`/auction/${a._id}`)}
+                    />
                   ))
                 )}
               </div>
@@ -180,10 +209,16 @@ export default function AuctionCentre() {
             <Section title="Upcoming Auctions">
               <div className="ac-list">
                 {upcoming.length === 0 ? (
-                  <p className="ac-empty">No upcoming auctions match your filters.</p>
+                  <p className="ac-empty">
+                    No upcoming auctions match your filters.
+                  </p>
                 ) : (
                   upcoming.map((a) => (
-                    <UpcomingCard key={a._id} auction={a} onReminder={() => goLogin(`/auction/${a._id}`)} />
+                    <UpcomingCard
+                      key={a._id}
+                      auction={a}
+                      onReminder={() => goLogin(`/auction/${a._id}`)}
+                    />
                   ))
                 )}
               </div>
@@ -205,15 +240,25 @@ export default function AuctionCentre() {
                 <tbody>
                   {history.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="ac-empty">No auction history matches your filters.</td>
+                      <td colSpan={5} className="ac-empty">
+                        No auction history matches your filters.
+                      </td>
                     </tr>
                   ) : (
                     history.map((h) => (
                       <tr key={h._id}>
                         <td>{h.title}</td>
                         <td>{h.description}</td>
-                        <td><span className="ac-winner">{h.winnerName || "-"}</span></td>
-                        <td><span className="ac-won">{fmtMoney(h.finalPrice || 0)}</span></td>
+                        <td>
+                          <span className="ac-winner">
+                            {h.winnerName || "-"}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="ac-won">
+                            {fmtMoney(h.finalPrice || 0)}
+                          </span>
+                        </td>
                         <td>{fmtDate(h.endTime)}</td>
                       </tr>
                     ))
@@ -248,11 +293,15 @@ function Section({ title, children }) {
    CARDS — Ongoing
    ================================ */
 function OngoingCard({ auction, onBid }) {
-  const { total, days, hours, minutes, seconds } = useCountdown(auction.endTime);
+  const { total, days, hours, minutes, seconds } = useCountdown(
+    auction.endTime
+  );
   const ended = total <= 0;
   return (
     <div className="ac-card">
-      <div className={`ac-badge ${ended ? "ac-badge-ended" : "ac-badge-ongoing"}`}>
+      <div
+        className={`ac-badge ${ended ? "ac-badge-ended" : "ac-badge-ongoing"}`}
+      >
         {ended ? "ENDED" : "ONGOING"}
       </div>
       <div className="ac-countdown">
@@ -267,14 +316,26 @@ function OngoingCard({ auction, onBid }) {
           </>
         )}
       </div>
-      <img className="ac-image" src={asset(auction.imageUrl)} alt={auction.title} />
+      <img
+        className="ac-image"
+        src={asset(auction.imageUrl)}
+        alt={auction.title}
+      />
       <h3 className="ac-card-title">{auction.title}</h3>
-      <p className="ac-meta"><i className="fa-solid fa-gem" /> {auction.type}</p>
+      <p className="ac-meta">
+        <i className="fa-solid fa-gem" /> {auction.type}
+      </p>
       <div className="ac-price">Current: {fmtMoney(auction.currentPrice)}</div>
-      <p className="ac-line"><strong>Base Price:</strong> {fmtMoney(auction.basePrice)}</p>
-      <p className="ac-line"><strong>Ends:</strong> {fmtDate(auction.endTime)}</p>
-      
-      <button className="ac-btn" onClick={onBid} disabled={ended}>Bid Now</button>
+      <p className="ac-line">
+        <strong>Base Price:</strong> {fmtMoney(auction.basePrice)}
+      </p>
+      <p className="ac-line">
+        <strong>Ends:</strong> {fmtDate(auction.endTime)}
+      </p>
+
+      <button className="ac-btn" onClick={onBid} disabled={ended}>
+        Bid Now
+      </button>
     </div>
   );
 }
@@ -283,11 +344,17 @@ function OngoingCard({ auction, onBid }) {
    CARDS — Upcoming
    ================================ */
 function UpcomingCard({ auction, onReminder }) {
-  const { total, days, hours, minutes, seconds } = useCountdown(auction.startTime);
+  const { total, days, hours, minutes, seconds } = useCountdown(
+    auction.startTime
+  );
   const started = total <= 0;
   return (
     <div className="ac-card">
-      <div className={`ac-badge ${started ? "ac-badge-ongoing" : "ac-badge-upcoming"}`}>
+      <div
+        className={`ac-badge ${
+          started ? "ac-badge-ongoing" : "ac-badge-upcoming"
+        }`}
+      >
         {started ? "STARTED" : "UPCOMING"}
       </div>
       <div className="ac-countdown">
@@ -302,14 +369,26 @@ function UpcomingCard({ auction, onReminder }) {
           </>
         )}
       </div>
-      <img className="ac-image" src={asset(auction.imageUrl)} alt={auction.title} />
+      <img
+        className="ac-image"
+        src={asset(auction.imageUrl)}
+        alt={auction.title}
+      />
       <h3 className="ac-card-title">{auction.title}</h3>
-      <p className="ac-meta"><i className="fa-solid fa-gem" /> {auction.type}</p>
+      <p className="ac-meta">
+        <i className="fa-solid fa-gem" /> {auction.type}
+      </p>
       <div className="ac-price">Base: {fmtMoney(auction.basePrice)}</div>
-      <p className="ac-line"><strong>Starts:</strong> {fmtDate(auction.startTime)}</p>
-      <p className="ac-line"><strong>Ends:</strong> {fmtDate(auction.endTime)}</p>
-      
-      <button className="ac-btn ac-btn-outline" onClick={onReminder}>Set Reminder</button>
+      <p className="ac-line">
+        <strong>Starts:</strong> {fmtDate(auction.startTime)}
+      </p>
+      <p className="ac-line">
+        <strong>Ends:</strong> {fmtDate(auction.endTime)}
+      </p>
+
+      <button className="ac-btn ac-btn-outline" onClick={onReminder}>
+        Set Reminder
+      </button>
     </div>
   );
 }
