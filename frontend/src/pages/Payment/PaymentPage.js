@@ -1,5 +1,6 @@
+// src/pages/Payment/PaymentPage.js
 import React, { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import "./PaymentPage.css";
 import { api } from "../../api";
 
@@ -20,6 +21,7 @@ function Modal({ open, title, message, onClose }) {
 }
 
 function isLoggedIn() {
+  // Your app stores user + token; either works. Keeping user check to avoid breaking existing flows.
   try { return !!JSON.parse(localStorage.getItem("user") || "null"); }
   catch { return false; }
 }
@@ -27,10 +29,10 @@ function isLoggedIn() {
 export default function PaymentPage() {
   const { state } = useLocation() || {};
   const navigate = useNavigate();
+  const [sp] = useSearchParams();
+  const orderIdFromQuery = sp.get("orderId") || null;
 
-  // Auction banner context – we’ll set this only after we know the order
-  const [auctionCtx, setAuctionCtx] = useState(null);
-
+  // Fallbacks (kept from your code)
   const orderIdFromNav =
     state?.orderId ||
     (() => {
@@ -41,48 +43,20 @@ export default function PaymentPage() {
       }
     })();
 
-  // Guard guests (you also have <RequireAuth>, this is extra safety)
+  // Prefer the query param if present
+  const effectiveOrderId = orderIdFromQuery || orderIdFromNav || null;
+
+  // Guard guests (you also have <RequireAuth> on routes; this is extra safety)
   useEffect(() => {
     if (!isLoggedIn()) {
-      const next = orderIdFromNav ? `/payment?order=${orderIdFromNav}` : "/payment";
+      const next = effectiveOrderId ? `/payment?orderId=${encodeURIComponent(effectiveOrderId)}` : "/payment";
       localStorage.setItem("nextAfterLogin", next);
       navigate(`/login?next=${encodeURIComponent(next)}`, { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderIdFromNav]);
+  }, [effectiveOrderId, navigate]);
 
-  const [loading, setLoading] = useState(!!orderIdFromNav);
-  const [order, setOrder] = useState(null);
-
-  // NEW: only show banner if this order is actually an auction (AUC-...) and context matches
-useEffect(() => {
-  if (!order) return;
-
-  const isAuctionOrder = typeof order.orderNo === 'string' && order.orderNo.startsWith('AUC-');
-
-  if (!isAuctionOrder) {
-    // custom order: make sure no stale auction banner is shown
-    localStorage.removeItem('auctionContext');
-    setAuctionCtx(null);
-    return;
-  }
-
-  // auction order: load and verify the context matches this order
-  try {
-    const raw = localStorage.getItem('auctionContext');
-    const ctx = raw ? JSON.parse(raw) : null;
-    if (ctx && ctx.code === order.orderNo) {
-      setAuctionCtx(ctx);
-    } else {
-      // stale/mismatched context: clear it
-      localStorage.removeItem('auctionContext');
-      setAuctionCtx(null);
-    }
-  } catch {
-    localStorage.removeItem('auctionContext');
-    setAuctionCtx(null);
-  }
-}, [order]);
+  // Auction banner context (kept)
+  const [auctionCtx, setAuctionCtx] = useState(null);
 
   // Modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -102,7 +76,53 @@ useEffect(() => {
     if (typeof cb === "function") cb();
   };
 
-  // Fallback
+  // Order load
+  const [loading, setLoading] = useState(!!effectiveOrderId);
+  const [order, setOrder] = useState(null);
+
+  useEffect(() => {
+    if (!effectiveOrderId) return;
+    let ignore = false;
+    (async () => {
+      try {
+        setLoading(true);
+        const json = await api.orders.get(effectiveOrderId);
+        const data = json?.order || json || null;
+        if (!ignore) setOrder(data);
+      } catch (e) {
+        console.error("fetch order error:", e);
+        if (!ignore) openModal("Couldn’t load order", "Please refresh the page or go back to the product.");
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    })();
+    return () => { ignore = true; };
+  }, [effectiveOrderId]);
+
+  // Show auction banner only for AUC-* orders, and only if context matches
+  useEffect(() => {
+    if (!order) return;
+    const isAuctionOrder = typeof order.orderNo === "string" && order.orderNo.startsWith("AUC-");
+    if (!isAuctionOrder) {
+      localStorage.removeItem("auctionContext");
+      setAuctionCtx(null);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem("auctionContext");
+      const ctx = raw ? JSON.parse(raw) : null;
+      if (ctx && ctx.code === order.orderNo) setAuctionCtx(ctx);
+      else {
+        localStorage.removeItem("auctionContext");
+        setAuctionCtx(null);
+      }
+    } catch {
+      localStorage.removeItem("auctionContext");
+      setAuctionCtx(null);
+    }
+  }, [order]);
+
+  // Fallback (kept)
   const fallbackItem = useMemo(
     () => ({
       title: "Product",
@@ -112,34 +132,22 @@ useEffect(() => {
     }),
     []
   );
-
-  // Load order
-  useEffect(() => {
-    let ignore = false;
-    async function run() {
-      if (!orderIdFromNav) return;
-      try {
-        setLoading(true);
-        const json = await api.orders.get(orderIdFromNav);
-        const ok = json?.ok === true || !!json?.order;
-        if (!ignore && ok) setOrder(json.order || json);
-      } catch (e) {
-        console.error("fetch order error:", e);
-        if (!ignore)
-          openModal("Couldn’t load order", "Please refresh the page or go back to Customize.");
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
-    run();
-    return () => { ignore = true; };
-  }, [orderIdFromNav]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const current = order || fallbackItem;
   const hasOrder = !!order;
-
   const productTitle = hasOrder ? current?.title || "Product" : "Product";
   const subtotal = hasOrder ? Number(current?.pricing?.subtotal ?? 0) : 0;
+
+  // expose mapping for display (other non-mapped fields show as N/A in UI only)
+  const display = {
+    orderNo: current?.orderNo || 'N/A',
+    title: current?.title || 'N/A',
+    type: current?.selections?.type || 'N/A',
+    shape: current?.selections?.shape || 'N/A',
+    weight:
+      current?.selections?.weight != null
+        ? `${Number(current.selections.weight).toFixed(2).replace(/\.00$/,'')} ct`
+        : 'N/A',
+  };
 
   // tabs
   const [tab, setTab] = useState("card");
@@ -164,15 +172,14 @@ useEffect(() => {
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
 
-  // totals (server recomputes)
+  // totals (client preview; server recomputes on checkout)
   const [shippingCost, setShippingCost] = useState(0);
-  const total = (subtotal || 0) + (shippingCost || 0);
-  const money = (n) => `$${Number(n || 0).toFixed(2).replace(/\.00$/, "")}`;
-
   useEffect(() => {
     if (!country) return setShippingCost(0);
     setShippingCost(country === "LK" ? 20 : 100);
   }, [country]);
+  const total = (subtotal || 0) + (shippingCost || 0);
+  const money = (n) => `$${Number(n || 0).toFixed(2).replace(/\.00$/, "")}`;
 
   // formatters
   const onCardNumber = (v) => {
@@ -220,9 +227,8 @@ useEffect(() => {
 
   // submit — CARD
   async function submitCard() {
-    const id = orderIdFromNav || current?._id;
-    if (!id) {
-      openModal("Order not found", "Go back to Customize and create your order first.");
+    if (!effectiveOrderId) {
+      openModal("Order not found", "Go back to the product and try again.");
       return;
     }
     if (!validateCustomer()) {
@@ -235,18 +241,18 @@ useEffect(() => {
     }
 
     try {
-      const json = await api.orders.checkoutCard(id, {
+      const json = await api.orders.checkoutCard(effectiveOrderId, {
         country,
         customer: { fullName, email, phone, country, address, city, zipCode },
         payment: { remember: !!rememberCard, card: { cardName, cardNumber } },
       });
-      if (json.ok) {
+      if (json?.ok) {
         openModal(
           "Payment successful",
           "Thanks! Your card payment was processed and your order is confirmed.",
           () => {
             localStorage.removeItem("pendingOrder");
-            localStorage.removeItem("auctionContext"); // NEW: clear banner context
+            localStorage.removeItem("auctionContext");
             navigate("/");
           }
         );
@@ -261,9 +267,8 @@ useEffect(() => {
 
   // submit — BANK
   async function submitBank() {
-    const id = orderIdFromNav || current?._id;
-    if (!id) {
-      openModal("Order not found", "Go back to Customize and create your order first.");
+    if (!effectiveOrderId) {
+      openModal("Order not found", "Go back to the product and try again.");
       return;
     }
     if (!validateCustomer()) {
@@ -276,19 +281,19 @@ useEffect(() => {
     }
 
     try {
-      const json = await api.orders.checkoutBank(id, {
+      const json = await api.orders.checkoutBank(effectiveOrderId, {
         country,
         customer: { fullName, email, phone, country, address, city, zipCode },
         slip: file,
       });
-      if (json.ok) {
+      if (json?.ok) {
         openModal(
           "Bank transfer submitted",
           "Thanks! We’ll review your payment slip and confirm the order shortly.",
           () => {
             clearFile();
             localStorage.removeItem("pendingOrder");
-            localStorage.removeItem("auctionContext"); // NEW: clear banner context
+            localStorage.removeItem("auctionContext");
             navigate("/");
           }
         );
@@ -314,16 +319,14 @@ useEffect(() => {
       <div id="particles-js" />
 
       <div className="payment-container">
-
         {auctionCtx && (
           <div
             style={{
               marginBottom: 12,
               padding: "10px 14px",
               borderRadius: 10,
-              background:
-               "linear-gradient(135deg, rgba(212,175,55,.15), rgba(249,242,149,.1))",
-             border: "1px solid rgba(212,175,55,.35)",
+              background: "linear-gradient(135deg, rgba(212,175,55,.15), rgba(249,242,149,.1))",
+              border: "1px solid rgba(212,175,55,.35)",
               color: "#eaeaea",
               display: "flex",
               gap: 12,
@@ -339,7 +342,7 @@ useEffect(() => {
               </div>
               {auctionCtx.title ? (
                 <div style={{ opacity: 0.85, fontSize: 13 }}>{auctionCtx.title}</div>
-             ) : null}
+              ) : null}
             </div>
           </div>
         )}
@@ -497,6 +500,7 @@ useEffect(() => {
             <div className="order-summary">
               <h3>Order Summary</h3>
 
+              {/* Keep custom-order extras if present */}
               {hasOrder && current?.selections && (
                 <div style={{ marginBottom: 10, fontSize: 14, color: "#cfcfcf" }}>
                   {current.selections.weight != null && (
@@ -530,6 +534,7 @@ useEffect(() => {
         </div>
       </div>
 
+      {/* if you rely on these icons */}
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 
       <Modal open={modalOpen} title={modalTitle} message={modalMessage} onClose={closeModal} />

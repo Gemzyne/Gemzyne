@@ -224,6 +224,12 @@ export const api = {
 
     get: (id) => request(`/api/orders/${id}`),
 
+    // From inventory gem
+    createFromGem: (gemId) =>
+      request(`/api/orders/from-gem/${encodeURIComponent(gemId)}`, {
+        method: "POST",
+      }),
+
     // Card checkout
     checkoutCard: (id, { customer, payment, country }) =>
       request(`/api/orders/${id}/checkout`, {

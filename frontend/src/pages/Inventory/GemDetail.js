@@ -160,11 +160,19 @@ export default function GemDetail() {
     alert("Added to cart");
   };
 
-  const instantBuy = () => {
-    if (!requireLogin()) return;
-    addToCart();
-    navigate("/checkout");
-  };
+  const instantBuy = async () => {
+  if (!requireLogin() || !gem) return;
+  try {
+    const res = await api.orders.createFromGem(gem._id);
+    const orderId = res?.order?._id || res?.orderId || res?._id;
+    if (!orderId) throw new Error("Failed to create order");
+    navigate(`/payment?orderId=${encodeURIComponent(orderId)}`);
+  } catch (e) {
+    console.error(e);
+    alert(e?.message || "Failed to start checkout");
+  }
+};
+
 
   const goLogin = () => {
     setShowLoginPrompt(false);

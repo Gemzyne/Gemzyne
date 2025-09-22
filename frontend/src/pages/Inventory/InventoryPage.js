@@ -375,11 +375,19 @@ export default function GemInventory() {
                         </button>
                         <button
                           className="inventory-buy-now-btn"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
                             if (!requireLogin()) return;
-                            // TODO: Link to Payment page here later
-                            // e.g., navigate(`/checkout?gem=${gem._id}`)
+                             try {
+                                const res = await api.orders.createFromGem(gem._id);
+                                const orderId = res?.order?._id || res?.orderId || res?._id;
+                                if (!orderId) throw new Error("Failed to create order");
+                                // go to existing payment page
+                                navigate(`/payment?orderId=${encodeURIComponent(orderId)}`);
+                              } catch (err) {
+                                 console.error(err);
+                                alert(err?.message || "Failed to start checkout");
+                              }
                           }}
                         >
                           Buy Now
