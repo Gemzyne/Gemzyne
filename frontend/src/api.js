@@ -95,7 +95,6 @@ export const metrics = {
   category: (year) => request(`/api/metrics/seller/category?year=${year}`),
 };
 
-
 export const api = {
   // ===== AUTH =====
   register: (data) =>
@@ -224,6 +223,23 @@ export const api = {
 
     get: (id) => request(`/api/orders/${id}`),
 
+    //Order track
+    // SELLER/ADMIN: list all custom orders
+    listAll: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/api/orders${qs ? `?${qs}` : ""}`);
+    },
+
+    // SELLER/ADMIN: update production status
+    updateStatus: (id, orderStatus) =>
+      request(`/api/orders/${id}/order-status`, {
+        method: "PATCH",
+        body: JSON.stringify({ orderStatus }),
+      }),
+
+    // SELLER/ADMIN: delete order
+    remove: (id) => request(`/api/orders/${id}`, { method: "DELETE" }),
+
     // Card checkout
     checkoutCard: (id, { customer, payment, country }) =>
       request(`/api/orders/${id}/checkout`, {
@@ -254,7 +270,7 @@ export const api = {
     createPurchase: (auctionIdOrCode) =>
       request(`/api/wins/purchase/${encodeURIComponent(auctionIdOrCode)}`, {
         method: "POST",
-     }),
+      }),
   },
 
   // === AUCTION (multipart-aware; safe to paste over just this block) ===
@@ -289,10 +305,12 @@ export const api = {
       if (isBlob) {
         const fd = new FormData();
         // support both 'title' and 'name' keys for gem name
-        if (payload?.title || payload?.name) fd.append("title", payload.title || payload.name);
+        if (payload?.title || payload?.name)
+          fd.append("title", payload.title || payload.name);
         if (payload?.type) fd.append("type", payload.type);
         if (payload?.description) fd.append("description", payload.description);
-        if (payload?.basePrice != null) fd.append("basePrice", String(payload.basePrice));
+        if (payload?.basePrice != null)
+          fd.append("basePrice", String(payload.basePrice));
         if (payload?.startTime) fd.append("startTime", payload.startTime);
         if (payload?.endTime) fd.append("endTime", payload.endTime);
         fd.append("image", maybeFile); // must match upload.single("image") on the server
@@ -308,12 +326,16 @@ export const api = {
     },
 
     update: (id, payload) =>
-      request(`/api/auctions/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+      request(`/api/auctions/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
 
     remove: (id) => request(`/api/auctions/${id}`, { method: "DELETE" }),
   },
   // === AUCTION END ===
 
+  //=== Order Track Management ===
 };
 
 // ---- GEMS ----

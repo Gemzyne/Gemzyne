@@ -16,6 +16,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Header";
 import SellerSidebar from "../../Components/SellerSidebar";
+import Footer from "../../Components/Footer";
 import "../DashBoards/SellerAuctionControlDashboard.css";
 import { request } from "../../api";
 
