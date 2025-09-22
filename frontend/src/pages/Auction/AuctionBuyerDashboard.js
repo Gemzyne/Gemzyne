@@ -1,27 +1,41 @@
-// Buyer dashboard: Ongoing, Your Bids, Upcoming, and Won
+// Buyer dashboard: Ongoing, Your Bids, Auction History (Won), and Upcoming
+// ------------------------------------------------------------------------
+// This page shows public auctions, your active bids, your won auctions,
+// and upcoming auctions. It also connects to Bids/Winner/Payment APIs.
+//
+// ✅ Beginner notes:
+// - "state" is page data that can change (useState)
+// - "effects" are side-effects like fetching data (useEffect)
+// - We call backend APIs using our `request`/`api` helpers from ../../api
+// - We DON'T include CSS here (keep your CSS in the .css file)
+
 import React, { useEffect, useMemo, useState } from "react";
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
-import "./AuctionBuyerDashboard.css";
-import { request,api } from "../../api";
+import "./AuctionBuyerDashboard.css"; // <- keep your CSS in this file (not included here)
+import { request, api } from "../../api";
 
 /* ================================
-   CONFIG
+   CONFIG & SMALL HELPERS
    ================================ */
+
+// This helps resolve image paths (works with backend /uploads or absolute URLs)
 const BACKEND = process.env.REACT_APP_API_URL || "http://localhost:5000";
 const asset = (p) => {
   if (!p) return "";
   if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) return p;
   return `${BACKEND}${p.startsWith("/") ? "" : "/"}${p}`;
 };
+
+// Quick checks for time
 const isEnded = (iso) => Date.parse(iso) <= Date.now();
 const isActive = (iso) => !isEnded(iso);
 
 /* ================================
-   PAGE
+   PAGE COMPONENT
    ================================ */
 export default function BuyerDashboard() {
-  /* ---- particles.js background loader ---- */
+  /* ---- particles.js background loader (visual effect only) ---- */
   useEffect(() => {
     const id = "particles-cdn";
     if (!document.getElementById(id)) {
@@ -63,28 +77,30 @@ export default function BuyerDashboard() {
     }
   }, []);
 
-  /* ---- state ---- */
-  const [ongoing, setOngoing] = useState([]);
-  const [yourBids, setYourBids] = useState([]);
-  const [upcoming, setUpcoming] = useState([]);
-  const [won, setWon] = useState([]);
-  const [tab, setTab] = useState("ongoing");
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("all");
-  const [status, setStatus] = useState("all");
+  /* ---- REACT STATE (data that changes) ---- */
+  const [ongoing, setOngoing] = useState([]);     // public ongoing auctions
+  const [yourBids, setYourBids] = useState([]);   // your active bids
+  const [upcoming, setUpcoming] = useState([]);   // public upcoming auctions
+  const [won, setWon] = useState([]);             // your won auctions
 
-  /* ---- details drawer ---- */
+  const [tab, setTab] = useState("ongoing");      // which tab is selected
+  const [search, setSearch] = useState("");       // search text
+  const [category, setCategory] = useState("all");// filter by type
+  const [status, setStatus] = useState("all");    // filter by status
+
+  // Drawer (right-side details panel)
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [details, setDetails] = useState(null);
 
-  /* ---- soft tick for countdowns ---- */
+  /* ---- SOFT TICK (to update countdowns every second) ---- */
   const [, setNowTick] = useState(Date.now());
   useEffect(() => {
     const t = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  /* ---- load public auctions ---- */
+  /* ---- LOAD PUBLIC AUCTIONS (ongoing + upcoming) ----
+     This runs when `search` or `category` changes. */
   useEffect(() => {
     (async () => {
       const qs = (s) =>
@@ -100,11 +116,13 @@ export default function BuyerDashboard() {
     })();
   }, [search, category]);
 
-  /* ---- load personal data ---- */
+  /* ---- LOAD PERSONAL DATA (your bids + wins) ----
+     This runs once on page load. */
   useEffect(() => {
     (async () => {
       try {
         const [my, wins] = await Promise.all([request("/api/bids/my"), request("/api/wins/my")]);
+        // Keep only active bids (not ended)
         setYourBids((my.items || []).filter((b) => isActive(b.endTime)));
         setWon(wins.items || []);
       } catch {
@@ -114,7 +132,7 @@ export default function BuyerDashboard() {
     })();
   }, []);
 
-  /* ---- prune ended bids on the fly ---- */
+  /* ---- AUTO-PRUNE ended bids every second (keeps Your Bids clean) ---- */
   useEffect(() => {
     const id = setInterval(() => {
       setYourBids((prev) => prev.filter((b) => isActive(b.endTime)));
@@ -122,7 +140,20 @@ export default function BuyerDashboard() {
     return () => clearInterval(id);
   }, []);
 
-  /* ---- derived views ---- */
+  /* ---- REFRESH WINS WHEN USER RETURNS FROM /payment ----
+     If user pays and comes back, we reload /api/wins/my to see paid status. */
+  useEffect(() => {
+    const onFocus = async () => {
+      try {
+        const wins = await request("/api/wins/my");
+        setWon(wins.items || []);
+      } catch {}
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
+  /* ---- DERIVED LIST for ongoing (applies filters) ---- */
   const filteredOngoing = useMemo(() => {
     return ongoing.filter((a) => {
       const matchesSearch =
@@ -130,27 +161,40 @@ export default function BuyerDashboard() {
         a.title.toLowerCase().includes(search.toLowerCase()) ||
         a.description?.toLowerCase().includes(search.toLowerCase());
       const matchesCat = category === "all" || a.type === category;
+
+      // Extra "ending soon" filter (within 6 hours)
       let matchesStatus = true;
       if (status === "ending") {
         const left = timeLeft(a.endTime);
         matchesStatus = left.total > 0 && left.days === 0 && left.hours < 6;
       }
-      if (status === "upcoming") matchesStatus = false;
+      if (status === "upcoming") matchesStatus = false; // exclude in ongoing tab
       if (status === "ongoing") matchesStatus = true;
+
       return matchesSearch && matchesCat && matchesStatus;
     });
   }, [ongoing, search, category, status]);
 
-  const stats = useMemo(
-    () => ({
+  /* ---- DASHBOARD STATS (BEGINNER NOTE)
+     We compute several numbers for the stat cards above the tabs.
+     - activeBids: count from yourBids (only active ones)
+     - wonCount: total number of wins (paid or not)
+     - paidCount: wins that are paid (purchaseStatus === 'paid' OR has paymentId)
+     - totalSpent: sum of finalPrice for PAID wins only
+  ---- */
+  const stats = useMemo(() => {
+    const paidWins = (won || []).filter(
+      (w) => w?.purchaseStatus === "paid" || !!w?.paymentId
+    );
+    return {
       activeBids: yourBids.length,
       wonCount: won.length,
-      totalSpent: won.reduce((s, x) => s + (x.finalPrice || 0), 0),
-    }),
-    [yourBids, won]
-  );
+      paidCount: paidWins.length,
+      totalSpent: paidWins.reduce((s, x) => s + (x.finalPrice || 0), 0),
+    };
+  }, [yourBids, won]);
 
-  /* ---- formatters ---- */
+  /* ---- FORMATTERS ---- */
   const fmtMoney = (n) =>
     Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
   const fmtDate = (iso) =>
@@ -162,7 +206,7 @@ export default function BuyerDashboard() {
       minute: "2-digit",
     });
 
-  /* ---- time helpers ---- */
+  /* ---- TIME HELPER: difference to a future timestamp ---- */
   function timeLeft(targetIso) {
     const total = Date.parse(targetIso) - Date.now();
     const clamp = Math.max(total, 0);
@@ -173,7 +217,11 @@ export default function BuyerDashboard() {
     return { total, days, hours, minutes, seconds };
   }
 
-  /* ---- api actions ---- */
+  /* ================================
+     API ACTIONS (place/increase/checkout)
+     ================================ */
+
+  // Place a bid on an ongoing auction
   async function placeBid(a, amount) {
     if (isEnded(a.endTime)) {
       alert("This auction has ended.");
@@ -183,11 +231,14 @@ export default function BuyerDashboard() {
       method: "POST",
       body: JSON.stringify({ auctionId: a._id, amount }),
     });
+    // Optimistically update card price
     setOngoing((prev) => prev.map((o) => (o._id === a._id ? { ...o, currentPrice: amount } : o)));
+    // Reload your active bids
     const my = await request("/api/bids/my");
     setYourBids((my.items || []).filter((b) => isActive(b.endTime)));
   }
 
+  // Increase a bid that you already have on an auction
   async function increaseBid(b, amount) {
     if (isEnded(b.endTime)) {
       alert("This auction has ended. Removing from Your Bids.");
@@ -198,48 +249,50 @@ export default function BuyerDashboard() {
       method: "POST",
       body: JSON.stringify({ auctionId: b.auctionId || b.id, amount }),
     });
+    // Reload your active bids
     const my = await request("/api/bids/my");
     setYourBids((my.items || []).filter((x) => isActive(x.endTime)));
   }
 
-  // NEW: winner → bridge order → go to /payment
+  // START PURCHASE for a won auction:
+  // We ask backend to "bridge" a Winner into an Order for the Payment module,
+  // then store that order in localStorage and navigate to /payment.
   async function startWinnerCheckout(win) {
     try {
       const idOrCode = win.auctionMongoId || win.auctionCode || win.id;
       const res = await api.wins.createPurchase(idOrCode);
-    if (!res?.ok) {
-      alert(res?.message || "Could not prepare purchase");
-      return;
-    }
-    // Save pendingOrder like Custom Orders
-    localStorage.setItem(
-      "pendingOrder",
-      JSON.stringify({
-        orderId: res.orderId,
-        orderNo: res.orderNo,
-        amount: win.finalPrice,
-        currency: "USD",
-      })
-    );
-      // Save minimal auction context for banner
+      if (!res?.ok) {
+        alert(res?.message || "Could not prepare purchase");
+        return;
+      }
+      // Save a "pendingOrder" like the Custom Orders payment flow expects
       localStorage.setItem(
-      "auctionContext",
-      JSON.stringify({
-        code: res.orderNo, // NEW: canonical, matches the order we just created
-        title: win.title || "",
-        finalPrice: win.finalPrice || 0,
-      })
-    );
-      // Navigate to payment page
+        "pendingOrder",
+        JSON.stringify({
+          orderId: res.orderId,
+          orderNo: res.orderNo,
+          amount: win.finalPrice,
+          currency: "USD",
+        })
+      );
+      // Optional: save minimal auction context for a banner on Payment page
+      localStorage.setItem(
+        "auctionContext",
+        JSON.stringify({
+          code: res.orderNo,
+          title: win.title || "",
+          finalPrice: win.finalPrice || 0,
+        })
+      );
+      // Go to payment page
       window.location.href = "/payment";
-  } catch (e) {
-    console.error(e);
-    alert("Failed to start purchase. Please try again.");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to start purchase. Please try again.");
+    }
   }
-}
 
-
-  /* ---- drawer helpers ---- */
+  /* ---- Drawer helpers ---- */
   function openDetails(a, type = "ongoing", bidRecord = null) {
     setDetails({ a, type, yourBid: bidRecord?.yourBid, bidRecord });
     setDetailsOpen(true);
@@ -249,24 +302,24 @@ export default function BuyerDashboard() {
     setDetails(null);
   }
 
-  /* ---- render ---- */
+  /* ================================
+     RENDER
+     ================================ */
   return (
     <div className="bd-root">
       {/* particles canvas (fixed, behind content) */}
-      <div
-        id="particles-js"
-        className="bd-particles"
-        style={{ position: "fixed", inset: 0, zIndex: 0 }}
-      />
+      <div id="particles-js" className="bd-particles" style={{ position: "fixed", inset: 0, zIndex: 0 }} />
 
       {/* page content above particles */}
       <div className="bd-content" style={{ position: "relative", zIndex: 1 }}>
         <Header />
 
+        {/* ===== HERO + FILTERS ===== */}
         <section className="bd-hero">
           <h1 className="bd-title">Auction Center</h1>
 
           <div className="bd-filters">
+            {/* Search box */}
             <div className="bd-search">
               <i className="fa-solid fa-magnifying-glass" />
               <input
@@ -277,12 +330,11 @@ export default function BuyerDashboard() {
               />
             </div>
 
+            {/* Category select */}
             <div className="bd-select">
               <button className="bd-select__btn" type="button">
                 <span>
-                  {category === "all"
-                    ? "All Categories"
-                    : category[0].toUpperCase() + category.slice(1)}
+                  {category === "all" ? "All Categories" : category[0].toUpperCase() + category.slice(1)}
                 </span>
                 <i className="fa-solid fa-chevron-down" />
               </button>
@@ -300,6 +352,7 @@ export default function BuyerDashboard() {
               </select>
             </div>
 
+            {/* Status select */}
             <div className="bd-select">
               <button className="bd-select__btn" type="button">
                 <span>
@@ -324,6 +377,8 @@ export default function BuyerDashboard() {
           </div>
         </section>
 
+        {/* ===== STATS WIDGETS =====
+            - Shows totals. "Total Spent" now only counts PAID wins. */}
         <section className="bd-stats">
           <div className="bd-stat">
             <h4>Active Bids</h4>
@@ -333,50 +388,40 @@ export default function BuyerDashboard() {
           <div className="bd-stat">
             <h4>Won Auctions</h4>
             <div className="bd-stat__val">{stats.wonCount}</div>
-            <div className="bd-stat__sub">Congrats!</div>
+            <div className="bd-stat__sub">Paid: {stats.paidCount}</div>
           </div>
           <div className="bd-stat">
             <h4>Total Spent</h4>
             <div className="bd-stat__val">${fmtMoney(stats.totalSpent)}</div>
-            <div className="bd-stat__sub">All-time</div>
+            <div className="bd-stat__sub">Paid orders only</div>
           </div>
         </section>
 
+        {/* ===== TABS ===== */}
         <div className="bd-tabs">
           <div className="bd-tabs__bar">
-            <button
-              className={`bd-tab ${tab === "ongoing" ? "is-active" : ""}`}
-              onClick={() => setTab("ongoing")}
-            >
+            <button className={`bd-tab ${tab === "ongoing" ? "is-active" : ""}`} onClick={() => setTab("ongoing")}>
               Ongoing Auctions
             </button>
           </div>
           <div className="bd-tabs__bar">
-            <button
-              className={`bd-tab ${tab === "yourbids" ? "is-active" : ""}`}
-              onClick={() => setTab("yourbids")}
-            >
+            <button className={`bd-tab ${tab === "yourbids" ? "is-active" : ""}`} onClick={() => setTab("yourbids")}>
               Your Bids
             </button>
           </div>
           <div className="bd-tabs__bar">
-            <button
-              className={`bd-tab ${tab === "history" ? "is-active" : ""}`}
-              onClick={() => setTab("history")}
-            >
+            <button className={`bd-tab ${tab === "history" ? "is-active" : ""}`} onClick={() => setTab("history")}>
               Auction History
             </button>
           </div>
           <div className="bd-tabs__bar">
-            <button
-              className={`bd-tab ${tab === "upcoming" ? "is-active" : ""}`}
-              onClick={() => setTab("upcoming")}
-            >
+            <button className={`bd-tab ${tab === "upcoming" ? "is-active" : ""}`} onClick={() => setTab("upcoming")}>
               Upcoming Auctions
             </button>
           </div>
         </div>
 
+        {/* ===== ONGOING ===== */}
         {tab === "ongoing" && (
           <Section title="Ongoing Auctions">
             <Grid emptyText="No matches found.">
@@ -393,6 +438,7 @@ export default function BuyerDashboard() {
           </Section>
         )}
 
+        {/* ===== YOUR BIDS ===== */}
         {tab === "yourbids" && (
           <Section title="Your Bids">
             <Grid emptyText="You haven’t placed any bids yet.">
@@ -438,32 +484,44 @@ export default function BuyerDashboard() {
           </Section>
         )}
 
+        {/* ===== AUCTION HISTORY (WON ONLY) =====
+            - If the win is PAID (purchaseStatus === 'paid' OR has paymentId),
+              show a "Paid" button (disabled) instead of "Complete Purchase". */}
         {tab === "history" && (
           <Section title="Auction History (Won Only)">
             <Grid emptyText="No wins yet.">
-              {won.map((w) => (
-                <article className="bd-card" key={w.id || w.auctionId}>
-                  <div className="bd-badge bd-badge--won">WON</div>
-                  <img className="bd-card__img" src={asset(w.image)} alt={w.title} />
-                  <h3 className="bd-card__title">{w.title}</h3>
-                  <p className="bd-card__meta">
-                    <i className="fa-solid fa-gem" /> {w.type}
-                  </p>
-                  <div className="bd-price">
-                    Final Price: <span>${fmtMoney(w.finalPrice)}</span>
-                  </div>
-                  <p className="bd-small">Ended: {fmtDate(w.endTime)}</p>
+              {won.map((w) => {
+                const isPaid = w?.purchaseStatus === "paid" || !!w?.paymentId;
+                return (
+                  <article className="bd-card" key={w.id || w.auctionId}>
+                    <div className="bd-badge bd-badge--won">WON</div>
+                    {isPaid && <div className="bd-badge bd-badge--paid">PAID</div>}
 
-                  <button className="bd-btn bd-btn--outline" onClick={() => startWinnerCheckout(w)}>
-                  Complete Purchase
-                  </button>
+                    <img className="bd-card__img" src={asset(w.image)} alt={w.title} />
+                    <h3 className="bd-card__title">{w.title}</h3>
+                    <p className="bd-card__meta">
+                      <i className="fa-solid fa-gem" /> {w.type}
+                    </p>
+                    <div className="bd-price">
+                      Final Price: <span>${fmtMoney(w.finalPrice)}</span>
+                    </div>
+                    <p className="bd-small">Ended: {fmtDate(w.endTime)}</p>
 
-                </article>
-              ))}
+                    {isPaid ? (
+                      <button className="bd-btn bd-btn--ok" disabled>Paid</button>
+                    ) : (
+                      <button className="bd-btn bd-btn--outline" onClick={() => startWinnerCheckout(w)}>
+                        Complete Purchase
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
             </Grid>
           </Section>
         )}
 
+        {/* ===== UPCOMING ===== */}
         {tab === "upcoming" && (
           <Section title="Upcoming Auctions">
             <Grid emptyText="No upcoming auctions">
@@ -509,6 +567,7 @@ export default function BuyerDashboard() {
           </Section>
         )}
 
+        {/* ===== DETAILS DRAWER (right-side panel) ===== */}
         <DetailsDrawer
           open={detailsOpen}
           details={details}
@@ -524,8 +583,10 @@ export default function BuyerDashboard() {
 }
 
 /* ================================
-   SECTION
+   SMALL PRESENTATION COMPONENTS
    ================================ */
+
+// A visual section wrapper with a title
 function Section({ title, children }) {
   return (
     <section className="bd-section">
@@ -537,9 +598,7 @@ function Section({ title, children }) {
   );
 }
 
-/* ================================
-   GRID
-   ================================ */
+// Grid layout for cards
 function Grid({ children, emptyText }) {
   return (
     <div className="bd-grid">
@@ -550,9 +609,7 @@ function Grid({ children, emptyText }) {
   );
 }
 
-/* ================================
-   COUNTDOWN
-   ================================ */
+// A simple countdown block (Days / Hours / Mins / Secs)
 function Countdown({ target, label = "Ends in" }) {
   const total = Date.parse(target) - Date.now();
   const clamp = Math.max(total, 0);
@@ -583,13 +640,10 @@ function Countdown({ target, label = "Ends in" }) {
   );
 }
 
-/* ================================
-   CARD
-   ================================ */
+// A single auction card used in Ongoing/Your Bids lists
 function Card({ a, yourBid, type, onSubmit, onOpen }) {
   const [val, setVal] = useState("");
-  const fmtMoney = (n) =>
-    Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const fmtMoney = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
   const minVal = (a.currentPrice || 0) + 1;
   const ended = isEnded(a.endTime);
 
@@ -624,7 +678,7 @@ function Card({ a, yourBid, type, onSubmit, onOpen }) {
             if (ended) return;
             const n = Number(val);
             if (Number.isFinite(n) && n > (a.currentPrice || 0)) {
-              onSubmit(n);
+              onSubmit(n);   // Calls placeBid or increaseBid
               setVal("");
             }
           }}
@@ -639,16 +693,16 @@ function Card({ a, yourBid, type, onSubmit, onOpen }) {
   );
 }
 
-/* ================================
-   DETAILS DRAWER
-   ================================ */
+// Right-side drawer that shows auction details and allows bidding
 function DetailsDrawer({ open, details, onClose, onPlace, onIncrease }) {
   const [val, setVal] = useState("");
 
+  // Reset input when opening a different auction
   useEffect(() => {
     setVal("");
   }, [details?.a?._id, open]);
 
+  // When no details, still render the shell (for overlay animation)
   if (!details) {
     return (
       <>
@@ -687,7 +741,7 @@ function DetailsDrawer({ open, details, onClose, onPlace, onIncrease }) {
           <div className="bd-drawer__row">
             <span className="bd-drawer__label">Type:</span>{a.type || "-"}
           </div>
-           
+
           {a?.description && (
             <div className="bd-drawer__row" style={{ alignItems: "flex-start" }}>
               <span className="bd-drawer__label">Description:</span>
@@ -720,7 +774,8 @@ function DetailsDrawer({ open, details, onClose, onPlace, onIncrease }) {
             </div>
           )}
 
-          {(type === "ongoing" || type === "your" ||type ==="upcoming") && !ended && (
+          {/* Show bid bar if auction is active (ongoing or your), or if upcoming we could hide the input */}
+          {(type === "ongoing" || type === "your" || type === "upcoming") && !ended && type !== "upcoming" && (
             <>
               <div className="bd-drawer__row">
                 <span className="bd-drawer__label">
