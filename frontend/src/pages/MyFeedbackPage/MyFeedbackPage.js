@@ -1,7 +1,7 @@
 // src/pages/MyFeedbackPage/MyFeedbackPage.js
 import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import Footer from "../../Components/Footer";
+import Header from "../../Components/Header";
 import "./MyFeedbackPage.css";
 import { apiRequest } from "../../lib/api";
 
@@ -146,21 +146,7 @@ const MyFeedbackPage = () => {
     <div className="myfeedback-root">
       <div id="particles-js" />
 
-      <header id="myfeedback-header">
-        <div className="logo">GemZyne</div>
-        <nav className="nav-links">
-          <Link to="/mainhome">Home</Link>
-          <Link to="/collection">Collection</Link>
-          <Link to="/auction">Auction</Link>
-          <Link to="/about">About</Link>
-          <Link to="/reviews">Review & Feedback</Link>
-        </nav>
-        <div className="header-actions">
-          <i className="fas fa-search"></i>
-          <i className="fas fa-user"></i>
-          <i className="fas fa-shopping-bag"></i>
-        </div>
-      </header>
+      <Header />
 
       <section className="page-header">
         <h1>My Feedback</h1>
@@ -343,8 +329,6 @@ const MyFeedbackPage = () => {
           </div>
         )}
       </div>
-
-      <Footer />
     </div>
   );
 };
