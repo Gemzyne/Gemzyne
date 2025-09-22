@@ -1,13 +1,16 @@
-import React, { useEffect } from "react";
+// src/pages/DashBoards/UserDashboard.js
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Header";
 import "./UserDashboard.css";
 import UserSidebar from "../../Components/UserSidebar";
 
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 const UserDashboard = () => {
   const navigate = useNavigate();
 
-  // particles + sticky header (unchanged)
+  /* ================= Particles + sticky header (unchanged) ================= */
   useEffect(() => {
     const initParticles = () => {
       window.particlesJS &&
@@ -58,35 +61,134 @@ const UserDashboard = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // protect route if token missing/expired (simple check)
+  // simple route guard
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
     if (!token) navigate("/login", { replace: true });
   }, [navigate]);
 
-  // payment modal wiring (unchanged)
+  /* =================== Payment Methods: fetch from backend ================== */
+  const [savedCards, setSavedCards] = useState([]);
+  const [cardsLoading, setCardsLoading] = useState(true);
+  const [cardsError, setCardsError] = useState("");
+
+  // === Confirm Delete modal state ===
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState(null); // { id, paymentId, cardName, last4 }
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmError, setConfirmError] = useState("");
+
+  // client-only "removed" list so we don't touch backend
+  const HIDDEN_KEY = "hiddenSavedCards";
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(HIDDEN_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  const visibleCards = useMemo(
+    () => savedCards.filter((c) => !hidden.includes(c.id)),
+    [savedCards, hidden]
+  );
+
+  const mask = (last4) => `•••• •••• •••• ${String(last4 || "").slice(-4)}`;
+  const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString() : "");
+
+  async function loadSavedCards() {
+    setCardsLoading(true);
+    setCardsError("");
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        navigate("/login", { replace: true });
+        return;
+      }
+      const res = await fetch(`${API_BASE}/api/payments/my?limit=100`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+      });
+      if (res.status === 401) {
+        navigate("/login", { replace: true });
+        return;
+      }
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.message || "Failed to load");
+
+      // De-duplicate by encrypted PAN when available, else name|last4
+      const acc = new Map();
+      (data.items || []).forEach((p) => {
+        const card = p?.payment?.card;
+        if (
+          p?.payment?.method === "card" &&
+          card &&
+          (card.last4 || card.cardCipher)
+        ) {
+          const id =
+            card.cardCipher || `${card.cardName || ""}|${card.last4 || ""}`;
+          if (!acc.has(id)) {
+            acc.set(id, {
+              id,
+              cardName: card.cardName || "Saved card",
+              last4: card.last4 || "••••",
+              provider: card.provider || "card",
+              createdAt: p.createdAt,
+              paymentId: p._id,
+            });
+          }
+        }
+      });
+      setSavedCards(Array.from(acc.values()));
+    } catch (e) {
+      setCardsError(e.message);
+    } finally {
+      setCardsLoading(false);
+    }
+  }
+
   useEffect(() => {
-    const addPaymentBtn = document.getElementById("add-payment-btn");
-    const paymentModal = document.getElementById("payment-modal");
-    const modalClose = document.querySelector(".modal-close");
-    if (!addPaymentBtn || !paymentModal || !modalClose) return;
+    loadSavedCards();
+  }, []); // load once
 
-    const openModal = () => paymentModal.classList.add("active");
-    const closeModal = () => paymentModal.classList.remove("active");
-    const overlayClick = (e) => {
-      if (e.target === paymentModal) paymentModal.classList.remove("active");
-    };
+  async function deleteSavedCardOnServer(paymentId) {
+    const token = localStorage.getItem("accessToken");
+    const res = await fetch(`${API_BASE}/api/payments/${paymentId}/card`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.message || "Delete failed");
+    return true;
+  }
 
-    addPaymentBtn.addEventListener("click", openModal);
-    modalClose.addEventListener("click", closeModal);
-    paymentModal.addEventListener("click", overlayClick);
+  function openDeleteConfirm(card) {
+    setConfirmTarget(card);
+    setConfirmError("");
+    setConfirmOpen(true);
+  }
+  function closeDeleteConfirm() {
+    if (confirmBusy) return; // avoid closing while deleting
+    setConfirmOpen(false);
+    setConfirmTarget(null);
+  }
 
-    return () => {
-      addPaymentBtn.removeEventListener("click", openModal);
-      modalClose.removeEventListener("click", closeModal);
-      paymentModal.removeEventListener("click", overlayClick);
-    };
-  }, []);
+  async function confirmDeleteNow() {
+    if (!confirmTarget) return;
+    setConfirmBusy(true);
+    setConfirmError("");
+    try {
+      await deleteSavedCardOnServer(confirmTarget.paymentId);
+      // remove from UI
+      setSavedCards((prev) => prev.filter((x) => x.id !== confirmTarget.id));
+      closeDeleteConfirm();
+    } catch (e) {
+      setConfirmError(e.message || "Failed to delete card");
+    } finally {
+      setConfirmBusy(false);
+    }
+  }
 
   return (
     <>
@@ -94,16 +196,14 @@ const UserDashboard = () => {
       <Header />
 
       <div className="dashboard-container">
-        {/* === separated sidebar === */}
         <UserSidebar />
 
-        {/* Main Content (unchanged) */}
         <main className="dashboard-content">
           <div className="dashboard-header">
             <h2 className="dashboard-title">Dashboard</h2>
           </div>
 
-          {/* Stats Overview */}
+          {/* ====== Stats (unchanged) ====== */}
           <div className="stats-grid">
             <div className="stat-card">
               <div className="stat-icon">
@@ -132,18 +232,9 @@ const UserDashboard = () => {
                 <p>My Reviews</p>
               </div>
             </div>
-            <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-heart"></i>
-              </div>
-              <div className="stat-info">
-                <h3>8</h3>
-                <p>Wishlisted Items</p>
-              </div>
-            </div>
           </div>
 
-          {/* Recent Orders */}
+          {/* ====== Recent Orders (unchanged demo data) ====== */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Recent Orders</h3>
@@ -213,123 +304,74 @@ const UserDashboard = () => {
             </div>
           </div>
 
-          {/* Payment Methods */}
+          {/* ====== Payment Methods (NOW DYNAMIC) ====== */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Payment Methods</h3>
-              <button className="btn" id="add-payment-btn">
-                Add New
-              </button>
             </div>
-            <div className="payment-methods">
-              <div className="payment-card default">
-                <div className="payment-card-header">
-                  <div className="payment-type">
-                    <div className="payment-icon">
-                      <i className="fab fa-cc-visa"></i>
-                    </div>
-                    <div className="payment-name">Visa</div>
-                  </div>
-                  <span className="default-badge">Default</span>
-                </div>
-                <div className="payment-details">
-                  <div className="card-number">**** **** **** 4512</div>
-                  <div className="card-expiry">Expires: 05/2025</div>
-                </div>
-                <div className="payment-actions">
-                  <button className="payment-btn btn-edit">Edit</button>
-                  <button className="payment-btn btn-remove">Remove</button>
-                </div>
-              </div>
 
-              <div className="payment-card">
-                <div className="payment-card-header">
-                  <div className="payment-type">
-                    <div className="payment-icon">
-                      <i className="fab fa-cc-mastercard"></i>
+            {cardsLoading && <p>Loading saved cards…</p>}
+            {!cardsLoading && cardsError && (
+              <p className="error" style={{ color: "#e74c3c" }}>
+                {cardsError}
+              </p>
+            )}
+
+            {!cardsLoading && !cardsError && (
+              <div className="payment-methods">
+                {visibleCards.length > 0 ? (
+                  visibleCards.map((c, idx) => (
+                    <div
+                      className={`payment-card ${idx === 0 ? "default" : ""}`}
+                      key={c.id}
+                    >
+                      <div className="payment-card-header">
+                        <div className="payment-type">
+                          <div className="payment-icon">
+                            <i className="far fa-credit-card"></i>
+                          </div>
+                          <div className="payment-name">
+                            {c.cardName || "Saved card"}
+                          </div>
+                        </div>
+                        {idx === 0 && (
+                          <span className="default-badge">Default</span>
+                        )}
+                      </div>
+                      <div className="payment-details">
+                        <div className="card-number">{mask(c.last4)}</div>
+                        <div className="card-expiry">
+                          Saved on: {fmtDate(c.createdAt)}
+                        </div>
+                      </div>
+                      <div className="payment-actions">
+                        {/* No edit per your requirement */}
+                        <button
+                          className="payment-btn btn-remove"
+                          onClick={() => openDeleteConfirm(c)}
+                          title="Delete saved card"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                    <div className="payment-name">MasterCard</div>
+                  ))
+                ) : (
+                  <div>
+                    <p style={{ marginBottom: 8 }}>
+                      You don’t have any saved cards yet.
+                    </p>
+                    <p style={{ color: "#b0b0b0", fontSize: 14 }}>
+                      Tip: cards are saved when you pay by card and tick
+                      “Remember”.
+                    </p>
                   </div>
-                </div>
-                <div className="payment-details">
-                  <div className="card-number">**** **** **** 7821</div>
-                  <div className="card-expiry">Expires: 11/2024</div>
-                </div>
-                <div className="payment-actions">
-                  <button className="payment-btn btn-edit">Edit</button>
-                  <button className="payment-btn btn-remove">Remove</button>
-                </div>
+                )}
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Active Auctions */}
-          <div className="dashboard-section">
-            <div className="section-header">
-              <h3 className="section-title">Active Auctions</h3>
-              <a href="#" className="view-all">
-                View All
-              </a>
-            </div>
-            <div className="auction-grid">
-              <div className="auction-item">
-                <div className="auction-image">
-                  <div className="auction-timer">2d 14h left</div>
-                  <i
-                    className="fas fa-gem"
-                    style={{ fontSize: "48px", color: "#d4af37" }}
-                  ></i>
-                </div>
-                <div className="auction-info">
-                  <h4 className="auction-title">Rare Alexandrite 2.8ct</h4>
-                  <div className="auction-price">$9,500</div>
-                  <div className="bid-status">
-                    <span>Your bid: $9,200</span>
-                    <span>12 bids</span>
-                  </div>
-                  <button className="auction-action">Increase Bid</button>
-                </div>
-              </div>
-              <div className="auction-item">
-                <div className="auction-image">
-                  <div className="auction-timer">1d 06h left</div>
-                  <i
-                    className="fas fa-gem"
-                    style={{ fontSize: "48px", color: "#3498db" }}
-                  ></i>
-                </div>
-                <div className="auction-info">
-                  <h4 className="auction-title">Paraiba Tourmaline 1.5ct</h4>
-                  <div className="auction-price">$12,300</div>
-                  <div className="bid-status">
-                    <span>Your bid: $11,800</span>
-                    <span>8 bids</span>
-                  </div>
-                  <button className="auction-action">Increase Bid</button>
-                </div>
-              </div>
-              <div className="auction-item">
-                <div className="auction-image">
-                  <div className="auction-timer">3d 08h left</div>
-                  <i
-                    className="fas fa-gem"
-                    style={{ fontSize: "48px", color: "#2ecc71" }}
-                  ></i>
-                </div>
-                <div className="auction-info">
-                  <h4 className="auction-title">Colombian Emerald 3.2ct</h4>
-                  <div className="auction-price">$7,800</div>
-                  <div className="bid-status">
-                    <span>Your bid: $7,500</span>
-                    <span>15 bids</span>
-                  </div>
-                  <button className="auction-action">Increase Bid</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Reviews */}
+          {/* ====== Recent Reviews (unchanged demo) ====== */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Recent Reviews</h3>
@@ -375,55 +417,66 @@ const UserDashboard = () => {
           </div>
         </main>
       </div>
+      {confirmOpen && (
+        <div
+          className="confirm-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-title"
+        >
+          <div className="confirm-modal">
+            <div className="confirm-header">
+              <h3 id="confirm-title">Delete saved card?</h3>
+              <button
+                className="confirm-close"
+                onClick={closeDeleteConfirm}
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
 
-      {/* Payment Modal (unchanged) */}
-      <div className="modal-overlay" id="payment-modal">
-        <div className="modal">
-          <div className="modal-header">
-            <h3 className="modal-title">Add Payment Method</h3>
-            <button className="modal-close">&times;</button>
-          </div>
-          <div className="modal-body">
-            <div className="form-group">
-              <label className="form-label">Card Number</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="1234 5678 9012 3456"
-              />
+            <div className="confirm-body">
+              <p>
+                This will remove the saved card from your account for this
+                payment.
+                {confirmTarget?.cardName && (
+                  <>
+                    {" "}
+                    <br />
+                    <strong>{confirmTarget.cardName}</strong>
+                  </>
+                )}
+                {confirmTarget?.last4 && (
+                  <>
+                    {" "}
+                    <br />
+                    •••• •••• •••• {String(confirmTarget.last4).slice(-4)}
+                  </>
+                )}
+              </p>
+              {confirmError && <p className="confirm-error">{confirmError}</p>}
             </div>
-            <div className="form-group">
-              <label className="form-label">Cardholder Name</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="John Doe"
-              />
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "15px",
-              }}
-            >
-              <div className="form-group">
-                <label className="form-label">Expiration Date</label>
-                <input type="text" className="form-input" placeholder="MM/YY" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">CVV</label>
-                <input type="text" className="form-input" placeholder="123" />
-              </div>
-            </div>
-            <div className="form-group">
-              <button className="btn" style={{ width: "100%" }}>
-                Add Payment Method
+
+            <div className="confirm-actions">
+              <button
+                className="btn btn-secondary"
+                onClick={closeDeleteConfirm}
+                disabled={confirmBusy}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={confirmDeleteNow}
+                disabled={confirmBusy}
+              >
+                {confirmBusy ? "Deleting…" : "Delete"}
               </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </>
   );
 };

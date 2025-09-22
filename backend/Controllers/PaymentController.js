@@ -356,3 +356,33 @@ exports.updateStatus = async (req, res, next) => {
     next(err);
   }
 };
+
+// DELETE /api/payments/:id/card  (buyer who owns it OR staff)
+// Removes the saved card block from a Payment document
+exports.deleteSavedCard = async (req, res, next) => {
+  try {
+    const p = await Payment.findById(req.params.id);
+    if (!p) return res.status(404).json({ ok: false, message: 'Not found' });
+
+    const isOwner = p.buyerId?.toString() === req.user.id;
+    const isStaff = ['seller', 'admin'].includes(req.user.role);
+    if (!isOwner && !isStaff) {
+      return res.status(403).json({ ok: false, message: 'Forbidden' });
+    }
+
+    if (p.payment?.method !== 'card') {
+      return res.status(400).json({ ok: false, message: 'Only card payments can have saved cards' });
+    }
+    if (!p.payment?.card) {
+      return res.status(400).json({ ok: false, message: 'No saved card on this payment' });
+    }
+
+    // Remove the saved card details
+    p.payment.card = undefined;
+    await p.save();
+
+    return res.json({ ok: true, message: 'Card removed', paymentId: p._id });
+  } catch (err) {
+    next(err);
+  }
+};
