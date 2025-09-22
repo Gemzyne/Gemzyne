@@ -1,14 +1,47 @@
 // src/pages/Auth/LoginPage.jsx
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
-import { api } from "../../api";
+import { api } from "../../api"; // backend unchanged
 import "./LoginPage.css";
 import { useUser } from "../../context/UserContext";
+
+/* ===============================================================
+   Load local slideshow images from src/Assets/shuffle
+   - Works in Vite (import.meta.glob) and CRA/Webpack (require.context)
+   =============================================================== */
+function loadLocalShuffleImages() {
+  const urls = [];
+
+  // Vite
+  try {
+    if (typeof import.meta !== "undefined" && import.meta && import.meta.glob) {
+      const modules = import.meta.glob(
+        "../../Assets/shuffle/*.{jpg,jpeg,png,webp,gif}",
+        { eager: true, as: "url" }
+      );
+      const values = Object.values(modules);
+      if (values.length) urls.push(...values);
+    }
+  } catch (_) {}
+
+  // CRA/Webpack
+  if (!urls.length) {
+    try {
+      const ctx = require.context(
+        "../../Assets/shuffle",
+        false,
+        /\.(png|jpe?g|webp|gif)$/i
+      );
+      urls.push(...ctx.keys().map(ctx));
+    } catch (_) {}
+  }
+
+  if (!urls.length) urls.push("/assets/fallback-gem.jpg");
+  return urls;
+}
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -49,146 +82,130 @@ const LoginPage = () => {
   const [msg, setMsg] = useState(null);
   const [err, setErr] = useState(null);
 
-  const authGemRef = useRef(null);
-
   const resetAlerts = () => {
     setMsg(null);
     setErr(null);
   };
 
-  // === Particles background ===
+  // Lock page scroll only while this page is mounted (desktop widths)
+useEffect(() => {
+  const apply = () => {
+    if (window.innerWidth >= 993) {
+      document.body.classList.add("lock-scroll");
+    } else {
+      document.body.classList.remove("lock-scroll");
+    }
+  };
+  apply();
+
+  // keep it responsive if user resizes
+  window.addEventListener("resize", apply);
+
+  return () => {
+    window.removeEventListener("resize", apply);
+    document.body.classList.remove("lock-scroll");
+  };
+}, []);
+
+
+  /* ============================
+     Fonts + Particles (unchanged vibe)
+     ============================ */
   useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
-    script.onload = () => {
-      if (window.particlesJS) {
-        window.particlesJS("particles-js", {
-          particles: {
-            number: { value: 60, density: { enable: true, value_area: 800 } },
-            color: { value: "#d4af37" },
-            shape: { type: "circle" },
-            opacity: { value: 0.3, random: true },
-            size: { value: 3, random: true },
-            line_linked: {
-              enable: true,
-              distance: 150,
-              color: "#d4af37",
-              opacity: 0.1,
-              width: 1,
+    const id = "particles-cdn";
+    if (!document.getElementById("gzyne-fonts")) {
+      const fonts = document.createElement("link");
+      fonts.id = "gzyne-fonts";
+      fonts.href =
+        "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@300;400;500;600;700&display=swap";
+      fonts.rel = "stylesheet";
+      document.head.appendChild(fonts);
+    }
+    if (!document.getElementById(id)) {
+      const script = document.createElement("script");
+      script.id = id;
+      script.src =
+        "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
+      script.async = true;
+      script.onload = () => {
+        if (window.particlesJS) {
+          window.particlesJS("particles-js", {
+            particles: {
+              number: {
+                value: 80,
+                density: { enable: true, value_area: 1000 },
+              },
+              color: { value: "#d4af37" },
+              shape: { type: "circle" },
+              opacity: { value: 0.35, random: true },
+              size: { value: 3.5, random: true },
+              line_linked: {
+                enable: true,
+                distance: 150,
+                color: "#d4af37",
+                opacity: 0.18,
+                width: 1.5,
+              },
+              move: { enable: true, speed: 1.2, random: true, out_mode: "out" },
             },
-            move: { enable: true, speed: 1 },
-          },
-          interactivity: {
-            detect_on: "canvas",
-            events: {
-              onhover: { enable: true, mode: "repulse" },
-              onclick: { enable: true, mode: "push" },
-              resize: true,
+            interactivity: {
+              detect_on: "canvas",
+              events: {
+                onhover: { enable: true, mode: "bubble" },
+                onclick: { enable: true, mode: "repulse" },
+                resize: true,
+              },
+              modes: {
+                bubble: { distance: 220, size: 6, duration: 2, opacity: 0.8 },
+                repulse: { distance: 200, duration: 0.4 },
+              },
             },
-          },
-          retina_detect: true,
-        });
-      }
-    };
-    document.body.appendChild(script);
-    return () => document.body.removeChild(script);
+            retina_detect: true,
+          });
+        }
+      };
+      document.body.appendChild(script);
+    }
   }, []);
 
-  // === 3D Gem ===
+  /* ============================
+     Auto-fade slideshow (LOCAL IMAGES, no user controls)
+     ============================ */
+  const [slides, setSlides] = useState([]);
+  const [current, setCurrent] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  const shuffle = (arr) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+
   useEffect(() => {
-    const container = authGemRef.current;
-    if (!container) return;
-
-    let width = container.clientWidth;
-    let height = container.clientHeight;
-
-    const scene = new THREE.Scene();
-
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.z = 12;
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    container.appendChild(renderer.domElement);
-
-    scene.add(new THREE.AmbientLight(0xffffff, 1.8));
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
-    keyLight.position.set(10, 10, 10);
-    scene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight(0x3498db, 1.5);
-    fillLight.position.set(-10, 10, 5);
-    scene.add(fillLight);
-    const rim = new THREE.PointLight(0xd4af37, 2, 50);
-    rim.position.set(-5, -5, 5);
-    scene.add(rim);
-
-    const loader = new GLTFLoader();
-    let gem = null;
-    let frameId;
-
-    loader.load(
-      "/gem.glb",
-      (gltf) => {
-        gem = gltf.scene;
-        gem.traverse((child) => {
-          if (child.isMesh && child.material) {
-            child.material.metalness = 0.7;
-            child.material.roughness = 0.12;
-            if ("emissive" in child.material) {
-              child.material.emissive = new THREE.Color(0xaaaaaa);
-              child.material.emissiveIntensity = 0.45;
-            }
-          }
-        });
-        gem.scale.set(3, 3, 3);
-        gem.position.y = -0.5;
-        gem.rotation.x = Math.PI / 6;
-        scene.add(gem);
-
-        const animate = () => {
-          frameId = requestAnimationFrame(animate);
-          if (gem) gem.rotation.y += 0.005;
-          renderer.render(scene, camera);
-        };
-        animate();
-
-        const l = container.querySelector(".loader");
-        if (l) l.style.display = "none";
-      },
-      undefined,
-      (err) => {
-        console.error("Error loading gem:", err);
-        const l = container.querySelector(".loader");
-        if (l) l.style.display = "none";
-        container.innerHTML =
-          '<div style="color:#d4af37;text-align:center;padding-top:40%;font-size:18px;">Gem Preview</div>';
-      }
-    );
-
-    const handleResize = () => {
-      width = container.clientWidth;
-      height = container.clientHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
-    };
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      cancelAnimationFrame(frameId);
-      window.removeEventListener("resize", handleResize);
-      if (gem) scene.remove(gem);
-      renderer.dispose();
-      container.innerHTML = "";
-    };
+    const urls = loadLocalShuffleImages();
+    setSlides(shuffle(urls).slice(0, 12));
+    setCurrent(0);
   }, []);
 
+  useEffect(() => {
+    if (!slides.length) return;
+    const id = setInterval(() => {
+      if (!paused) setCurrent((i) => (i + 1) % slides.length);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [slides, paused]);
+
+  /* ============================
+     Form helpers
+     ============================ */
   const togglePassword = (field) => {
     setShowPassword((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  // ===== Handlers =====
+  // ===== Handlers (backend unchanged) =====
   const handleLogin = async (e) => {
     e.preventDefault();
     resetAlerts();
@@ -202,33 +219,23 @@ const LoginPage = () => {
       if (res?.user) localStorage.setItem("user", JSON.stringify(res.user));
       if (res?.accessToken)
         localStorage.setItem("accessToken", res.accessToken);
-
-      if (res?.user) {
-        setMe(res.user);
-      }
+      if (res?.user) setMe(res.user);
 
       setMsg("Logged in!");
-      navigate("/mainhome"); // unchanged
+      navigate("/mainhome");
     } catch (error) {
-      // handle unverified user
       if (error.status === 403 && error?.data?.verifyRequired) {
         const email = loginForm.identifier.trim();
         setErr("Please verify your email to continue.");
         setOtpForm({ email, code: "" });
         setActiveForm("otp");
-
-        // auto-resend a fresh code (you said this endpoint exists)
         try {
           await api.resendVerify(email);
           setMsg("We sent you a new verification code.");
-        } catch {
-          // it's fine if resend fails silently; user can still enter an existing code
-        }
-
+        } catch {}
         setLoading(false);
         return;
       }
-
       setErr(error.message || "Login failed");
     } finally {
       setLoading(false);
@@ -276,16 +283,6 @@ const LoginPage = () => {
       setErr(error.message || "Invalid or expired code");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResendOtp = async () => {
-    resetAlerts();
-    try {
-      await api.resendVerify(otpForm.email.trim());
-      setMsg("Verification code re-sent.");
-    } catch (error) {
-      setErr(error.message || "Could not resend code");
     }
   };
 
@@ -338,357 +335,510 @@ const LoginPage = () => {
       <div id="particles-js"></div>
       <Header />
 
-      <div className="auth-container">
-        <div className="auth-gem" ref={authGemRef}>
-          <div className="loader"></div>
+      <div className="premium-auth-container">
+        {/* ==== FULLSCREEN SLIDESHOW (no controls) ==== */}
+        <div
+          className="premium-auth-visual"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+        >
+          <div className="premium-visual-overlay" />
+          {slides.map((src, idx) => (
+            <div
+              key={idx}
+              className={`premium-slide ${idx === current ? "active" : ""}`}
+              style={{ backgroundImage: `url(${src})` }}
+              aria-hidden={idx !== current}
+            />
+          ))}
+
+          <div className="premium-visual-caption">
+            <h2>Exquisite Gemstones</h2>
+            <p>Discover the world's most precious collections</p>
+          </div>
         </div>
 
-        <div className="auth-content">
-          {(activeForm === "login" || activeForm === "register") && (
-            <div className="auth-tabs">
-              <button
-                type="button"
-                className={`auth-tab ${activeForm === "login" ? "active" : ""}`}
-                onClick={() => {
-                  setActiveForm("login");
-                  resetAlerts();
-                }}
-              >
-                Login
-              </button>
-              <button
-                type="button"
-                className={`auth-tab ${
-                  activeForm === "register" ? "active" : ""
-                }`}
-                onClick={() => {
-                  setActiveForm("register");
-                  resetAlerts();
-                }}
-              >
-                Register
-              </button>
-            </div>
-          )}
-
-          {/* Alerts */}
-          {err && (
-            <div style={{ color: "#ff6b6b", marginBottom: 12 }}>{err}</div>
-          )}
-          {msg && (
-            <div style={{ color: "#6bff95", marginBottom: 12 }}>{msg}</div>
-          )}
-
-          {/* LOGIN */}
-          {activeForm === "login" && (
-            <form className="auth-form active" onSubmit={handleLogin}>
-              <div className="form-group">
-                <label>Email or Phone</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Enter email or phone"
-                  value={loginForm.identifier}
-                  onChange={(e) =>
-                    setLoginForm({ ...loginForm, identifier: e.target.value })
-                  }
-                  required
-                />
+        {/* ==== FIXED RIGHT FORM PANEL ==== */}
+        <div className="premium-auth-content">
+          <div className="premium-form-container">
+            {/* Brand + Welcome (as on your new page) */}
+            <div className="brand-welcome">
+              <div className="brand">
+                <i className="fas fa-gem" aria-hidden="true"></i>
+                <span>GemZyne</span>
               </div>
-              <div className="form-group">
-                <label>Password</label>
-                <div className="input-with-icon">
-                  <input
-                    type={showPassword.login ? "text" : "password"}
-                    className="form-control"
-                    placeholder="Enter your password"
-                    value={loginForm.password}
-                    onChange={(e) =>
-                      setLoginForm({ ...loginForm, password: e.target.value })
-                    }
-                    required
-                  />
-                  <i
-                    className={`fas ${
-                      showPassword.login ? "fa-eye-slash" : "fa-eye"
-                    }`}
-                    onClick={() => togglePassword("login")}
-                    role="button"
-                    aria-label="Toggle password visibility"
-                  />
-                </div>
-              </div>
-              <button
-                type="button"
-                className="forgot-password"
-                onClick={() => setActiveForm("forgot")}
-              >
-                Forgot Password?
-              </button>
-              <button type="submit" className="auth-btn" disabled={loading}>
-                {loading ? "Please wait..." : "Login"}
-              </button>
-              <div className="auth-alt">
-                Don&apos;t have an account?{" "}
-                <button type="button" onClick={() => setActiveForm("register")}>
-                  Register Now
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* REGISTER */}
-          {activeForm === "register" && (
-            <form className="auth-form active" onSubmit={handleRegister}>
-              <div className="form-group">
-                <label>Full Name</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={registerForm.fullName}
-                  onChange={(e) =>
-                    setRegisterForm({
-                      ...registerForm,
-                      fullName: e.target.value,
-                    })
-                  }
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Email Address</label>
-                <input
-                  type="email"
-                  className="form-control"
-                  value={registerForm.email}
-                  onChange={(e) =>
-                    setRegisterForm({ ...registerForm, email: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Phone Number</label>
-                <input
-                  type="tel"
-                  className="form-control"
-                  value={registerForm.phone}
-                  onChange={(e) =>
-                    setRegisterForm({ ...registerForm, phone: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Password</label>
-                <div className="input-with-icon">
-                  <input
-                    type={showPassword.register ? "text" : "password"}
-                    className="form-control"
-                    value={registerForm.password}
-                    onChange={(e) =>
-                      setRegisterForm({
-                        ...registerForm,
-                        password: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                  <i
-                    className={`fas ${
-                      showPassword.register ? "fa-eye-slash" : "fa-eye"
-                    }`}
-                    onClick={() => togglePassword("register")}
-                    role="button"
-                    aria-label="Toggle password visibility"
-                  />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Confirm Password</label>
-                <div className="input-with-icon">
-                  <input
-                    type={showPassword.registerConfirm ? "text" : "password"}
-                    className="form-control"
-                    value={registerForm.confirm}
-                    onChange={(e) =>
-                      setRegisterForm({
-                        ...registerForm,
-                        confirm: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                  <i
-                    className={`fas ${
-                      showPassword.registerConfirm ? "fa-eye-slash" : "fa-eye"
-                    }`}
-                    onClick={() => togglePassword("registerConfirm")}
-                    role="button"
-                    aria-label="Toggle password visibility"
-                  />
-                </div>
-              </div>
-              <button type="submit" className="auth-btn" disabled={loading}>
-                {loading ? "Creating..." : "Create Account"}
-              </button>
-              <div className="auth-alt">
-                Already have an account?{" "}
-                <button type="button" onClick={() => setActiveForm("login")}>
-                  Login
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* VERIFY OTP */}
-          {activeForm === "otp" && (
-            <form className="auth-form active" onSubmit={handleVerifyOtp}>
-              <h3 style={{ textAlign: "center", color: "#d4af37" }}>
-                Verify Your Email
-              </h3>
-              <p style={{ textAlign: "center", color: "#b0b0b0" }}>
-                We&apos;ve sent a verification code to{" "}
-                <b>{otpForm.email || registerForm.email}</b>
+              <p className="welcome">
+                Access your exclusive account to explore certified
+                Sri Lankan gemstones and manage orders.
               </p>
-              <div className="form-group">
-                <label>Verification Code</label>
-                <input
-                  type="text"
-                  className="form-control otp-input"
-                  placeholder="Enter 6-digit code"
-                  maxLength={6}
-                  value={otpForm.code}
-                  onChange={(e) =>
-                    setOtpForm({ ...otpForm, code: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  alignItems: "center",
-                  marginBottom: 8,
-                }}
-              >
+            </div>
+
+            {/* Old underline tabs */}
+            {(activeForm === "login" || activeForm === "register") && (
+              <div className="auth-tabs">
                 <button
                   type="button"
-                  className="forgot-password"
-                  onClick={handleResendOtp}
+                  className={`auth-tab ${
+                    activeForm === "login" ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    setActiveForm("login");
+                    resetAlerts();
+                  }}
                 >
-                  Resend code
+                  Login
+                </button>
+                <button
+                  type="button"
+                  className={`auth-tab ${
+                    activeForm === "register" ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    setActiveForm("register");
+                    resetAlerts();
+                  }}
+                >
+                  Register
                 </button>
               </div>
-              <button type="submit" className="auth-btn" disabled={loading}>
-                {loading ? "Verifying..." : "Verify & Continue"}
-              </button>
-            </form>
-          )}
+            )}
 
-          {/* FORGOT PASSWORD */}
-          {activeForm === "forgot" && (
-            <form className="auth-form active" onSubmit={handleForgot}>
-              <h3 style={{ textAlign: "center", color: "#d4af37" }}>
-                Reset Your Password
-              </h3>
-              <p style={{ textAlign: "center", color: "#b0b0b0" }}>
-                Enter your email to receive a reset code
-              </p>
-              <div className="form-group">
-                <label>Email Address</label>
-                <input
-                  type="email"
-                  className="form-control"
-                  value={forgotForm.email}
-                  onChange={(e) => setForgotForm({ email: e.target.value })}
-                  required
-                />
-              </div>
-              <button type="submit" className="auth-btn" disabled={loading}>
-                {loading ? "Sending..." : "Send Reset Code"}
-              </button>
-              <div className="auth-alt">
-                Remember your password?{" "}
-                <button type="button" onClick={() => setActiveForm("login")}>
-                  Back to Login
+            {/* Alerts */}
+            {err && <div className="premium-alert error">{err}</div>}
+            {msg && <div className="premium-alert success">{msg}</div>}
+
+            {/* LOGIN */}
+            {activeForm === "login" && (
+              <form className="premium-auth-form active" onSubmit={handleLogin}>
+                <div className="premium-form-group">
+                  <label>Email or Phone</label>
+                  <div className="premium-input-wrapper">
+                    <i className="fas fa-user"></i>
+                    <input
+                      type="text"
+                      className="premium-form-control"
+                      placeholder="Enter email or phone"
+                      value={loginForm.identifier}
+                      onChange={(e) =>
+                        setLoginForm({
+                          ...loginForm,
+                          identifier: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="premium-form-group">
+                  <label>Password</label>
+                  <div className="premium-input-wrapper">
+                    <i className="fas fa-lock"></i>
+                    <i
+                      className={`fas ${
+                        showPassword.login ? "fa-eye-slash" : "fa-eye"
+                      } password-toggle`}
+                      onClick={() => togglePassword("login")}
+                      role="button"
+                      aria-label="Toggle password visibility"
+                    />
+                    <input
+                      type={showPassword.login ? "text" : "password"}
+                      className="premium-form-control"
+                      placeholder="Enter your password"
+                      value={loginForm.password}
+                      onChange={(e) =>
+                        setLoginForm({ ...loginForm, password: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="premium-forgot-password"
+                  onClick={() => setActiveForm("forgot")}
+                >
+                  Forgot Password?
                 </button>
-              </div>
-            </form>
-          )}
 
-          {/* RESET PASSWORD */}
-          {activeForm === "reset" && (
-            <form className="auth-form active" onSubmit={handleReset}>
-              <h3 style={{ textAlign: "center", color: "#d4af37" }}>
-                Create New Password
-              </h3>
-              <div className="form-group">
-                <label>Code (from email)</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  maxLength={6}
-                  value={resetForm.code}
-                  onChange={(e) =>
-                    setResetForm({ ...resetForm, code: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>New Password</label>
-                <div className="input-with-icon">
-                  <input
-                    type={showPassword.reset ? "text" : "password"}
-                    className="form-control"
-                    value={resetForm.newPassword}
-                    onChange={(e) =>
-                      setResetForm({
-                        ...resetForm,
-                        newPassword: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                  <i
-                    className={`fas ${
-                      showPassword.reset ? "fa-eye-slash" : "fa-eye"
-                    }`}
-                    onClick={() => togglePassword("reset")}
-                    role="button"
-                    aria-label="Toggle password visibility"
-                  />
+                <button
+                  type="submit"
+                  className="premium-auth-btn"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i> Please wait...
+                    </>
+                  ) : (
+                    <>
+                       Sign In
+                    </>
+                  )}
+                </button>
+
+                <div className="premium-auth-alt">
+                  Don&apos;t have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setActiveForm("register")}
+                  >
+                    Register Now
+                  </button>
                 </div>
-              </div>
-              <div className="form-group">
-                <label>Confirm New Password</label>
-                <div className="input-with-icon">
-                  <input
-                    type={showPassword.resetConfirm ? "text" : "password"}
-                    className="form-control"
-                    value={resetForm.confirm}
-                    onChange={(e) =>
-                      setResetForm({ ...resetForm, confirm: e.target.value })
-                    }
-                    required
-                  />
-                  <i
-                    className={`fas ${
-                      showPassword.resetConfirm ? "fa-eye-slash" : "fa-eye"
-                    }`}
-                    onClick={() => togglePassword("resetConfirm")}
-                    role="button"
-                    aria-label="Toggle password visibility"
-                  />
+              </form>
+            )}
+
+            {/* REGISTER */}
+            {activeForm === "register" && (
+              <form
+                className="premium-auth-form active"
+                onSubmit={handleRegister}
+              >
+                <div className="premium-form-group">
+                  <label>Full Name</label>
+                  <div className="premium-input-wrapper">
+                    <i className="fas fa-user-circle"></i>
+                    <input
+                      type="text"
+                      className="premium-form-control"
+                      placeholder="Enter your full name"
+                      value={registerForm.fullName}
+                      onChange={(e) =>
+                        setRegisterForm({
+                          ...registerForm,
+                          fullName: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
-              <button type="submit" className="auth-btn" disabled={loading}>
-                {loading ? "Updating..." : "Update Password"}
-              </button>
-            </form>
-          )}
+
+                <div className="premium-form-group">
+                  <label>Email Address</label>
+                  <div className="premium-input-wrapper">
+                    <i className="fas fa-envelope"></i>
+                    <input
+                      type="email"
+                      className="premium-form-control"
+                      placeholder="Enter your email"
+                      value={registerForm.email}
+                      onChange={(e) =>
+                        setRegisterForm({
+                          ...registerForm,
+                          email: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="premium-form-group">
+                  <label>Phone Number</label>
+                  <div className="premium-input-wrapper">
+                    <i className="fas fa-phone"></i>
+                    <input
+                      type="tel"
+                      className="premium-form-control"
+                      placeholder="Enter your phone number"
+                      value={registerForm.phone}
+                      onChange={(e) =>
+                        setRegisterForm({
+                          ...registerForm,
+                          phone: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="premium-form-group">
+                  <label>Password</label>
+                  <div className="premium-input-wrapper">
+                    <i className="fas fa-lock"></i>
+                    <i
+                      className={`fas ${
+                        showPassword.register ? "fa-eye-slash" : "fa-eye"
+                      } password-toggle`}
+                      onClick={() => togglePassword("register")}
+                      role="button"
+                      aria-label="Toggle password visibility"
+                    />
+                    <input
+                      type={showPassword.register ? "text" : "password"}
+                      className="premium-form-control"
+                      placeholder="Create a password"
+                      value={registerForm.password}
+                      onChange={(e) =>
+                        setRegisterForm({
+                          ...registerForm,
+                          password: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="premium-form-group">
+                  <label>Confirm Password</label>
+                  <div className="premium-input-wrapper">
+                    <i className="fas fa-lock"></i>
+                    <i
+                      className={`fas ${
+                        showPassword.registerConfirm ? "fa-eye-slash" : "fa-eye"
+                      } password-toggle`}
+                      onClick={() => togglePassword("registerConfirm")}
+                      role="button"
+                      aria-label="Toggle password visibility"
+                    />
+                    <input
+                      type={showPassword.registerConfirm ? "text" : "password"}
+                      className="premium-form-control"
+                      placeholder="Confirm your password"
+                      value={registerForm.confirm}
+                      onChange={(e) =>
+                        setRegisterForm({
+                          ...registerForm,
+                          confirm: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="premium-auth-btn"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i> Creating...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-user-plus"></i> Create Account
+                    </>
+                  )}
+                </button>
+
+                <div className="premium-auth-alt">
+                  Already have an account?{" "}
+                  <button type="button" onClick={() => setActiveForm("login")}>
+                    Sign In
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* VERIFY OTP */}
+            {activeForm === "otp" && (
+              <form
+                className="premium-auth-form active"
+                onSubmit={handleVerifyOtp}
+              >
+                <h3 className="premium-form-title">Verify Your Email</h3>
+                <p className="premium-form-sub">
+                  We&apos;ve sent a verification code to{" "}
+                  <b>{otpForm.email || registerForm.email}</b>
+                </p>
+                <div className="premium-form-group">
+                  <label>Verification Code</label>
+                  <div className="premium-input-wrapper">
+                    <i className="fas fa-key"></i>
+                    <input
+                      type="text"
+                      className="premium-form-control otp-input"
+                      placeholder="Enter 6-digit code"
+                      maxLength={6}
+                      value={otpForm.code}
+                      onChange={(e) =>
+                        setOtpForm({ ...otpForm, code: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="premium-row-inline">
+                  <button
+                    type="button"
+                    className="premium-forgot-password"
+                    onClick={async () => {
+                      resetAlerts();
+                      try {
+                        await api.resendVerify(otpForm.email.trim());
+                        setMsg("Verification code re-sent.");
+                      } catch (error) {
+                        setErr(error.message || "Could not resend code");
+                      }
+                    }}
+                  >
+                    Resend code
+                  </button>
+                </div>
+                <button
+                  type="submit"
+                  className="premium-auth-btn"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i> Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-check-circle"></i> Verify & Continue
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+
+            {/* FORGOT PASSWORD */}
+            {activeForm === "forgot" && (
+              <form
+                className="premium-auth-form active"
+                onSubmit={handleForgot}
+              >
+                <h3 className="premium-form-title">Reset Your Password</h3>
+                <p className="premium-form-sub">
+                  Enter your email to receive a reset code
+                </p>
+                <div className="premium-form-group">
+                  <label>Email Address</label>
+                  <div className="premium-input-wrapper">
+                    <i className="fas fa-envelope"></i>
+                    <input
+                      type="email"
+                      className="premium-form-control"
+                      placeholder="Enter your email"
+                      value={forgotForm.email}
+                      onChange={(e) => setForgotForm({ email: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="premium-auth-btn"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i> Sending...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-paper-plane"></i> Send Reset Code
+                    </>
+                  )}
+                </button>
+                <div className="premium-auth-alt">
+                  Remember your password?{" "}
+                  <button type="button" onClick={() => setActiveForm("login")}>
+                    Back to Login
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* RESET PASSWORD */}
+            {activeForm === "reset" && (
+              <form className="premium-auth-form active" onSubmit={handleReset}>
+                <h3 className="premium-form-title">Create New Password</h3>
+                <div className="premium-form-group">
+                  <label>Code (from email)</label>
+                  <div className="premium-input-wrapper">
+                    <i className="fas fa-key"></i>
+                    <input
+                      type="text"
+                      className="premium-form-control"
+                      placeholder="Enter verification code"
+                      maxLength={6}
+                      value={resetForm.code}
+                      onChange={(e) =>
+                        setResetForm({ ...resetForm, code: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="premium-form-group">
+                  <label>New Password</label>
+                  <div className="premium-input-wrapper">
+                    <i className="fas fa-lock"></i>
+                    <i
+                      className={`fas ${
+                        showPassword.reset ? "fa-eye-slash" : "fa-eye"
+                      } password-toggle`}
+                      onClick={() => togglePassword("reset")}
+                      role="button"
+                      aria-label="Toggle password visibility"
+                    />
+                    <input
+                      type={showPassword.reset ? "text" : "password"}
+                      className="premium-form-control"
+                      placeholder="Enter new password"
+                      value={resetForm.newPassword}
+                      onChange={(e) =>
+                        setResetForm({
+                          ...resetForm,
+                          newPassword: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="premium-form-group">
+                  <label>Confirm New Password</label>
+                  <div className="premium-input-wrapper">
+                    <i className="fas fa-lock"></i>
+                    <i
+                      className={`fas ${
+                        showPassword.resetConfirm ? "fa-eye-slash" : "fa-eye"
+                      } password-toggle`}
+                      onClick={() => togglePassword("resetConfirm")}
+                      role="button"
+                      aria-label="Toggle password visibility"
+                    />
+                    <input
+                      type={showPassword.resetConfirm ? "text" : "password"}
+                      className="premium-form-control"
+                      placeholder="Confirm new password"
+                      value={resetForm.confirm}
+                      onChange={(e) =>
+                        setResetForm({ ...resetForm, confirm: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="premium-auth-btn"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i> Updating...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-sync-alt"></i> Update Password
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </div>
 

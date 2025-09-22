@@ -24,12 +24,6 @@ const Header = () => {
     }
   };
 
-  // ✅ Always send users to /inventory so InventoryPage loads
-  const handleCollectionClick = (e) => {
-    e.preventDefault();
-    navigate("/inventory");
-  };
-
   // === AUCTION: role-aware navigation for Auction link (guest → centre, buyer → buyer dashboard, seller → seller dashboard, admin → centre)
   const handleAuctionClick = (e) => {
     e.preventDefault();
@@ -43,9 +37,10 @@ const Header = () => {
 
   return (
     <header id="header">
-      <div className="logo">GemZyne</div>
+      <div className="logo"><i className="fas fa-gem" aria-hidden="true"></i> GemZyne</div>
       <nav className="nav-links">
         <Link to="/mainhome">Home</Link>
+
         {/* ✅ Point the link to /inventory and keep onClick as a SPA navigate fallback */}
         <Link to="/inventory">
           Collection
@@ -59,7 +54,6 @@ const Header = () => {
         <Link to="/review">Review & Feedback</Link>
       </nav>
       <div className="header-actions">
-        <i className="fas fa-search"></i>
         <i
           className="fas fa-user"
           onClick={handleProfileClick}

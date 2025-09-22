@@ -1,9 +1,9 @@
 /* ========= SCOPED RESET (doesn't touch Header/Footer) ========= */
-.page-root .detail-container,
-.page-root .detail-container * {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+
+
+.page-root .detail-container {
+  position: relative;
+  z-index: 1;
 }
 
 /* ========= PAGE WRAPPER (background only, no typography) ========= */
@@ -21,14 +21,15 @@
   margin-top: 100px;
   min-height: calc(100vh - 180px);
   padding: 20px 5%;
-  font-family: 'Poppins', sans-serif;
+  font-family: "Poppins", sans-serif;
   line-height: 1.6;
 }
 
 /* ========= Particle Background (scoped) ========= */
 .page-root #particles-js {
   position: fixed;
-  top: 0; left: 0;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   z-index: 0;
@@ -49,88 +50,194 @@
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
-  box-shadow:
-    0 10px 24px rgba(212, 175, 55, 0.25),
-    inset 0 1px 0 rgba(255,255,255,0.35);
-  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+  box-shadow: 0 10px 24px rgba(212, 175, 55, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 .page-root .back-button:hover {
   filter: brightness(1.04);
   transform: translateY(-1px);
-  box-shadow:
-    0 12px 28px rgba(212, 175, 55, 0.35),
-    inset 0 1px 0 rgba(255,255,255,0.4);
+  box-shadow: 0 12px 28px rgba(212, 175, 55, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 .page-root .back-button:active {
   transform: translateY(0);
-  box-shadow:
-    0 8px 18px rgba(212, 175, 55, 0.2),
-    inset 0 1px 0 rgba(255,255,255,0.3);
+  box-shadow: 0 8px 18px rgba(212, 175, 55, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
-.page-root .back-button i { font-size: 0.95rem; color: #0a0a0a; }
+.page-root .back-button i {
+  font-size: 0.95rem;
+  color: #0a0a0a;
+}
 
 /* ========= Layout ========= */
-.page-root .gem-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-.page-root .gem-visual { display: flex; flex-direction: column; gap: 20px; }
+.page-root .gem-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+.page-root .gem-visual {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 
 .page-root .gem-main-image {
-  height: 400px; background: rgba(26, 26, 26, 0.7); border-radius: 15px;
-  display: flex; align-items: center; justify-content: center;
-  position: relative; border: 1px solid rgba(212, 175, 55, 0.1);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); overflow: hidden;
+  height: 400px;
+  background: rgba(26, 26, 26, 0.7);
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border: 1px solid rgba(212, 175, 55, 0.1);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
 }
-.page-root .gem-main-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
-.page-root .gem-main-image:hover img { transform: scale(1.05); }
+.page-root .gem-main-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+.page-root .gem-main-image:hover img {
+  transform: scale(1.05);
+}
 
-.page-root .gem-thumbnails { display: flex; gap: 15px; flex-wrap: wrap; }
-.page-root .gem-thumbnail {
-  width: 80px; height: 80px; border-radius: 10px; background: rgba(26, 26, 26, 0.7);
-  border: 1px solid rgba(212, 175, 55, 0.1); cursor: pointer; transition: 0.3s; overflow: hidden; padding: 0;
+.page-root .gem-thumbnails {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
 }
-.page-root .gem-thumbnail img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.page-root .gem-thumbnail {
+  width: 80px;
+  height: 80px;
+  border-radius: 10px;
+  background: rgba(26, 26, 26, 0.7);
+  border: 1px solid rgba(212, 175, 55, 0.1);
+  cursor: pointer;
+  transition: 0.3s;
+  overflow: hidden;
+  padding: 0;
+}
+.page-root .gem-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 .page-root .gem-thumbnail:hover,
-.page-root .gem-thumbnail.active { border-color: #d4af37; transform: scale(1.05); }
+.page-root .gem-thumbnail.active {
+  border-color: #d4af37;
+  transform: scale(1.05);
+}
 
 /* ========= Info card ========= */
 .page-root .gem-info-detail {
-  background: rgba(26, 26, 26, 0.7); border-radius: 15px; padding: 30px;
-  border: 1px solid rgba(212, 175, 55, 0.1); box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  background: rgba(26, 26, 26, 0.7);
+  border-radius: 15px;
+  padding: 30px;
+  border: 1px solid rgba(212, 175, 55, 0.1);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
 .page-root .gem-title {
-  font-family: 'Playfair Display', serif;
-  font-size: 32px; margin-bottom: 15px; color: #f5f5f5;
+  font-family: "Playfair Display", serif;
+  font-size: 32px;
+  margin-bottom: 15px;
+  color: #f5f5f5;
 }
 
-.page-root .gem-price { color: #d4af37; font-size: 28px; font-weight: 600; margin-bottom: 20px; }
+.page-root .gem-price {
+  color: #d4af37;
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
 
-.page-root .gem-specs-detail { margin-bottom: 30px; }
-.page-root .spec-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-.page-root .spec-label { color: #b0b0b0; }
-.page-root .spec-value { color: #f5f5f5; font-weight: 500; }
+.page-root .gem-specs-detail {
+  margin-bottom: 30px;
+}
+.page-root .spec-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.page-root .spec-label {
+  color: #b0b0b0;
+}
+.page-root .spec-value {
+  color: #f5f5f5;
+  font-weight: 500;
+}
 
-.page-root .gem-description { margin-bottom: 30px; line-height: 1.8; color: #e0e0e0; }
+.page-root .gem-description {
+  margin-bottom: 30px;
+  line-height: 1.8;
+  color: #e0e0e0;
+}
 
-.page-root .gem-actions-detail { display: flex; gap: 15px; margin-bottom: 25px; }
+.page-root .gem-actions-detail {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 25px;
+}
 .page-root .add-to-cart-btn-detail {
-  padding: 15px 30px; background: transparent; border: 1px solid #d4af37; border-radius: 30px;
-  color: #d4af37; text-decoration: none; font-weight: 500; transition: 0.3s; text-align: center; flex: 1;
+  padding: 15px 30px;
+  background: transparent;
+  border: 1px solid #d4af37;
+  border-radius: 30px;
+  color: #d4af37;
+  text-decoration: none;
+  font-weight: 500;
+  transition: 0.3s;
+  text-align: center;
+  flex: 1;
 }
-.page-root .add-to-cart-btn-detail:hover { background: rgba(212, 175, 55, 0.1); }
+.page-root .add-to-cart-btn-detail:hover {
+  background: rgba(212, 175, 55, 0.1);
+}
 .page-root .buy-now-btn-detail {
-  padding: 15px 30px; background: linear-gradient(45deg, #d4af37, #f9f295);
-  border: none; border-radius: 30px; color: #0a0a0a; font-weight: 600; cursor: pointer; transition: 0.3s; flex: 1;
+  padding: 15px 30px;
+  background: linear-gradient(45deg, #d4af37, #f9f295);
+  border: none;
+  border-radius: 30px;
+  color: #0a0a0a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+  flex: 1;
 }
-.page-root .buy-now-btn-detail:hover { background: linear-gradient(45deg, #c5a12d, #e9dc8a); }
+.page-root .buy-now-btn-detail:hover {
+  background: linear-gradient(45deg, #c5a12d, #e9dc8a);
+}
 
 /* ========= Certification ========= */
-.page-root .gem-certification { margin-top: 30px; padding-top: 25px; border-top: 1px solid rgba(255, 255, 255, 0.05); }
-.page-root .certification-item { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
-.page-root .certification-icon {
-  width: 40px; height: 40px; border-radius: 50%; background: rgba(212, 175, 55, 0.1);
-  display: flex; align-items: center; justify-content: center; color: #d4af37;
+.page-root .gem-certification {
+  margin-top: 30px;
+  padding-top: 25px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
-.page-root .certification-text { color: #e0e0e0; }
+.page-root .certification-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+.page-root .certification-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(212, 175, 55, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #d4af37;
+}
+.page-root .certification-text {
+  color: #e0e0e0;
+}
 
 /* If certificate is an image */
 .page-root .certificate-image-preview {
@@ -143,36 +250,74 @@
 
 /* ========= Currency Selector ========= */
 .page-root .currency-selector {
-  margin-bottom: 20px; padding-bottom: 20px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 .page-root .currency-selector select {
-  padding: 8px 15px; background: rgba(10, 10, 10, 0.5);
-  border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 5px; color: #f5f5f5; font-family: 'Poppins', sans-serif;
+  padding: 8px 15px;
+  background: rgba(10, 10, 10, 0.5);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 5px;
+  color: #f5f5f5;
+  font-family: "Poppins", sans-serif;
 }
 
 /* ========= Loader ========= */
 .page-root .loader {
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%, -50%); width: 50px; height: 50px;
-  border: 5px solid rgba(212, 175, 55, 0.2); border-top: 5px solid #d4af37;
-  border-radius: 50%; animation: spin 1s linear infinite; z-index: 10;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(212, 175, 55, 0.2);
+  border-top: 5px solid #d4af37;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  z-index: 10;
 }
-@keyframes spin { 0%{transform:translate(-50%,-50%) rotate(0)} 100%{transform:translate(-50%,-50%) rotate(360deg)} }
+@keyframes spin {
+  0% {
+    transform: translate(-50%, -50%) rotate(0);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
 
 /* ========= Responsive ========= */
 @media (max-width: 992px) {
-  .page-root .gem-detail { grid-template-columns: 1fr; }
-  .page-root .gem-main-image { height: 350px; }
+  .page-root .gem-detail {
+    grid-template-columns: 1fr;
+  }
+  .page-root .gem-main-image {
+    height: 350px;
+  }
 }
 @media (max-width: 768px) {
-  .page-root .gem-actions-detail { flex-direction: column; }
-  .page-root .gem-title { font-size: 28px; }
-  .page-root .gem-price { font-size: 24px; }
-  .page-root .gem-main-image { height: 300px; }
+  .page-root .gem-actions-detail {
+    flex-direction: column;
+  }
+  .page-root .gem-title {
+    font-size: 28px;
+  }
+  .page-root .gem-price {
+    font-size: 24px;
+  }
+  .page-root .gem-main-image {
+    height: 300px;
+  }
 }
 @media (max-width: 576px) {
-  .page-root .gem-thumbnails { flex-wrap: wrap; justify-content: center; }
-  .page-root .gem-info-detail { padding: 20px; }
-  .page-root .detail-container { padding: 15px 4%; }
+  .page-root .gem-thumbnails {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .page-root .gem-info-detail {
+    padding: 20px;
+  }
+  .page-root .detail-container {
+    padding: 15px 4%;
+  }
 }
