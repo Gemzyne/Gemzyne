@@ -463,3 +463,29 @@
   font-size:12px;font-weight:600;background:#ff4757;color:#fff
 }
 
+
+.cancel-btn {
+  background: #b00020;        
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-left: 8px;
+  cursor: pointer;
+}
+
+.cancel-btn:hover {
+  opacity: 0.9;               
+}
+
+.cancel-btn:active {
+  transform: translateY(1px);
+}
+.delete-btn {
+  background: #b00020; /* adjust to theme */
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-left: 8px;
+}

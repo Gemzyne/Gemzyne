@@ -1,19 +1,33 @@
 // frontend/src/lib/api.js
-
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-// Small helper to call backend
 export async function apiRequest(path, options = {}) {
+  const token = localStorage.getItem("accessToken");
+  const isFormData = options.body instanceof FormData;
+
+  const headers = {
+    ...(options.headers || {}),
+    // Only set JSON content-type when NOT sending FormData
+    ...(!isFormData ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
   const res = await fetch(`${API_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    credentials: "include", // so cookies/JWT refresh can work if needed
+    credentials: "include",
     ...options,
+    headers,
   });
 
-  const data = await res.json().catch(() => ({}));
+  // 204 No Content => return empty object
+  if (res.status === 204) return {};
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    data = {};
+  }
+
   if (!res.ok) {
     throw new Error(data.message || `Request failed: ${res.status}`);
   }

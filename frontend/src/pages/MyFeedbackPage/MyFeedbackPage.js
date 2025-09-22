@@ -75,19 +75,21 @@ const MyFeedbackPage = () => {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // simple inline confirm state (which item is asking confirm)
+  const [confirmId, setConfirmId] = useState(null);
+
   const loadFeedback = async () => {
     try {
       setLoading(true);
-      // ⬇️ includeHidden=1 so the user can still see their hidden submissions
-      const data = await apiRequest("/api/feedback?visibility=all", { method: "GET" });
+      // includeHidden so the user still sees their own hidden submissions; mine=1 to restrict to current user
+      const data = await apiRequest("/api/feedback?includeHidden=1&mine=1", { method: "GET" });
       const list = Array.isArray(data?.feedback) ? data.feedback : [];
 
       const mappedReviews = list
         .filter((f) => f.type === "review")
         .map((f) => ({
           id: f._id,
-          _raw: f, // keep original doc for editing
-          isHidden: !!f.isAdminHidden,
+          _raw: f,
           initials: `${(f.firstName || "U")[0] || "U"}${(f.lastName || "")[0] || ""}`.toUpperCase(),
           name: `${f.firstName || ""} ${f.lastName || ""}`.trim() || "User",
           date: f.createdAt ? new Date(f.createdAt).toLocaleDateString() : "",
@@ -96,7 +98,6 @@ const MyFeedbackPage = () => {
           text: f.feedbackText || "",
           gemImg: "",
           gemDesc: f.productName || f.productId || "—",
-          helpful: 0
         }));
 
       const mappedComplaints = list
@@ -104,7 +105,6 @@ const MyFeedbackPage = () => {
         .map((f) => ({
           id: f._id,
           _raw: f,
-          isHidden: !!f.isAdminHidden,
           initials: `${(f.firstName || "U")[0] || "U"}${(f.lastName || "")[0] || ""}`.toUpperCase(),
           name: `${f.firstName || ""} ${f.lastName || ""}`.trim() || "User",
           date: f.createdAt ? new Date(f.createdAt).toLocaleDateString() : "",
@@ -129,11 +129,11 @@ const MyFeedbackPage = () => {
     loadFeedback();
   }, []);
 
-  // delete (calls backend then refreshes state)
+  // delete (owner route) with inline confirm (no browser popup)
   const onDelete = async (id, type) => {
-    if (!window.confirm("Delete this item?")) return;
     try {
-      await apiRequest(`/api/feedback/${id}`, { method: "DELETE" });
+      await apiRequest(`/api/feedback/my/${id}`, { method: "DELETE" });
+      setConfirmId(null);
       if (type === "review") setReviews((prev) => prev.filter((x) => x.id !== id));
       else setComplaints((prev) => prev.filter((x) => x.id !== id));
     } catch (e) {
@@ -216,10 +216,7 @@ const MyFeedbackPage = () => {
                       <div className="reviewer-info">
                         <div className="reviewer-avatar">{r.initials}</div>
                         <div className="reviewer-details">
-                          <h4>
-                            {r.name}
-                            {r.isHidden && <span className="hidden-badge">Hidden</span>}
-                          </h4>
+                          <h4>{r.name}</h4>
                           <p>{r.date}</p>
                         </div>
                       </div>
@@ -251,9 +248,21 @@ const MyFeedbackPage = () => {
                       >
                         <i className="fas fa-edit"></i> Edit
                       </button>
-                      <button className="delete-btn" onClick={() => onDelete(r.id, "review")}>
-                        <i className="fas fa-trash"></i> Delete
-                      </button>
+
+                      {confirmId === r.id ? (
+                        <>
+                          <button className="delete-btn" onClick={() => onDelete(r.id, "review")}>
+                            Confirm
+                          </button>
+                          <button className="delete-btn" onClick={() => setConfirmId(null)}>
+                           Cancel
+                           </button>
+                        </>
+                      ) : (
+                        <button className="delete-btn" onClick={() => setConfirmId(r.id)}>
+                          <i className="fas fa-trash"></i> Delete
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -284,10 +293,7 @@ const MyFeedbackPage = () => {
                       <div className="reviewer-info">
                         <div className="reviewer-avatar">{c.initials}</div>
                         <div className="reviewer-details">
-                          <h4>
-                            {c.name}
-                            {c.isHidden && <span className="hidden-badge">Hidden</span>}
-                          </h4>
+                          <h4>{c.name}</h4>
                           <p>{c.date}</p>
                         </div>
                       </div>
@@ -314,9 +320,21 @@ const MyFeedbackPage = () => {
                       >
                         <i className="fas fa-edit"></i> Edit
                       </button>
-                      <button className="delete-btn" onClick={() => onDelete(c.id, "complaint")}>
-                        <i className="fas fa-trash"></i> Delete
-                      </button>
+
+                      {confirmId === c.id ? (
+                        <>
+                          <button className="delete-btn" onClick={() => onDelete(c.id, "complaint")}>
+                            Confirm
+                          </button>
+                          <button className="delete-btn" onClick={() => setConfirmId(null)}>
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button className="delete-btn" onClick={() => setConfirmId(c.id)}>
+                          <i className="fas fa-trash"></i> Delete
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))

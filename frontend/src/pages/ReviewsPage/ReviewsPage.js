@@ -4,6 +4,7 @@ import "./ReviewsPage.css";
 import { apiRequest } from "../../lib/api";
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
+import { useNavigate } from "react-router-dom";
 
 const PLACEHOLDER_IMG =
   "https://images.unsplash.com/photo-1606760227093-899b6c7e5eeb?auto=format&fit=crop&w=800&q=80";
@@ -25,10 +26,26 @@ const formatDate = (iso) => {
   } catch {
     return "";
   }
-};
+}
+
+// Fallback: read role from access token if /users/me fails
+function getRoleFromToken() {
+  try {
+    const token = localStorage.getItem("accessToken");
+    if (!token) return null;
+    const [, payloadB64] = token.split(".");
+    if (!payloadB64) return null;
+    const json = JSON.parse(atob(payloadB64));
+    return json?.role || null;
+  } catch {
+    return null;
+  }
+}
 
 const ReviewsPage = () => {
-  // Particles
+  const navigate = useNavigate();
+
+  // Particle background
   const particlesLoaded = useRef(false);
   useEffect(() => {
     const ensureParticles = () =>
@@ -40,18 +57,14 @@ const ReviewsPage = () => {
         s.onload = () => resolve();
         document.body.appendChild(s);
       });
-
     const destroyParticles = () => {
       if (window.pJSDom && window.pJSDom.length) {
         window.pJSDom.forEach((p) => {
-          try {
-            p?.pJS?.fn?.vendors?.destroypJS?.();
-          } catch {}
+          try { p?.pJS?.fn?.vendors?.destroypJS?.(); } catch {}
         });
         window.pJSDom = [];
       }
     };
-
     ensureParticles().then(() => {
       if (particlesLoaded.current) return;
       particlesLoaded.current = true;
@@ -61,34 +74,19 @@ const ReviewsPage = () => {
           number: { value: 80, density: { enable: true, value_area: 800 } },
           color: { value: "#d4af37" },
           shape: { type: "polygon", polygon: { nb_sides: 6 } },
-          opacity: {
-            value: 0.3,
-            random: true,
-            anim: { enable: true, speed: 1, opacity_min: 0.1, sync: false },
-          },
-          size: {
-            value: 3,
-            random: true,
-            anim: { enable: true, speed: 3, size_min: 0.1, sync: false },
-          },
-          line_linked: {
-            enable: true,
-            distance: 150,
-            color: "#d4af37",
-            opacity: 0.2,
-            width: 1,
-          },
-          move: { enable: true, speed: 2, random: true, out_mode: "out" },
+          opacity: { value: 0.3, random: true, anim: { enable: true, speed: 1, opacity_min: 0.1, sync: false } },
+          size: { value: 3, random: true, anim: { enable: true, speed: 3, size_min: 0.1, sync: false } },
+          line_linked: { enable: true, distance: 150, color: "#d4af37", opacity: 0.2, width: 1 },
+          move: { enable: true, speed: 2, random: true, out_mode: "out" }
         },
         interactivity: {
           detect_on: "canvas",
           events: { onhover: { enable: true, mode: "grab" }, onclick: { enable: true, mode: "push" }, resize: true },
-          modes: { grab: { distance: 140, line_linked: { opacity: 0.5 } } },
+          modes: { grab: { distance: 140, line_linked: { opacity: 0.5 } } }
         },
-        retina_detect: true,
+        retina_detect: true
       });
     });
-
     return () => destroyParticles();
   }, []);
 
@@ -105,6 +103,22 @@ const ReviewsPage = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Logged-in user role (controls Share Feedback button)
+  const [userRole, setUserRole] = useState(null); // "buyer" | "seller" | "admin" | null
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const me = await apiRequest("/api/users/me", { method: "GET" });
+        if (mounted) setUserRole(me?.user?.role || null);
+      } catch {
+        const role = getRoleFromToken();
+        if (mounted) setUserRole(role);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   // Fetch reviews
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -116,7 +130,7 @@ const ReviewsPage = () => {
       try {
         setLoading(true);
         setError("");
-        const data = await apiRequest("/api/feedback?type=review");
+        const data = await apiRequest("/api/feedback/public?type=review");
         const list = Array.isArray(data?.feedback) ? data.feedback : [];
         const items = list.map((f) => ({
           id: f._id,
@@ -140,12 +154,10 @@ const ReviewsPage = () => {
         if (mounted) setLoading(false);
       }
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
-  // Only keep rating distribution for sidebar
+  // Sidebar distribution
   const { dist } = useMemo(() => {
     const dist = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     reviews.forEach((r) => {
@@ -164,12 +176,12 @@ const ReviewsPage = () => {
   ];
   const maxCount = Math.max(1, ...bars.map((b) => b.count));
 
+  const showShareButton = userRole === "buyer";
+
   return (
     <div className="reviews-root">
       {/* Particle Background */}
       <div id="particles-js" />
-
-      {/* Header */}
       <Header />
 
       {/* Page Header */}
@@ -177,6 +189,15 @@ const ReviewsPage = () => {
         <h1>Customer Feedback</h1>
         <p>Read reviews and manage customer feedback</p>
       </section>
+
+      {/* ⬇️ Same position/markup as MyFeedbackPage */}
+      {showShareButton && (
+        <div className="add-btn-container">
+          <button className="add-btn" onClick={() => navigate("/add-feedback")}>
+            <i className="fas fa-plus" /> Share Feedback
+          </button>
+        </div>
+      )}
 
       {/* Main */}
       <div className="content-container">
@@ -187,19 +208,13 @@ const ReviewsPage = () => {
           </div>
 
           {loading && (
-            <div className="review-item">
-              <p>Loading reviews…</p>
-            </div>
+            <div className="review-item"><p>Loading reviews…</p></div>
           )}
           {!!error && !loading && (
-            <div className="review-item">
-              <p style={{ color: "#f88" }}>Error: {error}</p>
-            </div>
+            <div className="review-item"><p style={{ color: "#f88" }}>Error: {error}</p></div>
           )}
           {!loading && !error && reviews.length === 0 && (
-            <div className="review-item">
-              <p>No reviews yet. Be the first to leave feedback!</p>
-            </div>
+            <div className="review-item"><p>No reviews yet. Be the first to leave feedback!</p></div>
           )}
 
           {reviews.map((r) => (
@@ -220,15 +235,11 @@ const ReviewsPage = () => {
 
               <div>
                 {r.tags.map((t) => (
-                  <span className="review-category" key={`${r.id}-${t}`}>
-                    {t}
-                  </span>
+                  <span className="review-category" key={`${r.id}-${t}`}>{t}</span>
                 ))}
               </div>
 
-              <div className="review-content">
-                <p>{r.text}</p>
-              </div>
+              <div className="review-content"><p>{r.text}</p></div>
 
               <div className="review-gem">
                 <img src={r.gemImg} alt="Gem" />
@@ -238,35 +249,28 @@ const ReviewsPage = () => {
           ))}
         </div>
 
-        {/* Sidebar: ONLY rating distribution */}
-       <aside className="sidebar">
-  <div className="feedback-card">
-    <div className="feedback-card__header">
-      <h3>Feedback Overview</h3>
-    </div>
-
-    <div className="rating-summary">
-      <h4 className="rating-summary__title">Rating Distribution</h4>
-
-      {bars.map((row) => {
-        const widthPct = maxCount === 0 ? "0%" : `${(row.count / maxCount) * 100}%`;
-        return (
-          <div className="rating-bar" key={row.label}>
-            <span className="rating-label">{row.label}</span>
-            <div className="rating-progress">
-              <div className="rating-progress-fill" style={{ width: widthPct }} />
+        {/* Sidebar: Rating distribution */}
+        <aside className="sidebar">
+          <div className="feedback-card">
+            <div className="feedback-card__header"><h3>Rating Distribution</h3></div>
+            <div className="rating-summary">
+              {bars.map((row) => {
+                const widthPct = maxCount === 0 ? "0%" : `${(row.count / maxCount) * 100}%`;
+                return (
+                  <div className="rating-bar" key={row.label}>
+                    <span className="rating-label">{row.label}</span>
+                    <div className="rating-progress">
+                      <div className="rating-progress-fill" style={{ width: widthPct }} />
+                    </div>
+                    <span className="rating-count">{row.count}</span>
+                  </div>
+                );
+              })}
             </div>
-            <span className="rating-count">{row.count}</span>
           </div>
-        );
-      })}
-    </div>
-  </div>
-</aside>
-
+        </aside>
       </div>
 
-      {/* Footer */}
       <Footer />
     </div>
   );

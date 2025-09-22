@@ -2,7 +2,7 @@
 const Feedback = require("../Models/FeedbackModel");
 
 /* ========================
- * CREATE
+ * CREATE (private)
  * ====================== */
 exports.createFeedback = async (req, res) => {
   try {
@@ -16,7 +16,7 @@ exports.createFeedback = async (req, res) => {
       rating,           // reviews
       complaintCategory,// complaints
       orderDate,
-      orderId
+      orderId,
     } = req.body;
 
     if (!type || !["review", "complaint"].includes(type)) {
@@ -31,7 +31,9 @@ exports.createFeedback = async (req, res) => {
 
     const doc = new Feedback({
       type,
-      // user: req.user?._id, // enable later when you add auth
+      // tie feedback to the logged-in user (route uses requireAuth)
+      user: req.user?.id || undefined,
+
       firstName, lastName, email, phone,
       productId, productName,
       categories,
@@ -54,28 +56,60 @@ exports.createFeedback = async (req, res) => {
 };
 
 /* ========================
- * READ (supports visibility + includeHidden for compatibility)
+ * READ (public): /api/feedback/public
+ * Only returns publicly visible items (excludes hidden)
+ * Optional: ?type=review|complaint
+ * ====================== */
+exports.getPublicFeedback = async (req, res) => {
+  try {
+    const { type } = req.query;
+
+    const find = {
+      $or: [{ isAdminHidden: { $exists: false } }, { isAdminHidden: false }],
+    };
+    if (type && ["review", "complaint"].includes(type)) {
+      find.type = type;
+    }
+
+    // Public endpoint; no auth required; sort newest first
+    const list = await Feedback.find(find).sort({ createdAt: -1 });
+
+    res.json({ success: true, feedback: list });
+  } catch (err) {
+    console.error("getPublicFeedback error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/* ========================
+ * READ (private): /api/feedback
+ * Supports visibility + includeHidden + mine
  * ====================== */
 exports.getFeedback = async (req, res) => {
   try {
     const { type, visibility } = req.query;
-    // Back-compat flag: ?includeHidden=1
     const includeHidden = req.query.includeHidden === "1" || req.query.includeHidden === "true";
+    const mine = req.query.mine === "1" || req.query.mine === "true";
 
     const find = {};
-    if (type && ["review", "complaint"].includes(type)) find.type = type;
+
+    if (type && ["review", "complaint"].includes(type)) {
+      find.type = type;
+    }
+
+    if (mine && req.user?.id) {
+      find.user = req.user.id;
+    }
 
     // Visibility logic
-    // - default/public: exclude hidden
-    // - hidden: only hidden
-    // - all or includeHidden flag: include both
     if (includeHidden) {
-      // no filter -> include hidden + visible
+      // include both hidden + visible
     } else if (!visibility || visibility === "public") {
       find.$or = [{ isAdminHidden: { $exists: false } }, { isAdminHidden: false }];
     } else if (visibility === "hidden") {
       find.isAdminHidden = true;
-    } // visibility === "all" -> no filter
+    }
+    // visibility === "all" => no filter
 
     const list = await Feedback.find(find).sort({ createdAt: -1 });
     res.json({ success: true, feedback: list });
@@ -86,14 +120,14 @@ exports.getFeedback = async (req, res) => {
 };
 
 /* ========================
- * SOFT-DELETE (default) or HARD DELETE with ?hard=true
- * Keep for backward compatibility, but prefer PATCH /:id/hide
+ * SOFT-DELETE (admin/seller) or HARD with ?hard=true
+ * (kept for admin UI / backward compatibility)
  * ====================== */
 exports.deleteFeedback = async (req, res) => {
   try {
     const { id } = req.params;
     const { hard } = req.query; // ?hard=true to actually remove
-    const reason = req.body?.reason; // may be undefined if client doesn't send body with DELETE
+    const reason = req.body?.reason;
 
     if (hard === "true") {
       const del = await Feedback.findByIdAndDelete(id);
@@ -105,8 +139,7 @@ exports.deleteFeedback = async (req, res) => {
     const doc = await Feedback.findById(id);
     if (!doc) return res.status(404).json({ success: false, message: "Not found" });
 
-    // If you wire auth later, read role from req.user
-    const role = "admin"; // default mock role for now
+    const role = req.user?.role || "admin";
     doc.isAdminHidden = true;
     doc.hiddenByRole = role;
     doc.hiddenAt = new Date();
@@ -121,13 +154,13 @@ exports.deleteFeedback = async (req, res) => {
 };
 
 /* ========================
- * PATCH /:id/hide (preferred soft-delete)
+ * PATCH /:id/hide (preferred soft-delete for admin/seller)
  * ====================== */
 exports.hideFeedback = async (req, res) => {
   try {
     const { id } = req.params;
     const reason = req.body?.reason;
-    const role = "admin"; // later: req.user?.role
+    const role = req.user?.role || "admin";
 
     const doc = await Feedback.findById(id);
     if (!doc) return res.status(404).json({ success: false, message: "Not found" });
@@ -146,7 +179,7 @@ exports.hideFeedback = async (req, res) => {
 };
 
 /* ========================
- * PATCH /:id/unhide
+ * PATCH /:id/unhide (admin/seller)
  * ====================== */
 exports.unhideFeedback = async (req, res) => {
   try {
@@ -167,13 +200,34 @@ exports.unhideFeedback = async (req, res) => {
   }
 };
 
-/* ========================
- * RESTORE legacy alias
- * ====================== */
+/* Legacy alias for unhide */
 exports.restoreFeedback = exports.unhideFeedback;
 
 /* ========================
- * UPDATE
+ * DELETE (owner): /api/feedback/my/:id
+ * Hard-deletes ONLY if the current user owns the doc
+ * ====================== */
+exports.deleteMyFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const doc = await Feedback.findById(id);
+    if (!doc) return res.status(404).json({ success: false, message: "Not found" });
+
+    if (!doc.user || String(doc.user) !== String(req.user.id)) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+
+    await Feedback.findByIdAndDelete(id);
+    return res.json({ success: true, deleted: true });
+  } catch (err) {
+    console.error("deleteMyFeedback error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/* ========================
+ * UPDATE (private)
  * ====================== */
 exports.updateFeedback = async (req, res) => {
   try {

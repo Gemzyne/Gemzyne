@@ -1,3 +1,4 @@
+// src/pages/AdminFeedbackPage/AdminFeedbackPage.js
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "../../lib/api";
 import "./AdminFeedbackPage.css";
@@ -20,9 +21,7 @@ const fmtDate = (iso) => {
     return "";
   }
 };
-
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-
 
 export default function AdminFeedbackPage() {
   // UI state
@@ -31,6 +30,9 @@ export default function AdminFeedbackPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]); // raw feedback from API
   const [error, setError] = useState("");
+
+  // NEW: which row is showing the inline confirm buttons
+  const [confirmId, setConfirmId] = useState(null);
 
   // Particles
   const particlesLoaded = useRef(false);
@@ -130,38 +132,27 @@ export default function AdminFeedbackPage() {
     };
   }, []);
 
-  // Soft Delete (admin/seller hides from public)
-const handleDelete = async (id) => {
-  if (!window.confirm("Hide this item from public view?")) return;
-  try {
-    await apiRequest(`/api/feedback/${id}`, { method: "DELETE" });
-    // Instead of removing from state, mark hidden
-    setItems((prev) =>
-     prev.map((x) => (x._id === id ? { ...x, isAdminHidden: true } : x))
-   );
-  } catch (e) {
-    alert(e.message || "Failed to hide");
-  }
-};
-
-// Restore (admin can unhide later)
-const handleRestore = async (id) => {
-  try {
-    await apiRequest(`/api/feedback/${id}/restore`, { method: "PATCH" });
-    setItems((prev) =>
-      prev.map((x) => (x._id === id ? { ...x, isAdminHidden: false } : x))
-    );
-  } catch (e) {
-    alert(e.message || "Failed to restore");
-  }
-};
+  // Inline actions (no window.confirm)
+  const doHide = async (id) => {
+    try {
+      await apiRequest(`/api/feedback/${id}`, { method: "DELETE" });
+      setItems((prev) => prev.map((x) => (x._id === id ? { ...x, isAdminHidden: true } : x)));
+    } catch (e) {
+      alert(e.message || "Failed to hide");
+    }
+  };
+  const doRestore = async (id) => {
+    try {
+      await apiRequest(`/api/feedback/${id}/restore`, { method: "PATCH" });
+      setItems((prev) => prev.map((x) => (x._id === id ? { ...x, isAdminHidden: false } : x)));
+    } catch (e) {
+      alert(e.message || "Failed to restore");
+    }
+  };
 
   // Derived lists
   const reviews = useMemo(() => items.filter((i) => i.type === "review"), [items]);
-  const complaints = useMemo(
-    () => items.filter((i) => i.type === "complaint"),
-    [items]
-  );
+  const complaints = useMemo(() => items.filter((i) => i.type === "complaint"), [items]);
 
   const categoryMatch = (fb) => {
     if (category === "all") return true;
@@ -305,15 +296,21 @@ const handleRestore = async (id) => {
                 f.email ||
                 "Anonymous";
               const cats = [
-                ...(isReview ? f.categories || [] : [f.complaintCategory, ...(f.categories || [])])
-                ]
-                   .filter(Boolean)
-                   .map(cap); // use helper we added at top
+                ...(isReview
+                  ? f.categories || []
+                  : [f.complaintCategory, ...(f.categories || [])]),
+              ]
+                .filter(Boolean)
+                .map(cap);
 
               const uniqueCats = [...new Set(cats)];
               const rating = Number(f.rating) || 0;
               const orderInfo =
-                f.orderId ? ` • Order #${f.orderId}` : f.productName || f.productId ? ` • ${f.productName || f.productId}` : "";
+                f.orderId
+                  ? ` • Order #${f.orderId}`
+                  : f.productName || f.productId
+                  ? ` • ${f.productName || f.productId}`
+                  : "";
 
               return (
                 <div className={rowClass} key={f._id}>
@@ -339,13 +336,13 @@ const handleRestore = async (id) => {
                   </div>
 
                   <div>
-                   {uniqueCats.map((c) => (
-                     <span
-                      key={`${f._id}-${c}`}
-                      className={isReview ? "review-category" : "complaint-category"}
-                     >
-                    {c}
-                    </span>
+                    {uniqueCats.map((c) => (
+                      <span
+                        key={`${f._id}-${c}`}
+                        className={isReview ? "review-category" : "complaint-category"}
+                      >
+                        {c}
+                      </span>
                     ))}
                   </div>
 
@@ -355,51 +352,51 @@ const handleRestore = async (id) => {
 
                   {(f.productName || f.productId) && (
                     <div className="review-gem">
-                      {/* You can add image URLs to FeedbackModel later; left empty now */}
                       {/* <img src="..." alt="" /> */}
                       <p>{f.productName || f.productId}</p>
                     </div>
                   )}
 
-                   <div className="review-actions">
-                    {isReview ? (
-                    <>
+                  {/* Actions with inline confirm/cancel */}
+                  <div className="review-actions">
+                    {/* Show Resolve only for complaints (remove this block if not needed) */}
+                    {!isReview && (
                       <button className="review-action-btn">
-                        <i className="fas fa-reply" /> Reply
+                        <i className="fas fa-check-circle" /> Resolve
                       </button>
-                      <button className="review-action-btn">
-                        <i className="fas fa-flag" /> Flag
-                      </button>
-                    </>
-                ) : (
-                 <>
-                <button className="review-action-btn">
-                <i className="fas fa-reply" /> Respond
-               </button>
-               <button className="review-action-btn">
-               <i className="fas fa-check-circle" /> Resolve
-              </button>
-                </>
-               )}
+                    )}
 
-                {f.isAdminHidden ? (
-                  <button
-                     className="review-action-btn"
-                     onClick={() => handleRestore(f._id)}
-                  >
-                    <i className="fas fa-undo" /> Restore
-                 </button>
-                ) : (
-                 <button
-                     className="review-action-btn delete"
-                     onClick={() => handleDelete(f._id)}
-                >
-                    <i className="fas fa-trash" /> Delete
-                 </button>
-               )}
-                      
+                    {f.isAdminHidden ? (
+                      <button className="review-action-btn" onClick={() => doRestore(f._id)}>
+                        <i className="fas fa-undo" /> Restore
+                      </button>
+                    ) : confirmId === f._id ? (
+                      <>
+                        <button
+                          className="review-action-btn delete"
+                          onClick={() => {
+                            doHide(f._id);
+                            setConfirmId(null);
+                          }}
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          className="review-action-btn delete"
+                          onClick={() => setConfirmId(null)}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="review-action-btn delete"
+                        onClick={() => setConfirmId(f._id)}
+                      >
+                        <i className="fas fa-trash" /> Delete
+                      </button>
+                    )}
                   </div>
-
                 </div>
               );
             })}
@@ -451,7 +448,7 @@ const handleRestore = async (id) => {
               })}
             </div>
 
-            {/* Complaint categories demo (static — wire if you store counts) */}
+            {/* Complaint categories demo (static) */}
             <div className="rating-summary" style={{ marginTop: 30 }}>
               <h4 style={{ color: "#ff6b81", marginBottom: 15 }}>Complaint Categories</h4>
               {[

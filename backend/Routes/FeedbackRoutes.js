@@ -3,33 +3,72 @@ const express = require("express");
 const router = express.Router();
 
 const {
+  // PUBLIC read
+  getPublicFeedback,
+
+  // PRIVATE create/read/update
   createFeedback,
   getFeedback,
-  deleteFeedback,   // now soft-deletes by default (hard delete with ?hard=true)
   updateFeedback,
-  restoreFeedback,  // <-- new: unhide a soft-deleted item
+
+  // owner hard-delete
+  deleteMyFeedback,
+
+  // admin/seller (legacy) soft-delete / restore
+  deleteFeedback,
+  restoreFeedback,
+
+  // preferred explicit endpoints (admin/seller hide/unhide)
+  hideFeedback,
+  unhideFeedback,
 } = require("../Controllers/FeedbackController");
 
-// If you have auth/role middlewares, plug them in later:
-// const auth = require("../Middleware/auth");
-// const requireRole = require("../Middleware/requireRole");
+// ✅ reuse your existing auth middleware
+const { requireAuth } = require("../Middleware/auth");
 
-// Create feedback (review or complaint)
-router.post("/", /* auth, */ createFeedback);
+/* =========================
+ * PUBLIC ROUTES (no token)
+ * ======================= */
+// Anyone can read publicly visible feedback.
+// Use this on the public Reviews page.
+router.get("/public", getPublicFeedback);
 
-// Get feedback
-// Supports query params:
-//   ?type=review|complaint (optional)
-//   ?visibility=public|all|hidden (default: public)
-router.get("/", /* auth, */ getFeedback);
+/* =========================
+ * PRIVATE ROUTES (token required)
+ * ======================= */
 
-// Update feedback (edit)
-router.put("/:id", /* auth, */ updateFeedback);
+// Create feedback (review or complaint) — controller ties doc to req.user.id
+router.post("/", requireAuth, createFeedback);
 
-// Soft delete by default (admin/seller “hide”); hard delete with ?hard=true
-router.delete("/:id", /* auth, */ deleteFeedback);
+// List feedback for dashboards / "My Feedback"
+// Query params supported:
+//   ?type=review|complaint
+//   ?visibility=public|all|hidden
+//   ?includeHidden=1
+//   ?mine=1  (only current user's items)
+router.get("/", requireAuth, getFeedback);
 
-// Restore a previously soft-deleted feedback
-router.patch("/:id/restore", /* auth, */ restoreFeedback);
+// Update a feedback item
+router.put("/:id", requireAuth, updateFeedback);
+
+/* ---- Owner operations ----
+ * Hard-delete your own feedback (only if req.user owns it)
+ * IMPORTANT: this MUST be before the "/:id" delete route so it doesn't get shadowed
+ */
+router.delete("/my/:id", requireAuth, deleteMyFeedback);
+
+/* ---- Admin/Seller operations ----
+ * Preferred soft-hide / unhide endpoints
+ */
+router.patch("/:id/hide", requireAuth, hideFeedback);
+router.patch("/:id/unhide", requireAuth, unhideFeedback);
+
+/* Legacy soft-delete by default (hard delete with ?hard=true)
+ * Kept for backward compatibility / existing admin UI buttons
+ */
+router.delete("/:id", requireAuth, deleteFeedback);
+
+// Legacy alias for unhide
+router.patch("/:id/restore", requireAuth, restoreFeedback);
 
 module.exports = router;

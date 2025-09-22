@@ -3,12 +3,16 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import "./AddFeedbackPage.css";
 import { apiRequest } from "../../lib/api";
+import { useUser } from "../../context/UserContext"; // ⬅️ NEW
 
 const AddFeedbackPage = () => {
   const navigate = useNavigate();
   const { state } = useLocation() || {};
   const isEdit = state?.mode === "edit";
   const editDoc = state?.doc || null;
+
+  // logged-in user (provided by your friend's user mgmt)
+  const { me } = useUser(); // { _id, fullName, email, phone, ... }
 
   // form state
   const [type, setType] = useState("review"); // "review" | "complaint"
@@ -25,6 +29,26 @@ const AddFeedbackPage = () => {
   const [successDescription, setSuccessDescription] = useState(
     "Your review has been submitted successfully. It will be published after verification."
   );
+
+  // ===== Prefill from logged-in user (no backend changes needed) =====
+  useEffect(() => {
+    if (!me) return;
+    // Try to split fullName into first/last (fallbacks included)
+    let f = "", l = "";
+    if (me.fullName && typeof me.fullName === "string") {
+      const parts = me.fullName.trim().split(/\s+/);
+      if (parts.length === 1) {
+        f = parts[0];
+      } else if (parts.length > 1) {
+        f = parts[0];
+        l = parts.slice(1).join(" ");
+      }
+    }
+    setFirstName((prev) => prev || f || "");
+    setLastName((prev)  => prev || l || "");
+    setEmail((prev)     => prev || me.email || "");
+    setPhone((prev)     => prev || me.phone || "");
+  }, [me]);
 
   // particles
   useEffect(() => {
@@ -101,7 +125,6 @@ const AddFeedbackPage = () => {
   };
 
   const switchType = (newType) => {
-    // prevent switching type while editing (keeps data consistent)
     if (isEdit) return;
     setType(newType);
     if (newType === "review") {
@@ -121,10 +144,10 @@ const AddFeedbackPage = () => {
   useEffect(() => {
     if (!isEdit || !editDoc) return;
     setType(editDoc.type || "review");
-    setFirstName(editDoc.firstName || "");
-    setLastName(editDoc.lastName || "");
-    setEmail(editDoc.email || "");
-    setPhone(editDoc.phone || "");
+    setFirstName(editDoc.firstName || firstName);
+    setLastName(editDoc.lastName || lastName);
+    setEmail(editDoc.email || email);
+    setPhone(editDoc.phone || phone);
     setProduct(editDoc.productName || editDoc.productId || "");
     setCategories(Array.isArray(editDoc.categories) ? editDoc.categories : []);
     setRating(editDoc.type === "review" ? editDoc.rating || 0 : 0);
@@ -137,16 +160,19 @@ const AddFeedbackPage = () => {
       setSuccessTitle("Complaint Updated!");
       setSuccessDescription("Your complaint has been updated successfully.");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, editDoc]);
 
   // submit
   const onSubmit = async (e) => {
     e.preventDefault();
 
-    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-      alert("Please fill in First Name, Last Name, and Email.");
-      return;
-    }
+    // Use profile values if present; otherwise fall back to the form inputs
+    const effectiveFirst = me?.fullName ? (me.fullName.split(/\s+/)[0] || firstName) : firstName;
+    const effectiveLast  = me?.fullName ? (me.fullName.split(/\s+/).slice(1).join(" ") || lastName) : lastName;
+    const effectiveEmail = me?.email || email;
+    const effectivePhone = me?.phone ?? phone;
+
     if (categories.length === 0) {
       alert("Please select at least one category.");
       return;
@@ -163,10 +189,11 @@ const AddFeedbackPage = () => {
     // Build payload as your controller expects
     const payload = {
       type, // "review" | "complaint"
-      firstName,
-      lastName,
-      email,
-      phone,
+      user: me?._id, // ⬅️ optional; backend will ignore if not in schema/controller
+      firstName: effectiveFirst,
+      lastName: effectiveLast,
+      email: effectiveEmail,
+      phone: effectivePhone,
       productName: product || undefined,
       categories,
       feedbackText,
@@ -176,7 +203,6 @@ const AddFeedbackPage = () => {
         type === "complaint"
           ? (editDoc?.complaintCategory || categories[0] || "other")
           : undefined,
-      // Keep orderId/orderDate if doc had them (we're not editing those in UI)
       orderId: type === "complaint" ? editDoc?.orderId : undefined,
       orderDate: type === "complaint" ? editDoc?.orderDate : undefined,
       status: type === "complaint" ? editDoc?.status : undefined,
@@ -184,20 +210,17 @@ const AddFeedbackPage = () => {
 
     try {
       if (isEdit && editDoc?._id) {
-        // PUT update
         await apiRequest(`/api/feedback/${editDoc._id}`, {
           method: "PUT",
           body: JSON.stringify(payload),
         });
       } else {
-        // POST create
         await apiRequest("/api/feedback", {
           method: "POST",
           body: JSON.stringify(payload),
         });
       }
 
-      // Show success then take them back to My Feedback
       setSubmitted(true);
       setTimeout(() => {
         navigate("/my-feedback");
@@ -212,7 +235,6 @@ const AddFeedbackPage = () => {
   const submitAnother = () => {
     setSubmitted(false);
     setType("review");
-    setFirstName(""); setLastName(""); setEmail(""); setPhone("");
     setProduct(""); setCategories([]); setRating(0); setFeedbackText("");
     setSuccessTitle("Thank You for Your Review!");
     setSuccessDescription("Your review has been submitted successfully. It will be published after verification.");
@@ -275,7 +297,7 @@ const AddFeedbackPage = () => {
       <div className="form-container">
         {!submitted ? (
           <form className="feedback-form" id="feedbackFormReact" onSubmit={onSubmit}>
-            {/* Personal */}
+            {/* Personal (read-only from profile) */}
             <div className="form-section">
               <h3 className="form-section-title">
                 <i className="fas fa-user-circle"></i>
@@ -283,24 +305,27 @@ const AddFeedbackPage = () => {
               </h3>
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="firstName">First Name *</label>
-                  <input id="firstName" value={firstName} onChange={(e)=>setFirstName(e.target.value)} required />
+                  <label htmlFor="firstName">First Name</label>
+                  <input id="firstName" value={firstName} readOnly />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="lastName">Last Name *</label>
-                  <input id="lastName" value={lastName} onChange={(e)=>setLastName(e.target.value)} required />
+                  <label htmlFor="lastName">Last Name</label>
+                  <input id="lastName" value={lastName} readOnly />
                 </div>
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="email">Email Address *</label>
-                  <input id="email" type="email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
+                  <label htmlFor="email">Email Address</label>
+                  <input id="email" type="email" value={email} readOnly />
                 </div>
                 <div className="form-group" id="phoneField">
-                  <label htmlFor="phone">Phone Number (Optional)</label>
-                  <input id="phone" value={phone} onChange={(e)=>setPhone(e.target.value)} />
+                  <label htmlFor="phone">Phone Number</label>
+                  <input id="phone" value={phone} readOnly />
                 </div>
               </div>
+              <p style={{ fontSize: 12, color: "#aaa", marginTop: 6 }}>
+                These details come from your account profile.
+              </p>
             </div>
 
             {/* Product */}
@@ -357,19 +382,18 @@ const AddFeedbackPage = () => {
                 <div className="form-group">
                   <label>Overall Rating *</label>
                   <div className="star-rating">
-                     {[5, 4, 3, 2, 1].map((n) => (
-                     <span
-                    key={n}
-                    className={`star ${rating >= n ? "active" : ""}`}
-                    onClick={() => setRating(n)}
-                    role="button"
-                    aria-label={`Rate ${n}`}
-                     >
-                       ★
-                    </span>
-                     ))}
-                    </div>
-
+                    {[5, 4, 3, 2, 1].map((n) => (
+                      <span
+                        key={n}
+                        className={`star ${rating >= n ? "active" : ""}`}
+                        onClick={() => setRating(n)}
+                        role="button"
+                        aria-label={`Rate ${n}`}
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
