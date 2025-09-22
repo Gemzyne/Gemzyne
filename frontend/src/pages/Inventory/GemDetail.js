@@ -171,196 +171,210 @@ export default function GemDetail() {
     navigate("/login");
   };
 
-  if (loading) return <div className="detail-container">Loading…</div>;
-  if (!gem)     return <div className="detail-container">Gem not found</div>;
-
   return (
-    <div className="page-root">
-      {/* particles canvas (styled in gemdetails.css) */}
-      <div id="particles-js" />
+  <div className="page-root">
+    {/* particles canvas must exist on first paint */}
+    <div id="particles-js" />
 
-      <Header />
+    <Header />
 
-      <div className="detail-container">
-        <button type="button" className="back-button" onClick={() => navigate(-1)}>
-          <i className="fas fa-arrow-left" /> Back to Collection
-        </button>
+    <div className="detail-container">
+      {loading && <div className="loader" aria-label="Loading" />}
 
-        <div className="gem-detail">
-          {/* Images */}
-          <div className="gem-visual">
-            <div className="gem-main-image">
-              {mainImage ? (
-                <img
-                  id="gem-main-img"
-                  src={mainImage}
-                  alt={gem.name || gem.gemId}
-                  onError={(e) => { e.currentTarget.src = "/images/placeholder-gem.jpg"; }}
-                />
-              ) : (
-                <div className="loader" />
-              )}
-            </div>
+      {!loading && !gem && <div>Gem not found</div>}
 
-            <div className="gem-thumbnails">
-              {(gem.images || []).map((p, idx) => {
-                const url = getImageUrl(p);
-                const isActive = url === mainImage;
-                return (
-                  <button
-                    type="button"
-                    key={idx}
-                    className={`gem-thumbnail ${isActive ? "active" : ""}`}
-                    onClick={() => setMainImage(url)}
-                    title={`Image ${idx + 1}`}
-                  >
-                    <img src={url} alt={`Thumbnail ${idx + 1}`} />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+      {!loading && gem && (
+        <>
+          <button
+            type="button"
+            className="back-button"
+            onClick={() => navigate(-1)}
+          >
+            <i className="fas fa-arrow-left" /> Back to Collection
+          </button>
 
-          {/* Info */}
-          <div className="gem-info-detail">
-            <h1 className="gem-title">{gem.name || gem.gemId}</h1>
-
-            <div className="currency-selector">
-              <select value={selectedCurrency} onChange={(e) => setSelectedCurrency(e.target.value)}>
-                <option value="USD">USD ($)</option>
-                <option value="LKR">LKR (₨)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="GBP">GBP (£)</option>
-                <option value="AUD">AUD (A$)</option>
-              </select>
-            </div>
-
-            <div className="gem-price">{displayPrice}</div>
-
-            <div className="gem-specs-detail">
-              <div className="spec-item"><span className="spec-label">Type:</span><span className="spec-value">{gem.type || "-"}</span></div>
-              <div className="spec-item"><span className="spec-label">Carat Weight:</span><span className="spec-value">{gem.carat ?? "-"}</span></div>
-              <div className="spec-item"><span className="spec-label">Dimensions (mm):</span><span className="spec-value">{gem.dimensionsMm || "-"}</span></div>
-              <div className="spec-item"><span className="spec-label">Color Grade:</span><span className="spec-value">{gem.colorGrade || "-"}</span></div>
-              <div className="spec-item"><span className="spec-label">Shape/Cut Style:</span><span className="spec-value">{gem.shape || "-"}</span></div>
-              <div className="spec-item"><span className="spec-label">Clarity Grade:</span><span className="spec-value">{gem.clarityGrade || "-"}</span></div>
-              <div className="spec-item"><span className="spec-label">Cut Quality:</span><span className="spec-value">{gem.cutQuality || "-"}</span></div>
-              <div className="spec-item"><span className="spec-label">Treatment:</span><span className="spec-value">{gem.treatment || "-"}</span></div>
-              <div className="spec-item"><span className="spec-label">Certification:</span><span className="spec-value">{gem.certificationAgency || "-"}</span></div>
-              <div className="spec-item"><span className="spec-label">Certificate Number:</span><span className="spec-value">{gem.certificateNumber || "-"}</span></div>
-              <div className="spec-item"><span className="spec-label">Status:</span><span className="spec-value">{(gem.status || "").replace(/_/g, " ") || "-"}</span></div>
-              <div className="spec-item"><span className="spec-label">Quality:</span><span className="spec-value">{gem.quality || "-"}</span></div>
-              <div className="spec-item"><span className="spec-label">Origin:</span><span className="spec-value">{gem.origin || "-"}</span></div>
-              <div className="spec-item"><span className="spec-label">SKU:</span><span className="spec-value">{gem.sku || "-"}</span></div>
-            </div>
-
-            <p className="gem-description">{gem.description || "—"}</p>
-
-            <div className="gem-actions-detail">
-              <button className="add-to-cart-btn-detail" onClick={addToCart}>Add to Cart</button>
-              <button className="buy-now-btn-detail" onClick={instantBuy}>Buy Now</button>
-            </div>
-
-            <div className="gem-certification" id="certification">
-              <h3>Certification</h3>
-              {gem.certificateUrl ? (
-                /\.(png|jpe?g|webp|gif)$/i.test(gem.certificateUrl) ? (
+          <div className="gem-detail">
+            {/* Images */}
+            <div className="gem-visual">
+              <div className="gem-main-image">
+                {mainImage ? (
                   <img
-                    id="certificate-img"
-                    className="certificate-image-preview"
-                    src={getImageUrl(gem.certificateUrl)}
-                    alt="Gem Certificate"
-                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    id="gem-main-img"
+                    src={mainImage}
+                    alt={gem.name || gem.gemId}
+                    onError={(e) => {
+                      e.currentTarget.src = "/images/placeholder-gem.jpg";
+                    }}
                   />
                 ) : (
-                  <a
-                    href={getImageUrl(gem.certificateUrl)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="add-to-cart-btn-detail"
-                    style={{ display: "inline-block", textDecoration: "none" }}
-                  >
-                    View Certificate
-                  </a>
-                )
-              ) : (
-                <div style={{ color: "#b0b0b0" }}>No certificate uploaded.</div>
-              )}
+                  <div className="loader" />
+                )}
+              </div>
+
+              <div className="gem-thumbnails">
+                {(gem.images || []).map((p, idx) => {
+                  const url = getImageUrl(p);
+                  const isActive = url === mainImage;
+                  return (
+                    <button
+                      type="button"
+                      key={idx}
+                      className={`gem-thumbnail ${isActive ? "active" : ""}`}
+                      onClick={() => setMainImage(url)}
+                      title={`Image ${idx + 1}`}
+                    >
+                      <img src={url} alt={`Thumbnail ${idx + 1}`} />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
+            {/* Info */}
+            <div className="gem-info-detail">
+              <h1 className="gem-title">{gem.name || gem.gemId}</h1>
+
+              <div className="currency-selector">
+                <select
+                  value={selectedCurrency}
+                  onChange={(e) => setSelectedCurrency(e.target.value)}
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="LKR">LKR (₨)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="AUD">AUD (A$)</option>
+                </select>
+              </div>
+
+              <div className="gem-price">{displayPrice}</div>
+
+              <div className="gem-specs-detail">
+                <div className="spec-item"><span className="spec-label">Type:</span><span className="spec-value">{gem.type || "-"}</span></div>
+                <div className="spec-item"><span className="spec-label">Carat Weight:</span><span className="spec-value">{gem.carat ?? "-"}</span></div>
+                <div className="spec-item"><span className="spec-label">Dimensions (mm):</span><span className="spec-value">{gem.dimensionsMm || "-"}</span></div>
+                <div className="spec-item"><span className="spec-label">Color Grade:</span><span className="spec-value">{gem.colorGrade || "-"}</span></div>
+                <div className="spec-item"><span className="spec-label">Shape/Cut Style:</span><span className="spec-value">{gem.shape || "-"}</span></div>
+                <div className="spec-item"><span className="spec-label">Clarity Grade:</span><span className="spec-value">{gem.clarityGrade || "-"}</span></div>
+                <div className="spec-item"><span className="spec-label">Cut Quality:</span><span className="spec-value">{gem.cutQuality || "-"}</span></div>
+                <div className="spec-item"><span className="spec-label">Treatment:</span><span className="spec-value">{gem.treatment || "-"}</span></div>
+                <div className="spec-item"><span className="spec-label">Certification:</span><span className="spec-value">{gem.certificationAgency || "-"}</span></div>
+                <div className="spec-item"><span className="spec-label">Certificate Number:</span><span className="spec-value">{gem.certificateNumber || "-"}</span></div>
+                <div className="spec-item"><span className="spec-label">Status:</span><span className="spec-value">{(gem.status || "").replace(/_/g, " ") || "-"}</span></div>
+                <div className="spec-item"><span className="spec-label">Quality:</span><span className="spec-value">{gem.quality || "-"}</span></div>
+                <div className="spec-item"><span className="spec-label">Origin:</span><span className="spec-value">{gem.origin || "-"}</span></div>
+                <div className="spec-item"><span className="spec-label">SKU:</span><span className="spec-value">{gem.sku || "-"}</span></div>
+              </div>
+
+              <p className="gem-description">{gem.description || "—"}</p>
+
+              <div className="gem-actions-detail">
+                <button className="add-to-cart-btn-detail" onClick={addToCart}>Add to Cart</button>
+                <button className="buy-now-btn-detail" onClick={instantBuy}>Buy Now</button>
+              </div>
+
+              <div className="gem-certification" id="certification">
+                <h3>Certification</h3>
+                {gem.certificateUrl ? (
+                  /\.(png|jpe?g|webp|gif)$/i.test(gem.certificateUrl) ? (
+                    <img
+                      id="certificate-img"
+                      className="certificate-image-preview"
+                      src={getImageUrl(gem.certificateUrl)}
+                      alt="Gem Certificate"
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    />
+                  ) : (
+                    <a
+                      href={getImageUrl(gem.certificateUrl)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="add-to-cart-btn-detail"
+                      style={{ display: "inline-block", textDecoration: "none" }}
+                    >
+                      View Certificate
+                    </a>
+                  )
+                ) : (
+                  <div style={{ color: "#b0b0b0" }}>No certificate uploaded.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+
+    <Footer />
+
+    {showLoginPrompt && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="login-required-title-detail"
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.55)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 10000,
+          backdropFilter: "blur(1px)",
+        }}
+        onClick={() => setShowLoginPrompt(false)}
+      >
+        <div
+          style={{
+            background: "#111",
+            color: "#eee",
+            border: "1px solid rgba(212,175,55,0.25)",
+            borderRadius: 16,
+            padding: 24,
+            width: "min(520px, 92vw)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h3 id="login-required-title-detail" style={{ margin: 0, fontWeight: 700, fontSize: 22 }}>
+            Login required
+          </h3>
+          <p style={{ marginTop: 12, color: "#cfcfcf", lineHeight: 1.5 }}>
+            Please log in to continue.
+          </p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 18 }}>
+            <button
+              onClick={() => setShowLoginPrompt(false)}
+              style={{
+                background: "transparent",
+                color: "#eee",
+                border: "1px solid rgba(212,175,55,0.35)",
+                padding: "10px 18px",
+                borderRadius: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={goLogin}
+              style={{
+                background: "linear-gradient(135deg,#d4af37,#caa43b)",
+                color: "#111",
+                border: "none",
+                padding: "10px 18px",
+                borderRadius: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Login
+            </button>
           </div>
         </div>
       </div>
-
-      <Footer />
-
-      {showLoginPrompt && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="login-required-title-detail"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 10000,
-            backdropFilter: "blur(1px)",
-          }}
-          onClick={() => setShowLoginPrompt(false)}
-        >
-          <div
-            style={{
-              background: "#111",
-              color: "#eee",
-              border: "1px solid rgba(212,175,55,0.25)",
-              borderRadius: 16,
-              padding: 24,
-              width: "min(520px, 92vw)",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="login-required-title-detail" style={{ margin: 0, fontWeight: 700, fontSize: 22 }}>
-              Login required
-            </h3>
-            <p style={{ marginTop: 12, color: "#cfcfcf", lineHeight: 1.5 }}>
-              Please log in to continue.
-            </p>
-            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 18 }}>
-              <button
-                onClick={() => setShowLoginPrompt(false)}
-                style={{
-                  background: "transparent",
-                  color: "#eee",
-                  border: "1px solid rgba(212,175,55,0.35)",
-                  padding: "10px 18px",
-                  borderRadius: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={goLogin}
-                style={{
-                  background: "linear-gradient(135deg,#d4af37,#caa43b)",
-                  color: "#111",
-                  border: "none",
-                  padding: "10px 18px",
-                  borderRadius: 12,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                Login
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    )}
+  </div>
+);
 }
