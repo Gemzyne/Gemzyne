@@ -488,14 +488,13 @@ export default function BuyerDashboard() {
             - If the win is PAID (purchaseStatus === 'paid' OR has paymentId),
               show a "Paid" button (disabled) instead of "Complete Purchase". */}
         {tab === "history" && (
-          <Section title="Auction History (Won Only)">
+          <Section title="Won Auctions">
             <Grid emptyText="No wins yet.">
               {won.map((w) => {
                 const isPaid = w?.purchaseStatus === "paid" || !!w?.paymentId;
                 return (
                   <article className="bd-card" key={w.id || w.auctionId}>
                     <div className="bd-badge bd-badge--won">WON</div>
-                    {isPaid && <div className="bd-badge bd-badge--paid">PAID</div>}
 
                     <img className="bd-card__img" src={asset(w.image)} alt={w.title} />
                     <h3 className="bd-card__title">{w.title}</h3>
@@ -508,10 +507,10 @@ export default function BuyerDashboard() {
                     <p className="bd-small">Ended: {fmtDate(w.endTime)}</p>
 
                     {isPaid ? (
-                      <button className="bd-btn bd-btn--ok" disabled>Paid</button>
+                      <button className="bd-btn bd-btn--ok" disabled>Transaction complete</button>
                     ) : (
                       <button className="bd-btn bd-btn--outline" onClick={() => startWinnerCheckout(w)}>
-                        Complete Purchase
+                        Proceed to checkout
                       </button>
                     )}
                   </article>
