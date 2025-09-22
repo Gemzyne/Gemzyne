@@ -8,6 +8,8 @@
 // - Live / Upcoming / Ended sections
 // - Drawer (details + recent bidders; edit in "upcoming" mode)
 // - Create Auction modal (4 steps)
+// - History table shows Paid / Pending / Expired / Cancelled
+// - NEW: Live bid counts auto-refresh for ongoing auctions
 // ----------------------------------------------------------------------------
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -19,21 +21,17 @@ import { request } from "../../api";
 
 /* ===================== Helpers ===================== */
 
-// Base URL for images served by the backend
 const BACKEND = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-// Turns a relative path like "/uploads/xxx.jpg" into a full URL
 const asset = (p) => {
   if (!p) return "";
   if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) return p;
   return `${BACKEND}${p.startsWith("/") ? "" : "/"}${p}`;
 };
 
-// Format numbers as money for display
 const fmtMoney = (n) =>
   "$" + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
 
-// Format ISO date strings into a friendly date/time
 const fmtDateTime = (iso) =>
   new Date(iso).toLocaleString(undefined, {
     year: "numeric",
@@ -43,7 +41,7 @@ const fmtDateTime = (iso) =>
     minute: "2-digit",
   });
 
-// Small countdown hook that updates once per second
+// A tiny countdown hook (re-runs every second)
 function useCountdown(targetISO) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -60,7 +58,6 @@ function useCountdown(targetISO) {
   return { total, days, hours, minutes, seconds };
 }
 
-// Small box used to show a time number and its label
 const TimeBox = ({ v, lbl }) => (
   <div className="sac-timebox">
     <div className="sac-timebox-value">{String(v).padStart(2, "0")}</div>
@@ -70,7 +67,6 @@ const TimeBox = ({ v, lbl }) => (
 
 /* ---- Revenue grouping helpers ---- */
 
-// Build an array for the last N months with stable keys and labels
 function lastNMonths(n, from = new Date()) {
   const arr = [];
   const d = new Date(from.getFullYear(), from.getMonth(), 1);
@@ -85,7 +81,6 @@ function lastNMonths(n, from = new Date()) {
   return arr;
 }
 
-// Calculate ISO week number for a given date
 function isoWeek(date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNum = d.getUTCDay() || 7;
@@ -95,7 +90,6 @@ function isoWeek(date) {
   return { year: d.getUTCFullYear(), week: wk };
 }
 
-// Build week buckets (12 by default) with labels like W35 (Aug 26–Sep 01)
 function lastNWeeks(n, from = new Date()) {
   const arr = [];
   const today = new Date(from);
@@ -122,7 +116,6 @@ function lastNWeeks(n, from = new Date()) {
   return arr;
 }
 
-// Percentage change helper for the metric cards
 const pctDelta = (curr, prev) => {
   if (prev <= 0) return curr > 0 ? 100 : 0;
   return ((curr - prev) / prev) * 100;
@@ -180,7 +173,6 @@ export default function SellerAuctionControlDashboard() {
 
   /* ========== Data state (overview + winner statuses) ========== */
 
-  // Overview holds totals and auction lists returned by your API
   const [overview, setOverview] = useState({
     totals: { income: 0, totalAuctions: 0, ongoing: 0, sold: 0 },
     live: [],
@@ -188,22 +180,21 @@ export default function SellerAuctionControlDashboard() {
     history: [],
   });
 
-  // Map to store per-auction winner/payment status (keyed by auctionId)
-  const [winStatusMap, setWinStatusMap] = useState({});
+  // NEW: live bid counts map: { [auctionId]: number }
+  const [liveBidCounts, setLiveBidCounts] = useState({});
 
-  // Filter state for search box and dropdowns
+  const [winStatusMap, setWinStatusMap] = useState({});
   const [q, setQ] = useState("");
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
 
-  // Drawer and create modal state
   const [openDrawer, setOpenDrawer] = useState(false);
   const [drawerAuction, setDrawerAuction] = useState(null);
   const [drawerMode, setDrawerMode] = useState("live"); // "live" | "upcoming" | "ended"
   const [createOpen, setCreateOpen] = useState(false);
   const [editForm, setEditForm] = useState(null);
 
-  // Load overview from backend and then enrich with winner info
+  // Load overview (and winner statuses)
   async function load() {
     try {
       const data = await request("/api/auctions/seller/overview");
@@ -215,20 +206,23 @@ export default function SellerAuctionControlDashboard() {
       };
       setOverview(next);
       await hydrateWinnerStatuses(next.history);
+      // Also hydrate live bid counts right after we load
+      await hydrateLiveBidCounts(next.live);
     } catch {
       setOverview((o) => ({ ...o, live: [], upcoming: [], history: [] }));
       setWinStatusMap({});
+      setLiveBidCounts({});
     }
   }
 
-  // Initial load + poll every 10 seconds
+  // Initial load + poll overview every 10s (keeps lists fresh)
   useEffect(() => {
     load();
     const id = setInterval(load, 10000);
     return () => clearInterval(id);
   }, []);
 
-  // Fetch winner/payment status for each ended auction
+  // ---------- Winner/payment status hydration for ended auctions ----------
   async function hydrateWinnerStatuses(items) {
     if (!items?.length) {
       setWinStatusMap({});
@@ -251,6 +245,63 @@ export default function SellerAuctionControlDashboard() {
     setWinStatusMap(map);
   }
 
+  // ---------- NEW: Live bids count hydration ----------
+  // This tries multiple API shapes:
+  // 1) /api/bids/auction/:id/count -> { count }
+  // 2) /api/bids/auction/:id?limit=1&sort=desc -> look for total/count or fallback to items length
+  async function fetchBidCountForAuction(id) {
+    // Try the dedicated count endpoint first
+    try {
+      const c = await request(`/api/bids/auction/${id}/count`);
+      if (typeof c?.count === "number") return c.count;
+    } catch {
+      // continue to fallback
+    }
+
+    // Fallback: ask for one item but expect "total" in payload
+    try {
+      const res = await request(`/api/bids/auction/${id}?limit=1&sort=desc`);
+      if (typeof res?.total === "number") return res.total;
+      if (typeof res?.count === "number") return res.count;
+      if (Array.isArray(res?.items)) {
+        // If backend doesn't include total, we only know we got <=1 item.
+        // This is a fallback best-effort: 0 or 1.
+        return res.items.length;
+      }
+    } catch {
+      // ignore
+    }
+
+    // As a last resort, return 0 (unknown)
+    return 0;
+  }
+
+  async function hydrateLiveBidCounts(liveList) {
+    if (!Array.isArray(liveList) || liveList.length === 0) {
+      setLiveBidCounts({});
+      return;
+    }
+    const ids = Array.from(new Set(liveList.map((a) => a._id)));
+    const results = await Promise.allSettled(ids.map((id) => fetchBidCountForAuction(id)));
+    const map = {};
+    results.forEach((r, i) => {
+      const id = ids[i];
+      map[id] = r.status === "fulfilled" ? Number(r.value || 0) : 0;
+    });
+    setLiveBidCounts(map);
+  }
+
+  // Re-hydrate bid counts when "live" list changes
+  useEffect(() => {
+    hydrateLiveBidCounts(overview.live);
+  }, [overview.live]);
+
+  // Also poll bid counts every 5 seconds for snappier updates
+  useEffect(() => {
+    const t = setInterval(() => hydrateLiveBidCounts(overview.live), 5000);
+    return () => clearInterval(t);
+  }, [overview.live]);
+
   // Prefill edit form when opening an "upcoming" auction in the drawer
   useEffect(() => {
     if (openDrawer && drawerMode === "upcoming" && drawerAuction) {
@@ -267,35 +318,42 @@ export default function SellerAuctionControlDashboard() {
     }
   }, [openDrawer, drawerMode, drawerAuction]);
 
-  /* ========== Paid detection (shared by widgets, charts, history) ========== */
+  /* ========== Paid detection & status derivation ========== */
 
-  // Returns true if this ended auction is fully paid
   const isPaid = (row) => {
     const win = winStatusMap[row._id] || {};
     const purchaseStatus = (win.purchaseStatus || row.purchaseStatus || row.winnerStatus || "").toLowerCase();
-    const hasPaid = purchaseStatus === "paid" || !!win.paymentId || !!row.paymentId;
-    return !!hasPaid;
+    return purchaseStatus === "paid" || !!win.paymentId || !!row.paymentId;
+  };
+
+  const statusFor = (row) => {
+    const win = winStatusMap[row._id] || {};
+    const ps = (win.purchaseStatus || row.purchaseStatus || "").toLowerCase();
+
+    if (ps === "paid" || !!win.paymentId || !!row.paymentId) {
+      return { label: "Paid", cls: "paid" };
+    }
+    const deadline = win.purchaseDeadline || row.purchaseDeadline;
+    if (deadline && Date.parse(deadline) <= Date.now()) {
+      return { label: "Expired", cls: "expired" };
+    }
+    if (ps === "cancelled") {
+      return { label: "Cancelled", cls: "cancelled" };
+    }
+    return { label: "Pending", cls: "pending" };
   };
 
   /* ========== Filters for lists and table ========== */
 
-  // Simple case-insensitive search helper
   const norm = (s) => (s || "").toLowerCase();
-
-  // Match function used to filter arrays by search and gem type
   const match = (a) =>
     (!q || norm(a.title).includes(norm(q)) || norm(a.description).includes(norm(q))) &&
     (type === "all" || a.type === type);
 
-  // Filtered arrays for the three sections
   const liveFiltered = useMemo(() => overview.live.filter(match), [match, overview.live]);
   const upcomingFiltered = useMemo(() => overview.upcoming.filter(match), [match, overview.upcoming]);
   const historyFiltered = useMemo(() => overview.history.filter(match), [match, overview.history]);
 
-  // Only show paid items in history
-  const historyPaidFiltered = useMemo(() => historyFiltered.filter((h) => isPaid(h)), [historyFiltered, winStatusMap]);
-
-  // Which sections to show based on the status dropdown
   const showLive = status === "all" || status === "live";
   const showUpcoming = status === "all" || status === "upcoming";
   const showEnded = status === "all" || status === "ended";
@@ -320,7 +378,6 @@ export default function SellerAuctionControlDashboard() {
 
   /* ========== Drawer actions (edit/delete upcoming) ========== */
 
-  // Save changes for an upcoming auction
   async function saveUpcoming() {
     const id = drawerAuction?._id;
     await request(`/api/auctions/${id}`, {
@@ -338,7 +395,6 @@ export default function SellerAuctionControlDashboard() {
     await load();
   }
 
-  // Delete an upcoming auction
   async function deleteUpcoming() {
     if (!window.confirm("Delete this upcoming auction?")) return;
     const id = drawerAuction?._id;
@@ -354,7 +410,6 @@ export default function SellerAuctionControlDashboard() {
   const chartRefs = { status: useRef(null), revenue: useRef(null) };
   const chartObjs = useRef({});
 
-  // Counts for doughnut chart (live/upcoming/ended)
   const statusCounts = useMemo(() => {
     const live = liveFiltered.length;
     const up = upcomingFiltered.length;
@@ -362,13 +417,11 @@ export default function SellerAuctionControlDashboard() {
     return { live, up, ended };
   }, [liveFiltered, upcomingFiltered, historyFiltered]);
 
-  // Keep only paid items for revenue calculations
   const paidHistory = useMemo(
     () => (overview.history || []).filter((h) => isPaid(h)),
     [overview.history, winStatusMap]
   );
 
-  // Build monthly revenue dataset from paid items
   const monthlyRevenue = useMemo(() => {
     const buckets = lastNMonths(12);
     const sums = new Map(buckets.map((b) => [b.key, 0]));
@@ -385,13 +438,12 @@ export default function SellerAuctionControlDashboard() {
     };
   }, [paidHistory]);
 
-  // Optional API feed for weekly revenue (kept but not required)
   const [weeklyApi, setWeeklyApi] = useState(null);
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const res = await request("/api/reports/weekly-revenue"); // expected: [{year, week, amount}]
+        const res = await request("/api/reports/weekly-revenue"); // optional feed
         if (mounted && Array.isArray(res)) setWeeklyApi(res);
       } catch {
         setWeeklyApi(null);
@@ -402,7 +454,6 @@ export default function SellerAuctionControlDashboard() {
     };
   }, []);
 
-  // Build weekly revenue dataset from paid items (ignores weeklyApi to enforce paid-only)
   const weeklyRevenue = useMemo(() => {
     const buckets = lastNWeeks(12);
     const sums = new Map(buckets.map((b) => [b.key, 0]));
@@ -420,7 +471,6 @@ export default function SellerAuctionControlDashboard() {
     };
   }, [paidHistory]);
 
-  // Small summary for the metric cards above the revenue chart
   const revenueSummary = useMemo(() => {
     const src = revenueMode === "weekly" ? weeklyRevenue : monthlyRevenue;
     const arr = src.data || [];
@@ -431,7 +481,6 @@ export default function SellerAuctionControlDashboard() {
     return { current, previous, delta };
   }, [revenueMode, weeklyRevenue, monthlyRevenue]);
 
-  // Draw charts with Chart.js from CDN
   useEffect(() => {
     const ensureChartJs = () =>
       new Promise((resolve) => {
@@ -446,11 +495,9 @@ export default function SellerAuctionControlDashboard() {
       await ensureChartJs();
       const Chart = window.Chart;
 
-      // Destroy old chart instances to avoid memory leaks
       Object.values(chartObjs.current).forEach((c) => c?.destroy?.());
       chartObjs.current = {};
 
-      // Doughnut: Auctions by status
       if (chartRefs.status.current) {
         chartObjs.current.status = new Chart(chartRefs.status.current.getContext("2d"), {
           type: "doughnut",
@@ -469,7 +516,6 @@ export default function SellerAuctionControlDashboard() {
         });
       }
 
-      // Bar: Revenue (weekly or monthly, using paid items only)
       if (chartRefs.revenue.current) {
         const src = revenueMode === "weekly" ? weeklyRevenue : monthlyRevenue;
         chartObjs.current.revenue = new Chart(chartRefs.revenue.current.getContext("2d"), {
@@ -499,8 +545,6 @@ export default function SellerAuctionControlDashboard() {
     };
 
     draw();
-
-    // Cleanup charts on unmount or when data changes
     return () => {
       Object.values(chartObjs.current).forEach((c) => c?.destroy?.());
       chartObjs.current = {};
@@ -509,7 +553,6 @@ export default function SellerAuctionControlDashboard() {
 
   /* ========== Widgets (paid items only for income and sold) ========== */
 
-  // Sum of paid auctions only
   const incomeOnlyPaid = useMemo(() => {
     if (!overview.history?.length) return 0;
     return overview.history.reduce((sum, h) => {
@@ -519,7 +562,6 @@ export default function SellerAuctionControlDashboard() {
     }, 0);
   }, [overview.history, winStatusMap]);
 
-  // Count of paid auctions only
   const itemsSoldPaid = useMemo(() => {
     if (!overview.history?.length) return 0;
     return overview.history.reduce((count, h) => count + (isPaid(h) ? 1 : 0), 0);
@@ -529,7 +571,6 @@ export default function SellerAuctionControlDashboard() {
 
   return (
     <>
-      {/* Background particles go behind all content */}
       <div id="particles-js" />
 
       <Header />
@@ -537,7 +578,6 @@ export default function SellerAuctionControlDashboard() {
         <SellerSidebar active="auctioncontrol" />
 
         <main className="sac-content">
-          {/* Top header with page title and a button to create a new auction */}
           <div className="sac-header">
             <h2 className="sac-title">Seller • Auction Control</h2>
             <button className="sac-btn" onClick={() => setCreateOpen(true)}>
@@ -545,7 +585,7 @@ export default function SellerAuctionControlDashboard() {
             </button>
           </div>
 
-          {/* Filters bar: search text, type dropdown, status dropdown */}
+          {/* Filters */}
           <div className="sac-filters">
             <div className="sac-search">
               <i className="fa-solid fa-magnifying-glass" />
@@ -586,7 +626,7 @@ export default function SellerAuctionControlDashboard() {
             </div>
           </div>
 
-          {/* Overview widgets: income and items sold are paid-only */}
+          {/* Overview widgets */}
           <section className="sac-overview">
             <Widget icon="fa-coins" label="Total Income" value={fmtMoney(incomeOnlyPaid)} />
             <Widget icon="fa-gavel" label="Total Auctions" value={overview.totals.totalAuctions} />
@@ -594,7 +634,7 @@ export default function SellerAuctionControlDashboard() {
             <Widget icon="fa-gem" label="Items Sold" value={itemsSoldPaid} />
           </section>
 
-          {/* Charts section: status doughnut and revenue bar */}
+          {/* Charts */}
           <div className="sac-charts">
             <div className="sac-chart-card">
               <h3 className="sac-chart-title">Auctions by Status</h3>
@@ -605,24 +645,15 @@ export default function SellerAuctionControlDashboard() {
               <div className="sac-chart-head">
                 <h3 className="sac-chart-title">Revenue</h3>
                 <div className="sac-chart-tabs">
-                  <button
-                    className={revenueMode === "weekly" ? "is-active" : ""}
-                    onClick={() => setRevenueMode("weekly")}
-                    type="button"
-                  >
+                  <button className={revenueMode === "weekly" ? "is-active" : ""} onClick={() => setRevenueMode("weekly")} type="button">
                     Weekly
                   </button>
-                  <button
-                    className={revenueMode === "monthly" ? "is-active" : ""}
-                    onClick={() => setRevenueMode("monthly")}
-                    type="button"
-                  >
+                  <button className={revenueMode === "monthly" ? "is-active" : ""} onClick={() => setRevenueMode("monthly")} type="button">
                     Monthly
                   </button>
                 </div>
               </div>
 
-              {/* Small KPIs that summarize the current and previous bucket */}
               <div className="sac-metrics">
                 <div className="sac-metric">
                   <div className="sac-metric-label">{revenueMode === "weekly" ? "This Week" : "This Month"}</div>
@@ -657,7 +688,15 @@ export default function SellerAuctionControlDashboard() {
                 {liveFiltered.length === 0 ? (
                   <p className="sac-empty">No matching live auctions.</p>
                 ) : (
-                  liveFiltered.map((a) => <LiveCard key={a._id} a={a} onOpen={() => openLive(a)} />)
+                  liveFiltered.map((a) => (
+                    <LiveCard
+                      key={a._id}
+                      a={a}
+                      // Prefer liveBidCounts (fresh), fallback to a.bidsCount if API already provided one
+                      count={typeof liveBidCounts[a._id] === "number" ? liveBidCounts[a._id] : (a.bidsCount || 0)}
+                      onOpen={() => openLive(a)}
+                    />
+                  ))
                 )}
               </div>
             </Section>
@@ -676,7 +715,7 @@ export default function SellerAuctionControlDashboard() {
             </Section>
           )}
 
-          {/* Ended section: table shows only paid items */}
+          {/* Ended section: ALL ended items with status */}
           {showEnded && (
             <Section title="Auction History">
               <div className="sac-table-wrap">
@@ -688,29 +727,34 @@ export default function SellerAuctionControlDashboard() {
                       <th>Final Price</th>
                       <th>Ended</th>
                       <th>Winner</th>
+                      <th>Status</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {historyPaidFiltered.length === 0 ? (
+                    {historyFiltered.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="sac-empty">No paid history items match your filters.</td>
+                        <td colSpan={7} className="sac-empty">No history items match your filters.</td>
                       </tr>
                     ) : (
-                      historyPaidFiltered.map((h) => (
-                        <tr key={h._id}>
-                          <td>{h.title}</td>
-                          <td>{h.type}</td>
-                          <td className="sac-price">{fmtMoney(h.finalPrice ?? h.currentPrice ?? 0)}</td>
-                          <td>{fmtDateTime(h.endTime)}</td>
-                          <td className="sac-winner">{h.winnerName || "-"}</td>
-                          <td>
-                            <button className="sac-btn-outline" onClick={() => openEnded(h)}>
-                              <i className="fa-solid fa-eye" /> Details
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                      historyFiltered.map((h) => {
+                        const st = statusFor(h);
+                        return (
+                          <tr key={h._id}>
+                            <td>{h.title}</td>
+                            <td>{h.type}</td>
+                            <td className="sac-price">{fmtMoney(h.finalPrice ?? h.currentPrice ?? 0)}</td>
+                            <td>{fmtDateTime(h.endTime)}</td>
+                            <td className="sac-winner">{h.winnerName || "-"}</td>
+                            <td><span className={`sac-status sac-status--${st.cls}`}>{st.label}</span></td>
+                            <td>
+                              <button className="sac-btn-outline" onClick={() => openEnded(h)}>
+                                <i className="fa-solid fa-eye" /> Details
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -720,7 +764,7 @@ export default function SellerAuctionControlDashboard() {
         </main>
       </div>
 
-      {/* Details drawer for viewing or editing an auction */}
+      {/* Drawer */}
       <DetailsDrawer
         open={openDrawer}
         a={drawerAuction}
@@ -732,7 +776,7 @@ export default function SellerAuctionControlDashboard() {
         onDeleteUpcoming={deleteUpcoming}
       />
 
-      {/* Create auction modal dialog */}
+      {/* Create auction modal */}
       <CreateAuctionModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={load} />
     </>
   );
@@ -740,7 +784,6 @@ export default function SellerAuctionControlDashboard() {
 
 /* ===================== Reusable Pieces ===================== */
 
-// Simple wrapper to give sections a title and underline
 function Section({ title, children }) {
   return (
     <section className="sac-section">
@@ -753,7 +796,6 @@ function Section({ title, children }) {
   );
 }
 
-// Small widget used in the overview area
 function Widget({ icon, label, value }) {
   return (
     <div className="sac-widget">
@@ -764,13 +806,13 @@ function Widget({ icon, label, value }) {
   );
 }
 
-// Live auction card
-function LiveCard({ a, onOpen }) {
+// ==== Live card now accepts `count` prop ====
+function LiveCard({ a, onOpen, count = 0 }) {
   const { total, days, hours, minutes, seconds } = useCountdown(a.endTime);
   const ended = total <= 0;
   return (
     <div className="sac-card">
-      <div className="sac-badge sac-badge-live">LIVE • {a.bidsCount || 0} BIDS</div>
+      <div className="sac-badge sac-badge-live">LIVE • {count} {count === 1 ? "BID" : "BIDS"}</div>
       <img className="sac-img" src={asset(a.imageUrl)} alt={a.title} />
       <h3 className="sac-card-title">{a.title}</h3>
       <p className="sac-card-sub">
@@ -802,7 +844,6 @@ function LiveCard({ a, onOpen }) {
   );
 }
 
-// Upcoming auction card
 function UpcomingCard({ a, onOpen }) {
   const { total, days, hours, minutes, seconds } = useCountdown(a.startTime);
   const started = total <= 0;
@@ -843,7 +884,6 @@ function UpcomingCard({ a, onOpen }) {
 
 /* ============ Drawer ============ */
 
-// Side drawer for details and editing
 function DetailsDrawer({
   open,
   a,
@@ -857,7 +897,6 @@ function DetailsDrawer({
   const [bidders, setBidders] = useState([]);
   const [loadingBidders, setLoadingBidders] = useState(false);
 
-  // Load last bids when the drawer opens for live/ended auctions
   useEffect(() => {
     let active = true;
     async function loadBidders() {
@@ -974,7 +1013,6 @@ function DetailsDrawer({
               </div>
               {a.description && <p className="sac-drawer-desc">{a.description}</p>}
 
-              {/* Recent bidders table */}
               <h4 className="sac-subtitle" style={{ marginTop: 12 }}>Recent Bidders</h4>
               <div className="sac-table-wrap">
                 <table className="sac-table">
@@ -1006,7 +1044,6 @@ function DetailsDrawer({
           )}
         </div>
 
-        {/* Footer: edit actions for upcoming, close for others */}
         <div className="sac-drawer-footer">
           {mode === "upcoming" ? (
             <>
@@ -1028,7 +1065,6 @@ function DetailsDrawer({
 
 /* ============ Create Auction Modal ============ */
 
-// Modal to create a new auction in four simple steps
 function CreateAuctionModal({ open, onClose, onCreated }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
@@ -1043,7 +1079,6 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
   });
   const fileRef = useRef(null);
 
-  // Reset the form when the modal closes
   useEffect(() => {
     if (!open) {
       setStep(1);
@@ -1061,15 +1096,12 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
     }
   }, [open]);
 
-  // Helper to update one field in the form
   const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  // Validation flags to enable Next buttons
   const valid1 = form.title.trim() && form.type && form.description.trim() && (form.file || form.imageDataUrl);
   const valid2 = Number(form.basePrice) > 0;
   const valid3 = form.startTime && form.endTime && new Date(form.startTime) < new Date(form.endTime);
 
-  // Handle an image file dropped or selected
   const handleFile = (file) => {
     if (!file) return;
     if (!/^image\//.test(file.type)) return alert("Only image files are allowed.");
@@ -1080,7 +1112,6 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
     setField("file", file);
   };
 
-  // Submit the FormData to the API to create the auction
   async function submit(e) {
     e.preventDefault();
     const fd = new FormData();
@@ -1101,17 +1132,13 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
 
   return (
     <>
-      {/* The dimmed background behind the modal */}
       <div className={`sac-modal-overlay ${open ? "open" : ""}`} onClick={onClose} />
-
-      {/* The modal itself */}
       <div className={`sac-modal ${open ? "open" : ""}`} role="dialog" aria-modal="true">
         <div className="sac-modal-header">
           <h2>Create Auction</h2>
           <button className="sac-icon-btn" onClick={onClose}><i className="fa-solid fa-xmark" /></button>
         </div>
 
-        {/* Stepper shows which step is active */}
         <div className="sac-steps">
           {["Gem Details", "Pricing", "Schedule", "Review"].map((label, i) => {
             const n = i + 1;
@@ -1125,9 +1152,7 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
           })}
         </div>
 
-        {/* The form body switches based on the current step */}
         <form className="sac-modal-body" onSubmit={submit}>
-          {/* Step 1: basic gem details and image */}
           {step === 1 && (
             <div className="sac-form-grid">
               <div className="sac-form-group sac-col-full">
@@ -1202,7 +1227,6 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
             </div>
           )}
 
-          {/* Step 2: pricing */}
           {step === 2 && (
             <div className="sac-form-grid">
               <div className="sac-form-group sac-col-full">
@@ -1218,7 +1242,6 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
             </div>
           )}
 
-          {/* Step 3: schedule */}
           {step === 3 && (
             <div className="sac-form-grid">
               <div className="sac-form-group">
@@ -1236,7 +1259,6 @@ function CreateAuctionModal({ open, onClose, onCreated }) {
             </div>
           )}
 
-          {/* Step 4: review and submit */}
           {step === 4 && (
             <div className="sac-form-grid">
               <div className="sac-review sac-col-full">

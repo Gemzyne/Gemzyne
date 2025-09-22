@@ -23,7 +23,12 @@ import { request, api } from "../../api";
 const BACKEND = process.env.REACT_APP_API_URL || "http://localhost:5000";
 const asset = (p) => {
   if (!p) return "";
-  if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) return p;
+  if (
+    p.startsWith("http://") ||
+    p.startsWith("https://") ||
+    p.startsWith("data:")
+  )
+    return p;
   return `${BACKEND}${p.startsWith("/") ? "" : "/"}${p}`;
 };
 
@@ -78,15 +83,15 @@ export default function BuyerDashboard() {
   }, []);
 
   /* ---- REACT STATE (data that changes) ---- */
-  const [ongoing, setOngoing] = useState([]);     // public ongoing auctions
-  const [yourBids, setYourBids] = useState([]);   // your active bids
-  const [upcoming, setUpcoming] = useState([]);   // public upcoming auctions
-  const [won, setWon] = useState([]);             // your won auctions
+  const [ongoing, setOngoing] = useState([]); // public ongoing auctions
+  const [yourBids, setYourBids] = useState([]); // your active bids
+  const [upcoming, setUpcoming] = useState([]); // public upcoming auctions
+  const [won, setWon] = useState([]); // your won auctions
 
-  const [tab, setTab] = useState("ongoing");      // which tab is selected
-  const [search, setSearch] = useState("");       // search text
-  const [category, setCategory] = useState("all");// filter by type
-  const [status, setStatus] = useState("all");    // filter by status
+  const [tab, setTab] = useState("ongoing"); // which tab is selected
+  const [search, setSearch] = useState(""); // search text
+  const [category, setCategory] = useState("all"); // filter by type
+  const [status, setStatus] = useState("all"); // filter by status
 
   // Drawer (right-side details panel)
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -104,9 +109,14 @@ export default function BuyerDashboard() {
   useEffect(() => {
     (async () => {
       const qs = (s) =>
-        `/api/auctions/public?status=${s}&type=${category}&q=${encodeURIComponent(search)}`;
+        `/api/auctions/public?status=${s}&type=${category}&q=${encodeURIComponent(
+          search
+        )}`;
       try {
-        const [og, up] = await Promise.all([request(qs("ongoing")), request(qs("upcoming"))]);
+        const [og, up] = await Promise.all([
+          request(qs("ongoing")),
+          request(qs("upcoming")),
+        ]);
         setOngoing(og.items || []);
         setUpcoming(up.items || []);
       } catch {
@@ -121,7 +131,10 @@ export default function BuyerDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const [my, wins] = await Promise.all([request("/api/bids/my"), request("/api/wins/my")]);
+        const [my, wins] = await Promise.all([
+          request("/api/bids/my"),
+          request("/api/wins/my"),
+        ]);
         // Keep only active bids (not ended)
         setYourBids((my.items || []).filter((b) => isActive(b.endTime)));
         setWon(wins.items || []);
@@ -232,7 +245,9 @@ export default function BuyerDashboard() {
       body: JSON.stringify({ auctionId: a._id, amount }),
     });
     // Optimistically update card price
-    setOngoing((prev) => prev.map((o) => (o._id === a._id ? { ...o, currentPrice: amount } : o)));
+    setOngoing((prev) =>
+      prev.map((o) => (o._id === a._id ? { ...o, currentPrice: amount } : o))
+    );
     // Reload your active bids
     const my = await request("/api/bids/my");
     setYourBids((my.items || []).filter((b) => isActive(b.endTime)));
@@ -308,7 +323,11 @@ export default function BuyerDashboard() {
   return (
     <div className="bd-root">
       {/* particles canvas (fixed, behind content) */}
-      <div id="particles-js" className="bd-particles" style={{ position: "fixed", inset: 0, zIndex: 0 }} />
+      <div
+        id="particles-js"
+        className="bd-particles"
+        style={{ position: "fixed", inset: 0, zIndex: 0 }}
+      />
 
       {/* page content above particles */}
       <div className="bd-content" style={{ position: "relative", zIndex: 1 }}>
@@ -334,7 +353,9 @@ export default function BuyerDashboard() {
             <div className="bd-select">
               <button className="bd-select__btn" type="button">
                 <span>
-                  {category === "all" ? "All Categories" : category[0].toUpperCase() + category.slice(1)}
+                  {category === "all"
+                    ? "All Categories"
+                    : category[0].toUpperCase() + category.slice(1)}
                 </span>
                 <i className="fa-solid fa-chevron-down" />
               </button>
@@ -400,22 +421,34 @@ export default function BuyerDashboard() {
         {/* ===== TABS ===== */}
         <div className="bd-tabs">
           <div className="bd-tabs__bar">
-            <button className={`bd-tab ${tab === "ongoing" ? "is-active" : ""}`} onClick={() => setTab("ongoing")}>
+            <button
+              className={`bd-tab ${tab === "ongoing" ? "is-active" : ""}`}
+              onClick={() => setTab("ongoing")}
+            >
               Ongoing Auctions
             </button>
           </div>
           <div className="bd-tabs__bar">
-            <button className={`bd-tab ${tab === "yourbids" ? "is-active" : ""}`} onClick={() => setTab("yourbids")}>
+            <button
+              className={`bd-tab ${tab === "yourbids" ? "is-active" : ""}`}
+              onClick={() => setTab("yourbids")}
+            >
               Your Bids
             </button>
           </div>
           <div className="bd-tabs__bar">
-            <button className={`bd-tab ${tab === "history" ? "is-active" : ""}`} onClick={() => setTab("history")}>
+            <button
+              className={`bd-tab ${tab === "history" ? "is-active" : ""}`}
+              onClick={() => setTab("history")}
+            >
               Auction History
             </button>
           </div>
           <div className="bd-tabs__bar">
-            <button className={`bd-tab ${tab === "upcoming" ? "is-active" : ""}`} onClick={() => setTab("upcoming")}>
+            <button
+              className={`bd-tab ${tab === "upcoming" ? "is-active" : ""}`}
+              onClick={() => setTab("upcoming")}
+            >
               Upcoming Auctions
             </button>
           </div>
@@ -496,7 +529,11 @@ export default function BuyerDashboard() {
                   <article className="bd-card" key={w.id || w.auctionId}>
                     <div className="bd-badge bd-badge--won">WON</div>
 
-                    <img className="bd-card__img" src={asset(w.image)} alt={w.title} />
+                    <img
+                      className="bd-card__img"
+                      src={asset(w.image)}
+                      alt={w.title}
+                    />
                     <h3 className="bd-card__title">{w.title}</h3>
                     <p className="bd-card__meta">
                       <i className="fa-solid fa-gem" /> {w.type}
@@ -507,9 +544,14 @@ export default function BuyerDashboard() {
                     <p className="bd-small">Ended: {fmtDate(w.endTime)}</p>
 
                     {isPaid ? (
-                      <button className="bd-btn bd-btn--ok" disabled>Transaction complete</button>
+                      <button className="bd-btn bd-btn--ok" disabled>
+                        Transaction complete
+                      </button>
                     ) : (
-                      <button className="bd-btn bd-btn--outline" onClick={() => startWinnerCheckout(w)}>
+                      <button
+                        className="bd-btn bd-btn--outline"
+                        onClick={() => startWinnerCheckout(w)}
+                      >
                         Proceed to checkout
                       </button>
                     )}
@@ -601,7 +643,9 @@ function Section({ title, children }) {
 function Grid({ children, emptyText }) {
   return (
     <div className="bd-grid">
-      {React.Children.count(children) ? children : (
+      {React.Children.count(children) ? (
+        children
+      ) : (
         <div className="bd-empty">{emptyText}</div>
       )}
     </div>
@@ -642,7 +686,8 @@ function Countdown({ target, label = "Ends in" }) {
 // A single auction card used in Ongoing/Your Bids lists
 function Card({ a, yourBid, type, onSubmit, onOpen }) {
   const [val, setVal] = useState("");
-  const fmtMoney = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const fmtMoney = (n) =>
+    Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
   const minVal = (a.currentPrice || 0) + 1;
   const ended = isEnded(a.endTime);
 
@@ -651,7 +696,12 @@ function Card({ a, yourBid, type, onSubmit, onOpen }) {
       <div className="bd-card__timer">
         <Countdown target={a.endTime} label="Ends in" />
       </div>
-      <img className="bd-card__img bd-click" src={asset(a.imageUrl)} alt={a.title} onClick={onOpen} />
+      <img
+        className="bd-card__img bd-click"
+        src={asset(a.imageUrl)}
+        alt={a.title}
+        onClick={onOpen}
+      />
       <h3 className="bd-card__title">{a.title}</h3>
       <p className="bd-card__meta">
         <i className="fa-solid fa-gem" /> {a.type}
@@ -677,7 +727,7 @@ function Card({ a, yourBid, type, onSubmit, onOpen }) {
             if (ended) return;
             const n = Number(val);
             if (Number.isFinite(n) && n > (a.currentPrice || 0)) {
-              onSubmit(n);   // Calls placeBid or increaseBid
+              onSubmit(n); // Calls placeBid or increaseBid
               setVal("");
             }
           }}
@@ -705,14 +755,21 @@ function DetailsDrawer({ open, details, onClose, onPlace, onIncrease }) {
   if (!details) {
     return (
       <>
-        <div className={`bd-drawer-overlay ${open ? "open" : ""}`} onClick={onClose} />
-        <aside className={`bd-drawer ${open ? "open" : ""}`} aria-hidden={!open} />
+        <div
+          className={`bd-drawer-overlay ${open ? "open" : ""}`}
+          onClick={onClose}
+        />
+        <aside
+          className={`bd-drawer ${open ? "open" : ""}`}
+          aria-hidden={!open}
+        />
       </>
     );
   }
 
   const { a, type, yourBid } = details;
-  const fmtMoney = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const fmtMoney = (n) =>
+    Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
   const fmtDate = (iso) =>
     new Date(iso).toLocaleString(undefined, {
       year: "numeric",
@@ -726,7 +783,10 @@ function DetailsDrawer({ open, details, onClose, onPlace, onIncrease }) {
 
   return (
     <>
-      <div className={`bd-drawer-overlay ${open ? "open" : ""}`} onClick={onClose} />
+      <div
+        className={`bd-drawer-overlay ${open ? "open" : ""}`}
+        onClick={onClose}
+      />
       <aside className={`bd-drawer ${open ? "open" : ""}`} aria-hidden={!open}>
         <div className="bd-drawer__header">
           <div className="bd-drawer__title">{a.title}</div>
@@ -736,75 +796,94 @@ function DetailsDrawer({ open, details, onClose, onPlace, onIncrease }) {
         </div>
 
         <div className="bd-drawer__body">
-          <img className="bd-drawer__img" src={asset(a.imageUrl)} alt={a.title} />
+          <img
+            className="bd-drawer__img"
+            src={asset(a.imageUrl)}
+            alt={a.title}
+          />
           <div className="bd-drawer__row">
-            <span className="bd-drawer__label">Type:</span>{a.type || "-"}
+            <span className="bd-drawer__label">Type:</span>
+            {a.type || "-"}
           </div>
 
           {a?.description && (
-            <div className="bd-drawer__row" style={{ alignItems: "flex-start" }}>
+            <div
+              className="bd-drawer__row"
+              style={{ alignItems: "flex-start" }}
+            >
               <span className="bd-drawer__label">Description:</span>
-              <span className="bd-drawer__desc" style={{ flex: 1, whiteSpace: "pre-wrap" }}>
+              <span
+                className="bd-drawer__desc"
+                style={{ flex: 1, whiteSpace: "pre-wrap" }}
+              >
                 {a.description}
               </span>
             </div>
           )}
           {a.basePrice != null && (
             <div className="bd-drawer__row">
-              <span className="bd-drawer__label">Base:</span>${fmtMoney(a.basePrice)}
+              <span className="bd-drawer__label">Base:</span>$
+              {fmtMoney(a.basePrice)}
             </div>
           )}
           <div className="bd-drawer__row">
-            <span className="bd-drawer__label">Current:</span>${fmtMoney(a.currentPrice)}
+            <span className="bd-drawer__label">Current:</span>$
+            {fmtMoney(a.currentPrice)}
           </div>
           {yourBid != null && (
             <div className="bd-drawer__row">
-              <span className="bd-drawer__label">Your Bid:</span>${fmtMoney(yourBid)}
+              <span className="bd-drawer__label">Your Bid:</span>$
+              {fmtMoney(yourBid)}
             </div>
           )}
           {a.startTime && (
             <div className="bd-drawer__row">
-              <span className="bd-drawer__label">Start:</span>{fmtDate(a.startTime)}
+              <span className="bd-drawer__label">Start:</span>
+              {fmtDate(a.startTime)}
             </div>
           )}
           {a.endTime && (
             <div className="bd-drawer__row">
-              <span className="bd-drawer__label">Ends:</span>{fmtDate(a.endTime)}
+              <span className="bd-drawer__label">Ends:</span>
+              {fmtDate(a.endTime)}
             </div>
           )}
 
           {/* Show bid bar if auction is active (ongoing or your), or if upcoming we could hide the input */}
-          {(type === "ongoing" || type === "your" || type === "upcoming") && !ended && type !== "upcoming" && (
-            <>
-              <div className="bd-drawer__row">
-                <span className="bd-drawer__label">
-                  {type === "your" ? "Increase your bid" : "Place a bid"}
-                </span>
-              </div>
-              <div className="bd-drawer__bidbar">
-                <input
-                  className="bd-drawer__input"
-                  type="number"
-                  min={minVal}
-                  placeholder={`Min ${minVal.toLocaleString()}`}
-                  value={val}
-                  onChange={(e) => setVal(e.target.value)}
-                />
-                <button
-                  className="bd-drawer__btn"
-                  onClick={() => {
-                    const n = Number(val);
-                    if (!Number.isFinite(n) || n <= (a.currentPrice || 0)) return;
-                    if (type === "your") onIncrease(details.bidRecord, n);
-                    else onPlace(a, n);
-                    setVal("");
-                  }}
-                >
-                  {type === "your" ? "Increase" : "Bid"}
-                </button>
-              </div>
-            </>
-          )}
+          {(type === "ongoing" || type === "your" || type === "upcoming") &&
+            !ended &&
+            type !== "upcoming" && (
+              <>
+                <div className="bd-drawer__row">
+                  <span className="bd-drawer__label">
+                    {type === "your" ? "Increase your bid" : "Place a bid"}
+                  </span>
+                </div>
+                <div className="bd-drawer__bidbar">
+                  <input
+                    className="bd-drawer__input"
+                    type="number"
+                    min={minVal}
+                    placeholder={`Min ${minVal.toLocaleString()}`}
+                    value={val}
+                    onChange={(e) => setVal(e.target.value)}
+                  />
+                  <button
+                    className="bd-drawer__btn"
+                    onClick={() => {
+                      const n = Number(val);
+                      if (!Number.isFinite(n) || n <= (a.currentPrice || 0))
+                        return;
+                      if (type === "your") onIncrease(details.bidRecord, n);
+                      else onPlace(a, n);
+                      setVal("");
+                    }}
+                  >
+                    {type === "your" ? "Increase" : "Bid"}
+                  </button>
+                </div>
+              </>
+            )}
 
           {(type === "your" || type === "ongoing") && ended && (
             <div className="bd-small" style={{ marginTop: 10 }}>

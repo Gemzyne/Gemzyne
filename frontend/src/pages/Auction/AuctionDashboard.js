@@ -16,7 +16,12 @@ import { request } from "../../api";
 const BACKEND = process.env.REACT_APP_API_URL || "http://localhost:5000";
 const asset = (p) => {
   if (!p) return "";
-  if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) return p;
+  if (
+    p.startsWith("http://") ||
+    p.startsWith("https://") ||
+    p.startsWith("data:")
+  )
+    return p;
   return `${BACKEND}${p.startsWith("/") ? "" : "/"}${p}`;
 };
 
@@ -217,10 +222,19 @@ export default function AuctionDashboard() {
     if (!past?.length) return 0;
     return past.reduce((sum, h) => {
       const win = winStatusMap[h._id] || {};
-      const purchaseStatus = (win.purchaseStatus || h.purchaseStatus || h.winnerStatus || "").toLowerCase();
-      const hasPaid = purchaseStatus === "paid" || !!win.paymentId || !!h.paymentId;
+      const purchaseStatus = (
+        win.purchaseStatus ||
+        h.purchaseStatus ||
+        h.winnerStatus ||
+        ""
+      ).toLowerCase();
+      const hasPaid =
+        purchaseStatus === "paid" || !!win.paymentId || !!h.paymentId;
       if (!hasPaid) return sum;
-      const amount = h.finalPrice != null ? Number(h.finalPrice) : Number(h.currentPrice || 0);
+      const amount =
+        h.finalPrice != null
+          ? Number(h.finalPrice)
+          : Number(h.currentPrice || 0);
       return sum + (isNaN(amount) ? 0 : amount);
     }, 0);
   }, [past, winStatusMap]);
@@ -230,8 +244,14 @@ export default function AuctionDashboard() {
     if (!past?.length) return 0;
     return past.reduce((count, h) => {
       const win = winStatusMap[h._id] || {};
-      const purchaseStatus = (win.purchaseStatus || h.purchaseStatus || h.winnerStatus || "").toLowerCase();
-      const hasPaid = purchaseStatus === "paid" || !!win.paymentId || !!h.paymentId;
+      const purchaseStatus = (
+        win.purchaseStatus ||
+        h.purchaseStatus ||
+        h.winnerStatus ||
+        ""
+      ).toLowerCase();
+      const hasPaid =
+        purchaseStatus === "paid" || !!win.paymentId || !!h.paymentId;
       return count + (hasPaid ? 1 : 0);
     }, 0);
   }, [past, winStatusMap]);
@@ -244,9 +264,21 @@ export default function AuctionDashboard() {
 
         {/* Top widgets. Total Income and Items Sold now reflect only paid items */}
         <section className="sd-overview">
-          <Widget icon="fa-coins" label="Total Income" value={fmtMoney(incomeOnlyPaid)} />
-          <Widget icon="fa-gavel" label="Total Auctions" value={totals.totalAuctions} />
-          <Widget icon="fa-hourglass-half" label="Ongoing" value={totals.ongoing} />
+          <Widget
+            icon="fa-coins"
+            label="Total Income"
+            value={fmtMoney(incomeOnlyPaid)}
+          />
+          <Widget
+            icon="fa-gavel"
+            label="Total Auctions"
+            value={totals.totalAuctions}
+          />
+          <Widget
+            icon="fa-hourglass-half"
+            label="Ongoing"
+            value={totals.ongoing}
+          />
           <Widget icon="fa-gem" label="Items Sold" value={itemsSoldPaid} />
         </section>
 
@@ -268,7 +300,11 @@ export default function AuctionDashboard() {
               <p className="sd-empty">No upcoming auctions scheduled.</p>
             ) : (
               upcoming.map((a) => (
-                <UpcomingCard key={a._id} a={a} onOpen={() => openUpcomingDrawer(a)} />
+                <UpcomingCard
+                  key={a._id}
+                  a={a}
+                  onOpen={() => openUpcomingDrawer(a)}
+                />
               ))
             )}
           </div>
@@ -290,19 +326,31 @@ export default function AuctionDashboard() {
               <tbody>
                 {past.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="sd-empty">No history.</td>
+                    <td colSpan={6} className="sd-empty">
+                      No history.
+                    </td>
                   </tr>
                 ) : (
                   past.map((h) => {
                     const win = winStatusMap[h._id] || {};
-                    const purchaseStatus = (win.purchaseStatus || h.purchaseStatus || h.winnerStatus || "").toLowerCase();
-                    const hasPaid = purchaseStatus === "paid" || !!win.paymentId || !!h.paymentId;
+                    const purchaseStatus = (
+                      win.purchaseStatus ||
+                      h.purchaseStatus ||
+                      h.winnerStatus ||
+                      ""
+                    ).toLowerCase();
+                    const hasPaid =
+                      purchaseStatus === "paid" ||
+                      !!win.paymentId ||
+                      !!h.paymentId;
 
                     const deadlineMs = win.purchaseDeadline
                       ? new Date(win.purchaseDeadline).getTime()
-                      : (h.purchaseDeadline
-                          ? new Date(h.purchaseDeadline).getTime()
-                          : new Date(new Date(h.endTime).getTime() + 7 * 86400000).getTime());
+                      : h.purchaseDeadline
+                      ? new Date(h.purchaseDeadline).getTime()
+                      : new Date(
+                          new Date(h.endTime).getTime() + 7 * 86400000
+                        ).getTime();
 
                     const now = Date.now();
                     let label, cls;
@@ -346,7 +394,9 @@ export default function AuctionDashboard() {
                         </td>
                         <td className="sd-price">
                           {fmtMoney(
-                            h.finalPrice != null ? h.finalPrice : h.currentPrice || 0
+                            h.finalPrice != null
+                              ? h.finalPrice
+                              : h.currentPrice || 0
                           )}
                         </td>
                         <td>{fmtDateTime(h.endTime)}</td>
@@ -382,7 +432,9 @@ export default function AuctionDashboard() {
         onClose={() => setDrawerOpen(false)}
         title={
           drawerAuction
-            ? `${drawerAuction.title} — ${drawerMode === "live" ? "Live Details" : "Upcoming Details"}`
+            ? `${drawerAuction.title} — ${
+                drawerMode === "live" ? "Live Details" : "Upcoming Details"
+              }`
             : "Details"
         }
         footer={
@@ -401,7 +453,11 @@ export default function AuctionDashboard() {
         {!drawerAuction ? null : drawerMode === "live" ? (
           <LiveDrawerContent a={drawerAuction} />
         ) : (
-          <UpcomingDrawerContent a={drawerAuction} editForm={editForm} setEditForm={setEditForm} />
+          <UpcomingDrawerContent
+            a={drawerAuction}
+            editForm={editForm}
+            setEditForm={setEditForm}
+          />
         )}
       </SideDrawer>
 
@@ -411,7 +467,11 @@ export default function AuctionDashboard() {
           setWinnerOpen(false);
           setWinner(null);
         }}
-        title={winner?.auction?.title ? `Winner • ${winner.auction.title}` : "Winner Details"}
+        title={
+          winner?.auction?.title
+            ? `Winner • ${winner.auction.title}`
+            : "Winner Details"
+        }
       >
         {loadingWinner ? (
           <p className="sd-muted">Loading winner...</p>
@@ -454,7 +514,9 @@ function LiveCard({ a, onOpen }) {
   const ended = total <= 0;
   return (
     <div className="sd-card">
-      <div className="sd-badge sd-badge-live">LIVE • {a.bidsCount || 0} BIDS</div>
+      <div className="sd-badge sd-badge-live">
+        LIVE • {a.bidsCount || 0} BIDS
+      </div>
       <div className="sd-countdown">
         {ended ? (
           <span className="sd-muted">Auction ended</span>
@@ -495,7 +557,11 @@ function UpcomingCard({ a, onOpen }) {
   const started = total <= 0;
   return (
     <div className="sd-card">
-      <div className={`sd-badge ${started ? "sd-badge-live" : "sd-badge-upcoming"}`}>
+      <div
+        className={`sd-badge ${
+          started ? "sd-badge-live" : "sd-badge-upcoming"
+        }`}
+      >
         {started ? "STARTED" : "UPCOMING"}
       </div>
       <div className="sd-countdown">
@@ -517,8 +583,12 @@ function UpcomingCard({ a, onOpen }) {
       </p>
       <p className="sd-desc">{a.description}</p>
       <div className="sd-price">Base: {fmtMoney(a.basePrice)}</div>
-      <p className="sd-line"><strong>Start:</strong> {fmtDateTime(a.startTime)}</p>
-      <p className="sd-line"><strong>End:</strong> {fmtDateTime(a.endTime)}</p>
+      <p className="sd-line">
+        <strong>Start:</strong> {fmtDateTime(a.startTime)}
+      </p>
+      <p className="sd-line">
+        <strong>End:</strong> {fmtDateTime(a.endTime)}
+      </p>
       <div className="sd-actions">
         <button className="sd-btn-outline sd-btn-wide" onClick={onOpen}>
           <i className="fa-solid fa-pen-to-square" /> Details / Edit
@@ -531,11 +601,18 @@ function UpcomingCard({ a, onOpen }) {
 function SideDrawer({ open, title, onClose, children, footer }) {
   return (
     <>
-      <div className={`sd-drawer-overlay ${open ? "open" : ""}`} onClick={onClose} />
+      <div
+        className={`sd-drawer-overlay ${open ? "open" : ""}`}
+        onClick={onClose}
+      />
       <aside className={`sd-drawer ${open ? "open" : ""}`} aria-hidden={!open}>
         <div className="sd-drawer-header">
           <h3>{title}</h3>
-          <button className="sd-icon-btn" onClick={onClose} aria-label="Close drawer">
+          <button
+            className="sd-icon-btn"
+            onClick={onClose}
+            aria-label="Close drawer"
+          >
             <i className="fa-solid fa-xmark" />
           </button>
         </div>
@@ -551,12 +628,24 @@ function LiveDrawerContent({ a }) {
     <div className="sd-live-panel">
       <img className="sd-drawer-img" src={asset(a.imageUrl)} alt={a.title} />
       <div className="sd-drawer-grid">
-        <div><span className="sd-label">Gem:</span> {a.title}</div>
-        <div><span className="sd-label">Type:</span> {a.type}</div>
-        <div><span className="sd-label">Start:</span> {fmtDateTime(a.startTime)}</div>
-        <div><span className="sd-label">Ends:</span> {fmtDateTime(a.endTime)}</div>
-        <div><span className="sd-label">Base:</span> {fmtMoney(a.basePrice)}</div>
-        <div><span className="sd-label">Current:</span> {fmtMoney(a.currentPrice)}</div>
+        <div>
+          <span className="sd-label">Gem:</span> {a.title}
+        </div>
+        <div>
+          <span className="sd-label">Type:</span> {a.type}
+        </div>
+        <div>
+          <span className="sd-label">Start:</span> {fmtDateTime(a.startTime)}
+        </div>
+        <div>
+          <span className="sd-label">Ends:</span> {fmtDateTime(a.endTime)}
+        </div>
+        <div>
+          <span className="sd-label">Base:</span> {fmtMoney(a.basePrice)}
+        </div>
+        <div>
+          <span className="sd-label">Current:</span> {fmtMoney(a.currentPrice)}
+        </div>
       </div>
       <p className="sd-drawer-desc">{a.description}</p>
       <h4 className="sd-subtitle">Top Bids (live)</h4>
@@ -573,11 +662,17 @@ function UpcomingDrawerContent({ a, editForm, setEditForm }) {
       <div className="sd-form-grid">
         <div className="sd-form-group sd-col-full">
           <label className="sd-required">Gem Name</label>
-          <input value={editForm.title} onChange={(e) => set("title", e.target.value)} />
+          <input
+            value={editForm.title}
+            onChange={(e) => set("title", e.target.value)}
+          />
         </div>
         <div className="sd-form-group">
           <label className="sd-required">Gem Type</label>
-          <select value={editForm.type} onChange={(e) => set("type", e.target.value)}>
+          <select
+            value={editForm.type}
+            onChange={(e) => set("type", e.target.value)}
+          >
             <option value="sapphire">Sapphire</option>
             <option value="ruby">Ruby</option>
             <option value="emerald">Emerald</option>
@@ -587,19 +682,35 @@ function UpcomingDrawerContent({ a, editForm, setEditForm }) {
         </div>
         <div className="sd-form-group">
           <label className="sd-required">Base Price</label>
-          <input type="number" min="1" value={editForm.basePrice} onChange={(e) => set("basePrice", e.target.value)} />
+          <input
+            type="number"
+            min="1"
+            value={editForm.basePrice}
+            onChange={(e) => set("basePrice", e.target.value)}
+          />
         </div>
         <div className="sd-form-group sd-col-full">
           <label>Description</label>
-          <textarea value={editForm.description} onChange={(e) => set("description", e.target.value)} />
+          <textarea
+            value={editForm.description}
+            onChange={(e) => set("description", e.target.value)}
+          />
         </div>
         <div className="sd-form-group">
           <label className="sd-required">Start Time</label>
-          <input type="datetime-local" value={editForm.startTime} onChange={(e) => set("startTime", e.target.value)} />
+          <input
+            type="datetime-local"
+            value={editForm.startTime}
+            onChange={(e) => set("startTime", e.target.value)}
+          />
         </div>
         <div className="sd-form-group">
           <label className="sd-required">End Time</label>
-          <input type="datetime-local" value={editForm.endTime} onChange={(e) => set("endTime", e.target.value)} />
+          <input
+            type="datetime-local"
+            value={editForm.endTime}
+            onChange={(e) => set("endTime", e.target.value)}
+          />
         </div>
       </div>
     </div>
@@ -615,16 +726,39 @@ function WinnerDetails({ w }) {
   const pstatus = w?.purchaseStatus || "pending";
   return (
     <div className="sd-live-panel">
-      <img className="sd-drawer-img" src={asset(w?.auction?.imageUrl || "")} alt={w?.auction?.title} />
+      <img
+        className="sd-drawer-img"
+        src={asset(w?.auction?.imageUrl || "")}
+        alt={w?.auction?.title}
+      />
       <div className="sd-drawer-grid">
-        <div><span className="sd-label">Gem:</span> {w?.auction?.title}</div>
-        <div><span className="sd-label">Type:</span> {w?.auction?.type}</div>
-        <div><span className="sd-label">Winner:</span> {buyerName}</div>
-        <div><span className="sd-label">Email:</span> {buyerEmail}</div>
-        <div><span className="sd-label">Final Price:</span> {fmtMoney(amount)}</div>
-        <div><span className="sd-label">Ended:</span> {ended ? fmtDateTime(ended) : "-"}</div>
-        <div><span className="sd-label">Purchase Status:</span> {pstatus[0].toUpperCase() + pstatus.slice(1)}</div>
-        <div><span className="sd-label">Purchase Deadline:</span> {deadline ? fmtDateTime(deadline) : "-"}</div>
+        <div>
+          <span className="sd-label">Gem:</span> {w?.auction?.title}
+        </div>
+        <div>
+          <span className="sd-label">Type:</span> {w?.auction?.type}
+        </div>
+        <div>
+          <span className="sd-label">Winner:</span> {buyerName}
+        </div>
+        <div>
+          <span className="sd-label">Email:</span> {buyerEmail}
+        </div>
+        <div>
+          <span className="sd-label">Final Price:</span> {fmtMoney(amount)}
+        </div>
+        <div>
+          <span className="sd-label">Ended:</span>{" "}
+          {ended ? fmtDateTime(ended) : "-"}
+        </div>
+        <div>
+          <span className="sd-label">Purchase Status:</span>{" "}
+          {pstatus[0].toUpperCase() + pstatus.slice(1)}
+        </div>
+        <div>
+          <span className="sd-label">Purchase Deadline:</span>{" "}
+          {deadline ? fmtDateTime(deadline) : "-"}
+        </div>
       </div>
       {w?.auction?.description && (
         <>
@@ -720,8 +854,15 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
 
   return (
     <>
-      <div className={`sd-modal-overlay ${open ? "open" : ""}`} onClick={onClose} />
-      <div className={`sd-modal ${open ? "open" : ""}`} role="dialog" aria-modal="true">
+      <div
+        className={`sd-modal-overlay ${open ? "open" : ""}`}
+        onClick={onClose}
+      />
+      <div
+        className={`sd-modal ${open ? "open" : ""}`}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="sd-modal-header">
           <h2>Create New Auction</h2>
           <button className="sd-icon-btn" onClick={onClose}>
@@ -747,7 +888,10 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
             <div className="sd-form-grid">
               <div className="sd-secure sd-col-full">
                 <i className="fa-solid fa-shield-halved" />
-                <span> Your information is protected by bank-level encryption.</span>
+                <span>
+                  {" "}
+                  Your information is protected by bank-level encryption.
+                </span>
               </div>
               <div className="sd-form-group sd-col-full">
                 <label className="sd-required">Gem Name</label>
@@ -838,10 +982,19 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
                 />
               </div>
               <div className="sd-form-nav sd-col-full">
-                <button type="button" className="sd-btn-secondary" onClick={onClose}>
+                <button
+                  type="button"
+                  className="sd-btn-secondary"
+                  onClick={onClose}
+                >
                   Cancel
                 </button>
-                <button type="button" className="sd-btn" onClick={() => setStep(2)} disabled={!validStep1}>
+                <button
+                  type="button"
+                  className="sd-btn"
+                  onClick={() => setStep(2)}
+                  disabled={!validStep1}
+                >
                   Next
                 </button>
               </div>
@@ -862,13 +1015,25 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
                     required
                   />
                 </div>
-                <small className="sd-hint">This becomes the initial current price when the auction starts.</small>
+                <small className="sd-hint">
+                  This becomes the initial current price when the auction
+                  starts.
+                </small>
               </div>
               <div className="sd-form-nav sd-col-full">
-                <button type="button" className="sd-btn-secondary" onClick={() => setStep(1)}>
+                <button
+                  type="button"
+                  className="sd-btn-secondary"
+                  onClick={() => setStep(1)}
+                >
                   Back
                 </button>
-                <button type="button" className="sd-btn" onClick={() => setStep(3)} disabled={!validStep2}>
+                <button
+                  type="button"
+                  className="sd-btn"
+                  onClick={() => setStep(3)}
+                  disabled={!validStep2}
+                >
                   Next
                 </button>
               </div>
@@ -879,17 +1044,36 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
             <div className="sd-form-grid">
               <div className="sd-form-group">
                 <label className="sd-required">Start Time</label>
-                <input type="datetime-local" value={form.startTime} onChange={(e) => setField("startTime", e.target.value)} required />
+                <input
+                  type="datetime-local"
+                  value={form.startTime}
+                  onChange={(e) => setField("startTime", e.target.value)}
+                  required
+                />
               </div>
               <div className="sd-form-group">
                 <label className="sd-required">End Time</label>
-                <input type="datetime-local" value={form.endTime} onChange={(e) => setField("endTime", e.target.value)} required />
+                <input
+                  type="datetime-local"
+                  value={form.endTime}
+                  onChange={(e) => setField("endTime", e.target.value)}
+                  required
+                />
               </div>
               <div className="sd-form-nav sd-col-full">
-                <button type="button" className="sd-btn-secondary" onClick={() => setStep(2)}>
+                <button
+                  type="button"
+                  className="sd-btn-secondary"
+                  onClick={() => setStep(2)}
+                >
                   Back
                 </button>
-                <button type="button" className="sd-btn" onClick={() => setStep(4)} disabled={!validStep3}>
+                <button
+                  type="button"
+                  className="sd-btn"
+                  onClick={() => setStep(4)}
+                  disabled={!validStep3}
+                >
                   Next
                 </button>
               </div>
@@ -901,18 +1085,48 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
               <div className="sd-review sd-col-full">
                 <h4>Auction Summary</h4>
                 <div className="sd-review-grid">
-                  <div><span className="sd-review-label">Gem:</span> {form.name}</div>
-                  <div><span className="sd-review-label">Type:</span> {form.type || "-"}</div>
-                  <div><span className="sd-review-label">Start Price:</span> {fmtMoney(form.basePrice || 0)}</div>
-                  <div><span className="sd-review-label">Start:</span> {form.startTime ? fmtDateTime(form.startTime) : "-"}</div>
-                  <div><span className="sd-review-label">End:</span> {form.endTime ? fmtDateTime(form.endTime) : "-"}</div>
+                  <div>
+                    <span className="sd-review-label">Gem:</span> {form.name}
+                  </div>
+                  <div>
+                    <span className="sd-review-label">Type:</span>{" "}
+                    {form.type || "-"}
+                  </div>
+                  <div>
+                    <span className="sd-review-label">Start Price:</span>{" "}
+                    {fmtMoney(form.basePrice || 0)}
+                  </div>
+                  <div>
+                    <span className="sd-review-label">Start:</span>{" "}
+                    {form.startTime ? fmtDateTime(form.startTime) : "-"}
+                  </div>
+                  <div>
+                    <span className="sd-review-label">End:</span>{" "}
+                    {form.endTime ? fmtDateTime(form.endTime) : "-"}
+                  </div>
                 </div>
-                {form.description && <p className="sd-review-desc">{form.description}</p>}
-                {form.imageDataUrl && <img className="sd-review-img" src={form.imageDataUrl} alt="Gem" />}
+                {form.description && (
+                  <p className="sd-review-desc">{form.description}</p>
+                )}
+                {form.imageDataUrl && (
+                  <img
+                    className="sd-review-img"
+                    src={form.imageDataUrl}
+                    alt="Gem"
+                  />
+                )}
               </div>
               <div className="sd-form-nav sd-col-full">
-                <button type="button" className="sd-btn-secondary" onClick={() => setStep(3)}>Back</button>
-                <button type="submit" className="sd-btn">Create Auction</button>
+                <button
+                  type="button"
+                  className="sd-btn-secondary"
+                  onClick={() => setStep(3)}
+                >
+                  Back
+                </button>
+                <button type="submit" className="sd-btn">
+                  Create Auction
+                </button>
               </div>
             </div>
           )}

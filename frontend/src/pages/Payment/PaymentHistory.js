@@ -10,11 +10,16 @@ const API_BASE =
   process.env.REACT_APP_API_BASE ||
   "http://localhost:5000";
 
-async function apiRequest(path, { method = "GET", headers = {}, body, isForm } = {}) {
+async function apiRequest(
+  path,
+  { method = "GET", headers = {}, body, isForm } = {}
+) {
   const token = localStorage.getItem("accessToken");
   const h = new Headers(headers);
-  if (!isForm && body && !h.has("Content-Type")) h.set("Content-Type", "application/json");
-  if (token && !h.has("Authorization")) h.set("Authorization", `Bearer ${token}`);
+  if (!isForm && body && !h.has("Content-Type"))
+    h.set("Content-Type", "application/json");
+  if (token && !h.has("Authorization"))
+    h.set("Authorization", `Bearer ${token}`);
 
   const res = await fetch(`${API_BASE}${path}`, {
     method,
@@ -24,7 +29,11 @@ async function apiRequest(path, { method = "GET", headers = {}, body, isForm } =
   });
 
   let data = null;
-  try { data = await res.json(); } catch { /* ignore non-JSON */ }
+  try {
+    data = await res.json();
+  } catch {
+    /* ignore non-JSON */
+  }
 
   if (!res.ok) {
     const err = new Error((data && data.message) || `HTTP ${res.status}`);
@@ -44,21 +53,27 @@ function money(n, ccy = "USD") {
       currency: ccy,
       maximumFractionDigits: amt % 1 === 0 ? 0 : 2,
     }).format(amt);
-  } catch { return `${ccy} ${amt.toFixed(2)}`; }
+  } catch {
+    return `${ccy} ${amt.toFixed(2)}`;
+  }
 }
 function fmtDate(d) {
   if (!d) return "—";
   const dt = new Date(d);
   // "15 Oct 2023"
-  return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return dt.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export default function PaymentHistory() {
   const [filter, setFilter] = useState("all");
 
-  const [items, setItems]   = useState([]);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr]       = useState("");
+  const [err, setErr] = useState("");
 
   // Stats (pulled server-side so they’re correct regardless of current filter)
   const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0 });
@@ -75,7 +90,13 @@ export default function PaymentHistory() {
           shape: { type: "circle" },
           opacity: { value: 0.3, random: true },
           size: { value: 3, random: true },
-          line_linked: { enable: true, distance: 150, color: "#d4af37", opacity: 0.1, width: 1 },
+          line_linked: {
+            enable: true,
+            distance: 150,
+            color: "#d4af37",
+            opacity: 0.1,
+            width: 1,
+          },
           move: { enable: true, speed: 1 },
         },
         interactivity: {
@@ -110,7 +131,11 @@ export default function PaymentHistory() {
         apiRequest(`/api/payments/my?status=paid&limit=1`),
         apiRequest(`/api/payments/my?status=pending&limit=1`),
       ]);
-      setStats({ total: all.total || 0, completed: paid.total || 0, pending: pending.total || 0 });
+      setStats({
+        total: all.total || 0,
+        completed: paid.total || 0,
+        pending: pending.total || 0,
+      });
     } catch (e) {
       // non-blocking for the page
       console.warn("stats error", e);
@@ -125,7 +150,9 @@ export default function PaymentHistory() {
       const qs = new URLSearchParams();
       if (status && status !== "all") qs.set("status", status);
       // you can pass pagination later: qs.set("page", "1"); qs.set("limit","20");
-      const data = await apiRequest(`/api/payments/my${qs.toString() ? `?${qs}` : ""}`);
+      const data = await apiRequest(
+        `/api/payments/my${qs.toString() ? `?${qs}` : ""}`
+      );
       setItems(data.items || []);
     } catch (e) {
       setErr(e?.message || "Failed to load payments");
@@ -177,7 +204,9 @@ export default function PaymentHistory() {
 
           <div className="stats-summary">
             <div className="stat-card">
-              <div className="stat-icon"><i className="fas fa-receipt" /></div>
+              <div className="stat-icon">
+                <i className="fas fa-receipt" />
+              </div>
               <div className="stat-info">
                 <h3 id="totalPayments">{stats.total}</h3>
                 <p>Total Payments</p>
@@ -185,7 +214,9 @@ export default function PaymentHistory() {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon"><i className="fas fa-check-circle" /></div>
+              <div className="stat-icon">
+                <i className="fas fa-check-circle" />
+              </div>
               <div className="stat-info">
                 <h3 id="completedPayments">{stats.completed}</h3>
                 <p>Completed</p>
@@ -193,7 +224,9 @@ export default function PaymentHistory() {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon"><i className="fas fa-clock" /></div>
+              <div className="stat-icon">
+                <i className="fas fa-clock" />
+              </div>
               <div className="stat-info">
                 <h3 id="pendingPayments">{stats.pending}</h3>
                 <p>Pending</p>
@@ -203,11 +236,20 @@ export default function PaymentHistory() {
 
           <div className="payment-history-section">
             <div className="section-header">
-              <h3 className="section-title">All your purchases with status and totals.</h3>
+              <h3 className="section-title">
+                All your purchases with status and totals.
+              </h3>
             </div>
 
             {err && (
-              <div style={{ padding: 12, marginBottom: 8, background: "#b00020", borderRadius: 8 }}>
+              <div
+                style={{
+                  padding: 12,
+                  marginBottom: 8,
+                  background: "#b00020",
+                  borderRadius: 8,
+                }}
+              >
                 {err}
               </div>
             )}
@@ -229,8 +271,23 @@ export default function PaymentHistory() {
                 <tbody>
                   {items.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ textAlign: "center", padding: 30, color: "#b0b0b0" }}>
-                        <i className="fas fa-receipt" style={{ fontSize: 24, marginBottom: 10, display: "block", opacity: 0.5 }} />
+                      <td
+                        colSpan={6}
+                        style={{
+                          textAlign: "center",
+                          padding: 30,
+                          color: "#b0b0b0",
+                        }}
+                      >
+                        <i
+                          className="fas fa-receipt"
+                          style={{
+                            fontSize: 24,
+                            marginBottom: 10,
+                            display: "block",
+                            opacity: 0.5,
+                          }}
+                        />
                         No payments found with selected status.
                       </td>
                     </tr>
@@ -238,18 +295,35 @@ export default function PaymentHistory() {
                     items.map((p) => {
                       const status = p?.payment?.status || "—";
                       const method = p?.payment?.method || "—";
-                      const title  = p?.orderId?.title || "Product";
-                      const orderNo = p?.orderNo || p?.orderId?.orderNo || (p?.orderId?._id || "—");
-                      const total = money(p?.amounts?.total ?? 0, p?.currency || currency);
+                      const title = p?.orderId?.title || "Product";
+                      const orderNo =
+                        p?.orderNo ||
+                        p?.orderId?.orderNo ||
+                        p?.orderId?._id ||
+                        "—";
+                      const total = money(
+                        p?.amounts?.total ?? 0,
+                        p?.currency || currency
+                      );
 
                       const statusClass =
-                        status === "paid" ? "status-paid" :
-                        status === "pending" ? "status-pending" : "status-cancelled";
+                        status === "paid"
+                          ? "status-paid"
+                          : status === "pending"
+                          ? "status-pending"
+                          : "status-cancelled";
                       const statusIcon =
-                        status === "paid" ? "fa-check-circle" :
-                        status === "pending" ? "fa-clock" : "fa-times-circle";
+                        status === "paid"
+                          ? "fa-check-circle"
+                          : status === "pending"
+                          ? "fa-clock"
+                          : "fa-times-circle";
                       const statusText =
-                        status === "paid" ? "Paid" : status === "pending" ? "Pending" : "Cancelled";
+                        status === "paid"
+                          ? "Paid"
+                          : status === "pending"
+                          ? "Pending"
+                          : "Cancelled";
 
                       return (
                         <tr key={p._id}>
@@ -261,7 +335,13 @@ export default function PaymentHistory() {
                             </span>
                           </td>
                           <td>{title}</td>
-                          <td>{method === "card" ? "Card" : method === "bank" ? "Bank Transfer" : method}</td>
+                          <td>
+                            {method === "card"
+                              ? "Card"
+                              : method === "bank"
+                              ? "Bank Transfer"
+                              : method}
+                          </td>
                           <td>
                             <span className={`status ${statusClass}`}>
                               <i className={`fas ${statusIcon}`} />
