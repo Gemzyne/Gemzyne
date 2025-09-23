@@ -50,15 +50,6 @@ const UserDashboard = () => {
       return () => document.body.removeChild(s);
     }
     initParticles();
-
-    const handleScroll = () => {
-      const header = document.getElementById("header");
-      if (!header) return;
-      if (window.scrollY > 100) header.classList.add("scrolled");
-      else header.classList.remove("scrolled");
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   // simple route guard

@@ -41,6 +41,7 @@ const AboutUs = () => {
       });
     }
   }, []);
+  
 
   return (
     <div className="about-container">

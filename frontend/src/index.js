@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client"; // use /client for React 18
 import "./index.css";
+import "./App.css";
 import App from "./App";
 import { BrowserRouter } from "react-router-dom";
 import { UserProvider } from "./context/UserContext";
