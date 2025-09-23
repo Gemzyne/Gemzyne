@@ -284,3 +284,37 @@ exports.updateFeedback = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+
+// PATCH /api/feedback/:id/reply  { text }
+exports.addReply = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { text } = req.body || {};
+    if (!text || !String(text).trim()) {
+      return res.status(400).json({ message: "Reply text is required" });
+    }
+
+    const fb = await Feedback.findById(id);
+    if (!fb) return res.status(404).json({ message: "Feedback not found" });
+
+    fb.adminReply = {
+      text: String(text).trim(),
+      byRole: req.user?.role || null,
+      byUser: req.user?.id || null,
+      createdAt: new Date(),
+    };
+
+    // ✅ ADD: auto-mark complaints as Resolved when replying
+    if (fb.type === "complaint" && String(fb.status).toLowerCase() !== "resolved") {
+      fb.status = "Resolved";
+    }
+
+    await fb.save();
+    return res.json({ ok: true, feedback: fb });
+  } catch (e) {
+    console.error("addReply", e);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+

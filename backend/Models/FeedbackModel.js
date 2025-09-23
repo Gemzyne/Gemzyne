@@ -47,6 +47,14 @@ const feedbackSchema = new mongoose.Schema(
     hiddenByRole: { type: String, enum: ["admin", "seller", null], default: null },
     hiddenAt: { type: Date, default: null },
     hiddenReason: { type: String, default: null },
+
+     adminReply: {
+    text: { type: String, default: null },
+    byRole: { type: String, enum: ["admin", "seller"], default: null },
+    byUser: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    createdAt: { type: Date, default: null },
+  },
+
   },
   { timestamps: true }
 );

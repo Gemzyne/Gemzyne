@@ -31,8 +31,12 @@ export default function AdminFeedbackPage() {
   const [items, setItems] = useState([]); // raw feedback from API
   const [error, setError] = useState("");
 
-  // NEW: which row is showing the inline confirm buttons
+  // which row is showing the inline delete confirm buttons
   const [confirmId, setConfirmId] = useState(null);
+
+  // inline reply state
+  const [replyOpenId, setReplyOpenId] = useState(null);
+  const [replyText, setReplyText] = useState("");
 
   // Particles
   const particlesLoaded = useRef(false);
@@ -113,23 +117,23 @@ export default function AdminFeedbackPage() {
   }, []);
 
   // Fetch
+  const loadAll = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const data = await apiRequest("/api/feedback?visibility=all", { method: "GET" });
+      setItems(Array.isArray(data?.feedback) ? data.feedback : []);
+    } catch (e) {
+      setError(e.message || "Failed to load feedback");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let mounted = true;
     (async () => {
-      try {
-        setLoading(true);
-        setError("");
-        const data = await apiRequest("/api/feedback?visibility=all", { method: "GET" });
-        if (mounted) setItems(Array.isArray(data?.feedback) ? data.feedback : []);
-      } catch (e) {
-        if (mounted) setError(e.message || "Failed to load feedback");
-      } finally {
-        if (mounted) setLoading(false);
-      }
+      await loadAll();
     })();
-    return () => {
-      mounted = false;
-    };
   }, []);
 
   // Inline actions (no window.confirm)
@@ -147,6 +151,29 @@ export default function AdminFeedbackPage() {
       setItems((prev) => prev.map((x) => (x._id === id ? { ...x, isAdminHidden: false } : x)));
     } catch (e) {
       alert(e.message || "Failed to restore");
+    }
+  };
+
+  // send reply
+  const sendReply = async (id) => {
+    const text = (replyText || "").trim();
+    if (!text) {
+      alert("Reply cannot be empty.");
+      return;
+    }
+    try {
+      await apiRequest(`/api/feedback/${id}/reply`, {
+        method: "PATCH",
+        body: JSON.stringify({ text }),
+      });
+
+      // refresh so status="Resolved" and reply show instantly
+      await loadAll();
+
+      setReplyText("");
+      setReplyOpenId(null);
+    } catch (e) {
+      alert(e.message || "Failed to send reply");
     }
   };
 
@@ -346,6 +373,52 @@ export default function AdminFeedbackPage() {
                     ))}
                   </div>
 
+                  {/* Existing admin reply chip (complaints only) */}
+                  {!isReview && f.adminReply?.text && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        marginBottom: 6,
+                        padding: "10px 12px",
+                        background: "rgba(212,175,55,0.12)",
+                        border: "1px solid rgba(212,175,55,0.35)",
+                        borderRadius: 10,
+                        fontSize: 14,
+                      }}
+                    >
+                      <strong>Reply:</strong> {f.adminReply.text}
+                    </div>
+                  )}
+
+                  {/* Complaint status chip */}
+                  {!isReview && (
+                    <div style={{ marginTop: 8, marginBottom: 6 }}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "4px 10px",
+                          borderRadius: 999,
+                          fontSize: 12,
+                          border: "1px solid",
+                          borderColor:
+                            String(f.status).toLowerCase() === "resolved"
+                              ? "rgba(80,200,120,.6)"
+                              : "rgba(212,175,55,.5)",
+                          background:
+                            String(f.status).toLowerCase() === "resolved"
+                              ? "rgba(80,200,120,.15)"
+                              : "rgba(212,175,55,.12)",
+                          color:
+                            String(f.status).toLowerCase() === "resolved"
+                              ? "#7DDEA5"
+                              : "#d4af37",
+                        }}
+                      >
+                        {f.status || "Pending"}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="review-content">
                     <p>{f.feedbackText}</p>
                   </div>
@@ -357,13 +430,67 @@ export default function AdminFeedbackPage() {
                     </div>
                   )}
 
-                  {/* Actions with inline confirm/cancel */}
+                  {/* Actions with inline confirm/cancel + Reply */}
                   <div className="review-actions">
-                    {/* Show Resolve only for complaints (remove this block if not needed) */}
+                    {/* Reply only for complaints */}
                     {!isReview && (
-                      <button className="review-action-btn">
-                        <i className="fas fa-check-circle" /> Resolve
-                      </button>
+                      <>
+                       {replyOpenId === f._id ? (
+                           <div style={{ width: "100%", marginTop: 10 }}>
+                           <textarea
+                            value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                placeholder="Type your reply…"
+                                rows={4}
+                                style={{
+                                  width: "100%",
+                                  padding: "10px 12px",
+                                  borderRadius: 10,
+                                  border: "1px solid #333",
+                                  background: "#141414",
+                                  color: "#eee",
+                                  outline: "none",
+                                  resize: "vertical",
+                                }}
+                             />
+                              <div
+                                style={{
+                                 display: "flex",
+                                 gap: 10,
+                                 justifyContent: "flex-end",
+                                 marginTop: 8,
+                               }}
+                              >
+                           <button
+                              className="review-action-btn"
+                              onClick={() => sendReply(f._id)}
+                           >
+                            Send
+                          </button>
+                           <button
+                             className="review-action-btn delete"
+                             onClick={() => {
+                             setReplyOpenId(null);
+                             setReplyText("");
+                           }}
+                            >
+                             Cancel
+                          </button>
+                        </div>
+                     </div>
+                     ) : (
+                    <button
+                       className="review-action-btn"
+                       onClick={() => {
+                          setReplyOpenId(f._id);
+                          setReplyText(f.adminReply?.text || "");
+                         }}
+                     >
+                    <i className="fas fa-reply" /> Reply
+                    </button>
+                    )}
+
+                      </>
                     )}
 
                     {f.isAdminHidden ? (

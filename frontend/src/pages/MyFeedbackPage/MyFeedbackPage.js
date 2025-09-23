@@ -108,11 +108,12 @@ const MyFeedbackPage = () => {
           initials: `${(f.firstName || "U")[0] || "U"}${(f.lastName || "")[0] || ""}`.toUpperCase(),
           name: `${f.firstName || ""} ${f.lastName || ""}`.trim() || "User",
           date: f.createdAt ? new Date(f.createdAt).toLocaleDateString() : "",
-          status: f.status || "Pending",
+          
           category: f.complaintCategory || (Array.isArray(f.categories) ? f.categories[0] : "") || "Complaint",
           text: f.feedbackText || "",
           gemImg: "",
-          gemDesc: f.productName || f.productId || f.orderId || "—"
+          gemDesc: f.productName || f.productId || f.orderId || "—",
+          adminReply: f.adminReply || null, // ⬅️ include reply from backend
         }));
 
       setReviews(mappedReviews);
@@ -298,11 +299,28 @@ const MyFeedbackPage = () => {
                         </div>
                       </div>
                       <div className="review-rating">
-                        <span className="review-category">{c.category}</span>
+                        
                       </div>
                     </div>
 
                     <span className="review-category">{c.status}</span>
+
+                    {/* ⬇️ Seller/Admin reply displayed ABOVE the complaint text */}
+                    {c.adminReply?.text && (
+                      <div
+                        className="reply-box"
+                        style={{
+                          margin: "10px 0 8px",
+                          padding: "10px 12px",
+                          background: "rgba(212,175,55,0.10)",
+                          border: "1px solid rgba(212,175,55,0.35)",
+                          borderRadius: 10,
+                          fontSize: 14
+                        }}
+                      >
+                        <strong>Seller reply:</strong> {c.adminReply.text}
+                      </div>
+                    )}
 
                     <div className="review-content"><p>{c.text}</p></div>
 
