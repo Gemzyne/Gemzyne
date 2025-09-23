@@ -39,9 +39,9 @@ const HomePage = () => {
 
   // ---------- Effects (Particles + Header + Main GLB) ----------
   useEffect(() => {
-    // Enhanced Particles.js with gold theme
+    // Particles.js (gold theme)
     if (window.particlesJS) {
-      window.particlesJS("particles-js", {
+      window.particlesJS("home-particles", {
         particles: {
           number: { value: 80, density: { enable: true, value_area: 1000 } },
           color: { value: "#d4af37" },
@@ -109,7 +109,7 @@ const HomePage = () => {
     };
     window.addEventListener("scroll", handleScroll);
 
-    // Enhanced Three.js premium gem rendering with gold/amber theme
+    // Three.js premium gem
     const initGems = () => {
       const gemContainer = document.getElementById("gem-container");
       if (!gemContainer || !window.THREE) return;
@@ -118,7 +118,6 @@ const HomePage = () => {
       const scene = new THREE.Scene();
       scene.background = null;
 
-      // Enhanced camera with cinematic positioning
       const camera = new THREE.PerspectiveCamera(
         35,
         gemContainer.clientWidth / gemContainer.clientHeight,
@@ -127,7 +126,6 @@ const HomePage = () => {
       );
       camera.position.set(0, 0.8, 8.5);
 
-      // Premium renderer settings
       const renderer = new THREE.WebGLRenderer({
         antialias: true,
         alpha: true,
@@ -141,11 +139,9 @@ const HomePage = () => {
       renderer.toneMappingExposure = 1.2;
       gemContainer.appendChild(renderer.domElement);
 
-      // Enhanced lighting setup with warm golden tones
       const ambientLight = new THREE.AmbientLight(0x332900, 0.6);
       scene.add(ambientLight);
 
-      // Main key light (golden)
       const keyLight = new THREE.DirectionalLight(0xffd700, 2.5);
       keyLight.position.set(5, 8, 5);
       keyLight.castShadow = true;
@@ -153,17 +149,14 @@ const HomePage = () => {
       keyLight.shadow.mapSize.height = 1024;
       scene.add(keyLight);
 
-      // Fill light (warm amber)
       const fillLight = new THREE.DirectionalLight(0xffb347, 1.2);
       fillLight.position.set(-5, 3, 5);
       scene.add(fillLight);
 
-      // Rim/back light (golden)
       const rimLight = new THREE.DirectionalLight(0xffe0a3, 1.8);
       rimLight.position.set(0, 2, -8);
       scene.add(rimLight);
 
-      // Accent point lights for golden sparkle effect
       const pointLight1 = new THREE.PointLight(0xffd700, 1.5, 20);
       pointLight1.position.set(3, 2, 3);
       scene.add(pointLight1);
@@ -172,22 +165,20 @@ const HomePage = () => {
       pointLight2.position.set(-3, -1, 4);
       scene.add(pointLight2);
 
-      // Load premium diamond model
       const loader = new THREE.GLTFLoader();
       let gem = null;
 
       const deg = (d) => (d * Math.PI) / 180;
 
       loader.load(
-        "gem2.glb", // Keep the same model but enhance materials
+        "gem2.glb",
         (gltf) => {
           gem = gltf.scene;
           gem.traverse((child) => {
             if (child.isMesh) {
-              // Premium golden amber gem material properties
               child.material = new THREE.MeshPhysicalMaterial({
-                color: 0xd4af37, // Golden base color
-                emissive: 0x332200, // Dark gold emissive
+                color: 0xd4af37,
+                emissive: 0x332200,
                 metalness: 0.8,
                 roughness: 0.15,
                 transmission: 0.4,
@@ -203,7 +194,6 @@ const HomePage = () => {
             }
           });
 
-          // Premium positioning and scaling
           gem.scale.set(1.8, 1.8, 1.8);
           gem.position.set(0, 0, 0);
           gem.rotation.set(deg(-15), deg(25), deg(5));
@@ -222,18 +212,16 @@ const HomePage = () => {
         }
       );
 
-      // Add subtle environment for reflections (invisible but affects material)
       const environment = new THREE.Mesh(
         new THREE.SphereGeometry(20, 32, 32),
         new THREE.MeshBasicMaterial({
-          color: 0x222222, // Dark environment for richer reflections
+          color: 0x222222,
           side: THREE.BackSide,
         })
       );
-      environment.visible = false; // Not rendered but affects reflections
+      environment.visible = false;
       scene.add(environment);
 
-      // Smooth animation
       let raf = null;
       const clock = new THREE.Clock();
 
@@ -242,12 +230,10 @@ const HomePage = () => {
         const delta = clock.getDelta();
 
         if (gem) {
-          // Smooth, natural rotation
           gem.rotation.y += 0.2 * delta;
           gem.rotation.x = Math.sin(clock.elapsedTime * 0.3) * 0.1 - 0.15;
         }
 
-        // Subtle camera movement for cinematic effect
         camera.position.x = Math.sin(clock.elapsedTime * 0.2) * 0.2;
         camera.position.y = Math.cos(clock.elapsedTime * 0.3) * 0.1 + 0.8;
 
@@ -291,15 +277,13 @@ const HomePage = () => {
     };
   }, []);
 
-  // Load random 3 gems on mount
   useEffect(() => {
     loadRandom();
   }, [loadRandom]);
 
-  // ---------- JSX ----------
   return (
     <div className="home-container">
-      <div id="particles-js" />
+      <div id="home-particles" />
 
       <Header />
 
@@ -311,7 +295,7 @@ const HomePage = () => {
             Discover our exclusive collection of ethically sourced, premium
             quality gemstones for collectors and connoisseurs.
           </p>
-          <div className="hero-actions">
+        <div className="hero-actions">
             <a className="btn btn-primary" href="/inventory">
               Explore Collection
             </a>
@@ -320,8 +304,7 @@ const HomePage = () => {
             </a>
           </div>
         </div>
-        <div id="gem-container" className="gem-loading">
-        </div>
+        <div id="gem-container" className="gem-loading"></div>
       </section>
 
       {/* Random Gems */}
@@ -370,22 +353,26 @@ const HomePage = () => {
             {
               icon: "fas fa-gem",
               title: "Premium Quality",
-              desc: "Each gem is hand-selected for exceptional color, clarity, and brilliance.",
+              desc:
+                "Each gem is hand-selected for exceptional color, clarity, and brilliance.",
             },
             {
               icon: "fas fa-globe-americas",
               title: "Ethically Sourced",
-              desc: "We ensure responsible mining practices and fair trade principles.",
+              desc:
+                "We ensure responsible mining practices and fair trade principles.",
             },
             {
               icon: "fas fa-certificate",
               title: "Certified Authenticity",
-              desc: "All gems come with internationally recognized certification.",
+              desc:
+                "All gems come with internationally recognized certification.",
             },
             {
               icon: "fas fa-shipping-fast",
               title: "Secure Delivery",
-              desc: "Discreet packaging and insured worldwide shipping.",
+              desc:
+                "Discreet packaging and insured worldwide shipping.",
             },
           ].map((b, i) => (
             <div key={i} className="benefit-card">
@@ -399,7 +386,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Premium Newsletter */}
+      {/* Newsletter */}
       <section className="newsletter">
         <div className="newsletter-content">
           <h2>Join Our Exclusive Collector's Circle</h2>
