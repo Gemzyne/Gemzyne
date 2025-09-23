@@ -270,6 +270,86 @@
   margin-top: 14px;
 }
 
+/*status widgets*/
+.so-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 12px 0 4px;
+  margin-bottom: 10px;
+}
+
+.so-kpi {
+  background: var(--bd-panel);
+    border: 1px solid var(--bd-border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 8px 24px var(--bd-shadow);
+  
+}
+
+.so-kpi.total {
+   background: var(--bd-panel);
+    border: 1px solid var(--bd-border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 8px 24px var(--bd-shadow);
+  
+}
+
+.so-kpi-label {
+  font-size: 18px;
+  color:var(--sub);
+  letter-spacing: .2px;
+  margin-bottom: 6px;
+  font-weight: 500;
+
+}
+
+.so-kpi-value {
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1.1;
+  color:var(--gold1);
+}
+
+/* emoji on KPI cards */
+.so-kpi-emoji {
+  font-size: 32px;
+  line-height: 1;
+  margin-bottom: 8px;
+  display: inline-block;
+  color: #f7d774;                
+  -webkit-text-fill-color: #f7d774; 
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,.25)) saturate(115%) brightness(1.03);
+}
+
+/* darker card look */
+.so-kpi {
+  background: #14161c;
+  border: 1px solid #2a2e36;
+  color: #e6e9ef;
+}
+.so-kpi.total {
+  background: #161a22;
+  border-color: #303646;
+}
+.so-kpi-label { color: #a8b3c7; }
+.so-kpi-value { color: #f7d774; } /* warm gold tone */
+
+
+/* responsive */
+@media (max-width: 900px) {
+  .so-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 520px) {
+  .so-kpis { grid-template-columns: 1fr; }
+}
+
+
+
 /* Responsive */
 @media (max-width: 1024px) {
   .so-shell { grid-template-columns: 1fr; }

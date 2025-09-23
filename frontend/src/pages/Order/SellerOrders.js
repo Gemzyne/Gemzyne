@@ -11,18 +11,24 @@ import { api } from "../../api";
 
 /* ========= request helper (fallback to local if needed) ========= */
 let coreRequest = null;
-try { const mod = require("../../api"); coreRequest = mod.request || mod.apiRequest || null; } catch (_) {}
+try {
+  const mod = require("../../api");
+  coreRequest = mod.request || mod.apiRequest || null;
+} catch (_) {}
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 async function localRequest(path, { method = "GET", body, headers } = {}) {
   const token = localStorage.getItem("accessToken");
   const res = await fetch(`${API_URL}${path}`, {
     method,
     headers: {
-      ...(body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...(body instanceof FormData
+        ? {}
+        : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(headers || {}),
     },
-    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+    body:
+      body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
     credentials: "include",
   });
   if (!res.ok) {
@@ -44,24 +50,30 @@ const STATUS_OPTIONS = [
 ];
 
 // robust customer name extractor
+// robust customer name extractor (hide raw ObjectId strings)
 const customerName = (buyer) => {
   if (!buyer) return "—";
-  if (typeof buyer === "string") return buyer; // fallback id
+  // If backend didn't populate (string ObjectId), DO NOT show it
+  if (typeof buyer === "string") return "—"; // wait for populated name
   return (
     buyer.name ||
     buyer.fullName ||
     [buyer.firstName, buyer.lastName].filter(Boolean).join(" ") ||
     buyer.username ||
     buyer.email ||
-    buyer._id ||
     "—"
   );
 };
 
 const toText = (v) =>
-  v == null ? "—" : typeof v === "object" ? (v.title || v.name || v._id || JSON.stringify(v)) : String(v);
+  v == null
+    ? "—"
+    : typeof v === "object"
+    ? v.title || v.name || v._id || JSON.stringify(v)
+    : String(v);
 
-const money = (n, cur = "USD") => `${cur === "USD" ? "$" : cur + " "}${Number(n || 0).toLocaleString()}`;
+const money = (n, cur = "USD") =>
+  `${cur === "USD" ? "$" : cur + " "}${Number(n || 0).toLocaleString()}`;
 
 const gemSummary = (sel = {}) => {
   const type = toText(sel.type);
@@ -83,9 +95,13 @@ const normalizePayStatus = (orderObj, paymentObj) => {
     "pending";
   const val = String(raw).toLowerCase();
   if (val === "paid" || val === "success" || val === "succeeded") return "paid";
-  if (val === "cancelled" || val === "canceled" || val === "failed") return "cancelled";
+  if (val === "cancelled" || val === "canceled" || val === "failed")
+    return "cancelled";
   return "pending";
 };
+
+// === NEW: lock helper — completed orders are not editable
+const isLockedStatus = (s) => String(s || "").toLowerCase() === "completed";
 
 export default function SellerOrders() {
   const [items, setItems] = useState([]);
@@ -101,18 +117,44 @@ export default function SellerOrders() {
   const [editingId, setEditingId] = useState(null);
   const [draftStatus, setDraftStatus] = useState("");
 
+  // status widgets data
+  const statusCounts = useMemo(() => {
+    const acc = {
+      processing: 0,
+      shipped: 0,
+      completed: 0,
+      total: items.length,
+    };
+    for (const it of items) {
+      const s = String(it?.orderStatus || "").toLowerCase();
+      if (s === "processing") acc.processing += 1;
+      else if (s === "shipped") acc.shipped += 1;
+      else if (s === "completed") acc.completed += 1;
+    }
+    return acc;
+  }, [items]);
+
   const pages = Math.max(1, Math.ceil(total / limit));
-  const showToast = (kind, msg) => { setToast({ kind, msg }); setTimeout(() => setToast(null), 2200); };
+  const showToast = (kind, msg) => {
+    setToast({ kind, msg });
+    setTimeout(() => setToast(null), 2200);
+  };
 
   // Try /api/orders -> fallback /api/payments (seller list)
   const fetchOrders = async () => {
-    setLoading(true); setError("");
+    setLoading(true);
+    setError("");
     try {
       try {
         const data = await request(`/api/orders?page=${page}&limit=${limit}`);
         if (data?.items) {
-          setItems(data.items || []);
-          setTotal(data.total || data.items.length || 0);
+          // 👇 ensure Payment Status comes from the DB field `status`
+          const rows = (data.items || []).map((o) => ({
+            ...o,
+            payStatus: normalizePayStatus(o, null), // uses o.status (paid/pending/cancelled)
+          }));
+          setItems(rows);
+          setTotal(data.total || rows.length || 0);
           setLoading(false);
           return;
         }
@@ -121,7 +163,10 @@ export default function SellerOrders() {
       }
 
       // Fallback to payments list if orders endpoint not available
-      const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
+      const qs = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      });
       const data2 = await request(`/api/payments?${qs.toString()}`);
       const rows = (data2?.items || []).map((pay) => {
         const o = pay?.order || {};
@@ -130,7 +175,9 @@ export default function SellerOrders() {
           orderNo: o.orderNo || pay.orderNo,
           buyerId: o.buyerId || pay.buyer || pay.buyerId, // may be object
           selections: o.selections || {},
-          pricing: o.pricing || { subtotal: pay?.amounts?.total || pay?.amounts?.subtotal },
+          pricing: o.pricing || {
+            subtotal: pay?.amounts?.total || pay?.amounts?.subtotal,
+          },
           currency: o.currency || pay.currency || "USD",
           orderStatus: o.orderStatus || "processing",
           payStatus: normalizePayStatus(o, pay),
@@ -145,7 +192,9 @@ export default function SellerOrders() {
     }
   };
 
-  useEffect(() => { fetchOrders(); /* eslint-disable-next-line */ }, [page]);
+  useEffect(() => {
+    fetchOrders(); /* eslint-disable-next-line */
+  }, [page]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -158,18 +207,34 @@ export default function SellerOrders() {
         gemSummary(o?.selections),
         o?.orderStatus,
         o?.payStatus,
-      ].filter(Boolean).join(" ").toLowerCase();
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
       return hay.includes(term);
     });
   }, [q, items]);
 
-  const beginEdit = (row) => { setEditingId(row._id); setDraftStatus(row.orderStatus || "processing"); };
+  const beginEdit = (row) => {
+    //prevent editing completed orders
+    if (isLockedStatus(row.orderStatus)) {
+      showToast("error", "Completed orders cannot be edited.");
+      return;
+    }
+    setEditingId(row._id);
+    setDraftStatus(row.orderStatus || "processing");
+  };
 
   const commitEdit = async () => {
-    const id = editingId; if (!id) return;
+    const id = editingId;
+    if (!id) return;
     try {
       await api.orders.updateStatus(id, draftStatus);
-      setItems((prev) => prev.map((it) => (it._id === id ? { ...it, orderStatus: draftStatus } : it)));
+      setItems((prev) =>
+        prev.map((it) =>
+          it._id === id ? { ...it, orderStatus: draftStatus } : it
+        )
+      );
       showToast("ok", "Status saved.");
     } catch (e) {
       showToast("error", e?.message || "Save failed");
@@ -179,25 +244,71 @@ export default function SellerOrders() {
     }
   };
 
-  const cancelEdit = () => { setEditingId(null); setDraftStatus(""); };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setDraftStatus("");
+  };
 
   return (
     <div className="so-root">
       <Header />
 
       <div className="so-shell">
-        <aside className="so-sidebar"><SellerSidebar /></aside>
+        <aside className="so-sidebar">
+          <SellerSidebar />
+        </aside>
 
         <main className="so-main">
           <div className="so-top">
             <div>
               <h1 className="so-title">Custom Orders</h1>
-              <p className="so-sub">Manage custom orders. Edit the production status.</p>
+              <p className="so-sub">
+                Manage custom orders. Edit the production status.
+              </p>
             </div>
             <div className="so-actions">
-              <button className="so-btn" onClick={fetchOrders} disabled={loading}>
+              <button
+                className="so-btn"
+                onClick={fetchOrders}
+                disabled={loading}
+              >
                 {loading ? "Loading…" : "Refresh"}
               </button>
+            </div>
+          </div>
+
+          {/*status widgets */}
+          <div className="so-kpis">
+            <div className="so-kpi">
+              <div className="so-kpi-emoji" aria-hidden>
+                🛠️
+              </div>
+              <div className="so-kpi-label">Processing</div>
+              <div className="so-kpi-value">{statusCounts.processing}</div>
+            </div>
+
+            <div className="so-kpi">
+              <div className="so-kpi-emoji" aria-hidden>
+                🚚
+              </div>
+              <div className="so-kpi-label">Shipped</div>
+              <div className="so-kpi-value">{statusCounts.shipped}</div>
+            </div>
+
+            <div className="so-kpi">
+              <div className="so-kpi-emoji" aria-hidden>
+                ✅
+              </div>
+              <div className="so-kpi-label">Completed</div>
+              <div className="so-kpi-value">{statusCounts.completed}</div>
+            </div>
+
+            <div className="so-kpi total">
+              <div className="so-kpi-emoji" aria-hidden>
+                📦
+              </div>
+              <div className="so-kpi-label">Total</div>
+              <div className="so-kpi-value">{statusCounts.total}</div>
             </div>
           </div>
 
@@ -212,7 +323,9 @@ export default function SellerOrders() {
             {/* Row-count selector removed as requested */}
           </div>
 
-          {error ? <div className="so-alert so-alert-error">{String(error)}</div> : null}
+          {error ? (
+            <div className="so-alert so-alert-error">{String(error)}</div>
+          ) : null}
 
           <div className="so-card">
             <div className="so-table-wrap">
@@ -229,14 +342,23 @@ export default function SellerOrders() {
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
-                    <tr><td colSpan="6" className="so-empty">{loading ? "Loading…" : "No orders found"}</td></tr>
+                    <tr>
+                      <td colSpan="6" className="so-empty">
+                        {loading ? "Loading…" : "No orders found"}
+                      </td>
+                    </tr>
                   ) : (
+                    //table variables
                     filtered.map((o) => {
                       const isEditing = editingId === o._id;
                       const orderId = String(o.orderNo || o._id);
                       const name = customerName(o.buyerId);
                       const gem = gemSummary(o.selections);
-                      const total = money(o?.pricing?.subtotal, o.currency || "USD");
+                      const total = money(
+                        o?.pricing?.subtotal,
+                        o.currency || "USD"
+                      );
+                      const locked = isLockedStatus(o.orderStatus);
 
                       return (
                         <tr key={o._id}>
@@ -245,29 +367,71 @@ export default function SellerOrders() {
                           <td>{gem}</td>
                           <td className="so-price">{total}</td>
                           <td>
-                            <span className={`so-badge so-badge-${(o.payStatus || "pending").toLowerCase()}`}>
+                            <span
+                              className={`so-badge so-badge-${(
+                                o.payStatus || "pending"
+                              ).toLowerCase()}`}
+                            >
                               {String(o.payStatus || "pending").toUpperCase()}
                             </span>
                           </td>
                           <td>
-                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                              <select
-                                className="so-select"
-                                value={isEditing ? draftStatus : (o.orderStatus || "processing")}
-                                disabled={!isEditing}
-                                onChange={(e) => setDraftStatus(e.target.value)}
-                              >
-                                {STATUS_OPTIONS.map((opt) => (
-                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                              </select>
-
-                              {!isEditing ? (
-                                <button className="so-btn ghost" onClick={() => beginEdit(o)}>Edit</button>
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 8,
+                                alignItems: "center",
+                              }}
+                            >
+                              {locked ? (
+                                // === NEW: completed shows a green badge (same color family as "PAID")
+                                <span className="so-badge so-badge-paid">
+                                  COMPLETED
+                                </span>
                               ) : (
                                 <>
-                                  <button className="so-btn" onClick={commitEdit}>Save</button>
-                                  <button className="so-btn ghost" onClick={cancelEdit}>Cancel</button>
+                                  <select
+                                    className="so-select"
+                                    value={
+                                      isEditing
+                                        ? draftStatus
+                                        : o.orderStatus || "processing"
+                                    }
+                                    disabled={!isEditing}
+                                    onChange={(e) =>
+                                      setDraftStatus(e.target.value)
+                                    }
+                                  >
+                                    {STATUS_OPTIONS.map((opt) => (
+                                      <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+
+                                  {!isEditing ? (
+                                    <button
+                                      className="so-btn ghost"
+                                      onClick={() => beginEdit(o)}
+                                    >
+                                      Edit
+                                    </button>
+                                  ) : (
+                                    <>
+                                      <button
+                                        className="so-btn"
+                                        onClick={commitEdit}
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        className="so-btn ghost"
+                                        onClick={cancelEdit}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </>
+                                  )}
                                 </>
                               )}
                             </div>
@@ -281,17 +445,36 @@ export default function SellerOrders() {
             </div>
 
             <div className="so-pager">
-              <button className="so-btn ghost" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1 || loading}>Prev</button>
-              <div className="so-pageinfo">Page {page} / {pages}</div>
-              <button className="so-btn ghost" onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page >= pages || loading}>Next</button>
+              <button
+                className="so-btn ghost"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1 || loading}
+              >
+                Prev
+              </button>
+              <div className="so-pageinfo">
+                Page {page} / {pages}
+              </div>
+              <button
+                className="so-btn ghost"
+                onClick={() => setPage((p) => Math.min(pages, p + 1))}
+                disabled={page >= pages || loading}
+              >
+                Next
+              </button>
             </div>
           </div>
         </main>
       </div>
 
-      <Footer />
-
-      {toast && <div className={`so-toast ${toast.kind === "error" ? "error" : "ok"}`} role="status">{toast.msg}</div>}
+      {toast && (
+        <div
+          className={`so-toast ${toast.kind === "error" ? "error" : "ok"}`}
+          role="status"
+        >
+          {toast.msg}
+        </div>
+      )}
     </div>
   );
 }

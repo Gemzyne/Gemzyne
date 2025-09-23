@@ -42,7 +42,10 @@ exports.createCustomOrder = async (req, res, next) => {
 // GET /api/orders/:id
 exports.getCustomOrder = async (req, res, next) => {
   try {
-    const order = await CustomOrder.findById(req.params.id);
+    // ADDED: populate buyer name fields so frontend can show a human name
+    const order = await CustomOrder.findById(req.params.id)
+      .populate('buyerId', 'name fullName firstName lastName username email'); // ← ADDED
+
     if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
 
     const isOwner = order.buyerId?.toString() === req.user.id;
@@ -73,7 +76,12 @@ exports.listOrdersForSeller = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([
-      CustomOrder.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      // ADDED: populate buyer name fields so the frontend can show the name
+      CustomOrder.find({})
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('buyerId', 'name fullName firstName lastName username email'), // ← ADDED
       CustomOrder.countDocuments({}),
     ]);
 
