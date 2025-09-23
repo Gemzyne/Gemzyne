@@ -93,6 +93,7 @@ app.use(errorMiddleware);
 
 
 app.use("/api/orders", require("./Routes/CustomOrderRoutes"));
+app.use("/api/my-orders", require("./Routes/UserOrdersRoutes"));
 
 
 // --- Connect DB + Start Server
