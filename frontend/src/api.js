@@ -230,6 +230,32 @@ export const api = {
         method: "POST",
       }),
 
+    // NEW: one-shot checkout directly from an inventory gem
+    checkoutFromGem: (
+      gemId,
+      { customer, payment = {}, country, slip } = {}
+    ) => {
+      // supports JSON for card, multipart for bank (with slip)
+      const path = `/api/orders/from-gem/${encodeURIComponent(gemId)}/checkout`;
+      if (payment?.method === "bank" || slip) {
+        const fd = new FormData();
+        if (country) fd.append("country", country);
+        if (customer) fd.append("customer", JSON.stringify(customer));
+        fd.append("payment", JSON.stringify({ method: "bank", ...payment }));
+        if (slip) fd.append("slip", slip);
+        return request(path, { method: "POST", body: fd });
+      }
+      // default: card
+      return request(path, {
+        method: "POST",
+        body: JSON.stringify({
+          country,
+          customer,
+          payment: { method: "card", ...payment },
+        }),
+      });
+    },
+
     // Card checkout
     checkoutCard: (id, { customer, payment, country }) =>
       request(`/api/orders/${id}/checkout`, {
@@ -260,7 +286,7 @@ export const api = {
     createPurchase: (auctionIdOrCode) =>
       request(`/api/wins/purchase/${encodeURIComponent(auctionIdOrCode)}`, {
         method: "POST",
-     }),
+      }),
   },
 
   // === AUCTION (multipart-aware; safe to paste over just this block) ===
@@ -295,10 +321,12 @@ export const api = {
       if (isBlob) {
         const fd = new FormData();
         // support both 'title' and 'name' keys for gem name
-        if (payload?.title || payload?.name) fd.append("title", payload.title || payload.name);
+        if (payload?.title || payload?.name)
+          fd.append("title", payload.title || payload.name);
         if (payload?.type) fd.append("type", payload.type);
         if (payload?.description) fd.append("description", payload.description);
-        if (payload?.basePrice != null) fd.append("basePrice", String(payload.basePrice));
+        if (payload?.basePrice != null)
+          fd.append("basePrice", String(payload.basePrice));
         if (payload?.startTime) fd.append("startTime", payload.startTime);
         if (payload?.endTime) fd.append("endTime", payload.endTime);
         fd.append("image", maybeFile); // must match upload.single("image") on the server
@@ -314,12 +342,14 @@ export const api = {
     },
 
     update: (id, payload) =>
-      request(`/api/auctions/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+      request(`/api/auctions/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
 
     remove: (id) => request(`/api/auctions/${id}`, { method: "DELETE" }),
   },
   // === AUCTION END ===
-
 };
 
 // ---- GEMS ----

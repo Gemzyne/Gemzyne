@@ -342,7 +342,13 @@ export default function GemInventory() {
 
           <div className="inventory-gems-grid">
             {!loading &&
-              gems.map((gem) => {
+              gems
+              // hide reserved / out_of_stock at UI level too (defense-in-depth)
+              .filter(g => {
+              const s = String(g.status || '').toLowerCase().replace(/\s+/g,'_');
+              return !['reserved','out_of_stock','sold'].includes(s);
+              })
+              .map((gem) => {
                 const firstImg = gem.images?.[0] ? getImageUrl(gem.images[0]) : "/images/placeholder-gem.jpg";
                 return (
                   <div
@@ -368,27 +374,13 @@ export default function GemInventory() {
                       </div>
                       <div className="inventory-gem-actions">
                         <button
-                          className="inventory-add-to-cart-btn"
-                          onClick={(e) => addToCart(gem, e)}
-                        >
-                          Add to Cart
-                        </button>
-                        <button
                           className="inventory-buy-now-btn"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (!requireLogin()) return;
-                             try {
-                                const res = await api.orders.createFromGem(gem._id);
-                                const orderId = res?.order?._id || res?.orderId || res?._id;
-                                if (!orderId) throw new Error("Failed to create order");
-                                // go to existing payment page
-                                navigate(`/payment?orderId=${encodeURIComponent(orderId)}`);
-                              } catch (err) {
-                                 console.error(err);
-                                alert(err?.message || "Failed to start checkout");
-                              }
-                          }}
+                          onClick={(e) => {
+                          e.stopPropagation();
+                          if (!requireLogin()) return;
+                          // Go to payment with gemId; no order is created yet
+                          navigate(`/payment?gemId=${encodeURIComponent(gem._id)}`);
+                        }}
                         >
                           Buy Now
                         </button>

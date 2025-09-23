@@ -8,12 +8,19 @@ import { api } from "../../api";
 function Modal({ open, title, message, onClose }) {
   if (!open) return null;
   return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+    <div
+      className="modal-backdrop"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <h3 className="modal-title">{title}</h3>
         <p className="modal-message">{message}</p>
         <div className="modal-actions">
-          <button className="modal-btn" onClick={onClose}>OK</button>
+          <button className="modal-btn" onClick={onClose}>
+            OK
+          </button>
         </div>
       </div>
     </div>
@@ -22,8 +29,11 @@ function Modal({ open, title, message, onClose }) {
 
 function isLoggedIn() {
   // Your app stores user + token; either works. Keeping user check to avoid breaking existing flows.
-  try { return !!JSON.parse(localStorage.getItem("user") || "null"); }
-  catch { return false; }
+  try {
+    return !!JSON.parse(localStorage.getItem("user") || "null");
+  } catch {
+    return false;
+  }
 }
 
 export default function PaymentPage() {
@@ -31,13 +41,17 @@ export default function PaymentPage() {
   const navigate = useNavigate();
   const [sp] = useSearchParams();
   const orderIdFromQuery = sp.get("orderId") || null;
+  const gemIdFromQuery = sp.get("gemId") || null;
 
   // Fallbacks (kept from your code)
   const orderIdFromNav =
     state?.orderId ||
     (() => {
       try {
-        return JSON.parse(localStorage.getItem("pendingOrder") || "{}").orderId || null;
+        return (
+          JSON.parse(localStorage.getItem("pendingOrder") || "{}").orderId ||
+          null
+        );
       } catch {
         return null;
       }
@@ -45,15 +59,20 @@ export default function PaymentPage() {
 
   // Prefer the query param if present
   const effectiveOrderId = orderIdFromQuery || orderIdFromNav || null;
+  const effectiveGemId = gemIdFromQuery; // inventory “buy now” new flow
 
   // Guard guests (you also have <RequireAuth> on routes; this is extra safety)
   useEffect(() => {
     if (!isLoggedIn()) {
-      const next = effectiveOrderId ? `/payment?orderId=${encodeURIComponent(effectiveOrderId)}` : "/payment";
+      const next = effectiveOrderId
+        ? `/payment?orderId=${encodeURIComponent(effectiveOrderId)}`
+        : effectiveGemId
+        ? `/payment?gemId=${encodeURIComponent(effectiveGemId)}`
+        : "/payment";
       localStorage.setItem("nextAfterLogin", next);
       navigate(`/login?next=${encodeURIComponent(next)}`, { replace: true });
     }
-  }, [effectiveOrderId, navigate]);
+  }, [effectiveOrderId, effectiveGemId, navigate]);
 
   // Auction banner context (kept)
   const [auctionCtx, setAuctionCtx] = useState(null);
@@ -77,8 +96,9 @@ export default function PaymentPage() {
   };
 
   // Order load
-  const [loading, setLoading] = useState(!!effectiveOrderId);
-  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(!!effectiveOrderId || !!effectiveGemId);
+  const [order, setOrder] = useState(null); // existing flows (custom/auction)
+  const [gem, setGem] = useState(null);
 
   useEffect(() => {
     if (!effectiveOrderId) return;
@@ -91,18 +111,49 @@ export default function PaymentPage() {
         if (!ignore) setOrder(data);
       } catch (e) {
         console.error("fetch order error:", e);
-        if (!ignore) openModal("Couldn’t load order", "Please refresh the page or go back to the product.");
+        if (!ignore)
+          openModal(
+            "Couldn’t load order",
+            "Please refresh the page or go back to the product."
+          );
       } finally {
         if (!ignore) setLoading(false);
       }
     })();
-    return () => { ignore = true; };
+    return () => {
+      ignore = true;
+    };
   }, [effectiveOrderId]);
+
+    //load gem if coming from inventory
+  useEffect(() => {
+    if (!effectiveGemId) return;
+    let ignore = false;
+    (async () => {
+      try {
+        setLoading(true);
+        const json = await api.gems.byId(effectiveGemId);
+        const data = json?.data || json || null;
+        if (!ignore) setGem(data);
+      } catch (e) {
+        console.error("fetch gem error:", e);
+       if (!ignore) openModal("Couldn’t load product", "Please refresh the page or go back to the product.");
+      } finally {
+       if (!ignore) setLoading(false);
+      }
+    })();
+    return () => { ignore = true; };
+  }, [effectiveGemId]);
 
   // Show auction banner only for AUC-* orders, and only if context matches
   useEffect(() => {
-    if (!order) return;
-    const isAuctionOrder = typeof order.orderNo === "string" && order.orderNo.startsWith("AUC-");
+    if (!order) {
+      localStorage.removeItem("auctionContext");
+      setAuctionCtx(null);
+      return;
+    }
+    const isAuctionOrder =
+      typeof order.orderNo === "string" && order.orderNo.startsWith("AUC-");
     if (!isAuctionOrder) {
       localStorage.removeItem("auctionContext");
       setAuctionCtx(null);
@@ -132,21 +183,32 @@ export default function PaymentPage() {
     }),
     []
   );
-  const current = order || fallbackItem;
-  const hasOrder = !!order;
-  const productTitle = hasOrder ? current?.title || "Product" : "Product";
-  const subtotal = hasOrder ? Number(current?.pricing?.subtotal ?? 0) : 0;
 
-  // expose mapping for display (other non-mapped fields show as N/A in UI only)
+  // Current display context
+  const hasOrder = !!order;
+  const current  = hasOrder ? order : fallbackItem;
+
+  // Summary values (work in both modes)
+  const productTitle = hasOrder
+   ? (current?.title || "Product")
+   : (gem?.name || gem?.gemId || "Product");
+  const subtotal = hasOrder
+   ? Number(current?.pricing?.subtotal ?? 0)
+    : Number(gem?.priceUSD ?? 0);
+
+  /// Display block works both ways
   const display = {
-    orderNo: current?.orderNo || 'N/A',
-    title: current?.title || 'N/A',
-    type: current?.selections?.type || 'N/A',
-    shape: current?.selections?.shape || 'N/A',
-    weight:
-      current?.selections?.weight != null
-        ? `${Number(current.selections.weight).toFixed(2).replace(/\.00$/,'')} ct`
-        : 'N/A',
+    orderNo: hasOrder ? (current?.orderNo || 'N/A') : (gem?.gemId || 'N/A'),
+    title:   hasOrder ? (current?.title   || 'N/A') : (gem?.name   || 'N/A'),
+    type:    hasOrder ? (current?.selections?.type || 'N/A') : (gem?.type || 'N/A'),
+    shape:   hasOrder ? (current?.selections?.shape|| 'N/A') : (gem?.shape|| 'N/A'),
+    weight:  hasOrder
+      ? (current?.selections?.weight != null
+          ? `${Number(current.selections.weight).toFixed(2).replace(/\.00$/,'')} ct`
+          : 'N/A')
+      : (gem?.carat != null
+          ? `${Number(gem.carat).toFixed(2).replace(/\.00$/,'')} ct`
+          : 'N/A'),
   };
 
   // tabs
@@ -154,18 +216,18 @@ export default function PaymentPage() {
 
   // customer
   const [fullName, setFullName] = useState("");
-  const [email, setEmail]       = useState("");
-  const [phone, setPhone]       = useState("");
-  const [country, setCountry]   = useState("");
-  const [address, setAddress]   = useState("");
-  const [city, setCity]         = useState("");
-  const [zipCode, setZipCode]   = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [zipCode, setZipCode] = useState("");
 
   // card
   const [cardNumber, setCardNumber] = useState("");
-  const [cardName, setCardName]     = useState("");
+  const [cardName, setCardName] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
-  const [cvv, setCvv]               = useState("");
+  const [cvv, setCvv] = useState("");
   const [rememberCard, setRememberCard] = useState(false);
 
   // bank upload
@@ -179,17 +241,27 @@ export default function PaymentPage() {
     setShippingCost(country === "LK" ? 20 : 100);
   }, [country]);
   const total = (subtotal || 0) + (shippingCost || 0);
-  const money = (n) => `$${Number(n || 0).toFixed(2).replace(/\.00$/, "")}`;
+  const money = (n) =>
+    `$${Number(n || 0)
+      .toFixed(2)
+      .replace(/\.00$/, "")}`;
 
   // formatters
   const onCardNumber = (v) => {
     const digits = v.replace(/\s+/g, "").replace(/[^0-9]/g, "");
-    const formatted = digits.replace(/(\d{4})/g, "$1 ").trim().slice(0, 19);
+    const formatted = digits
+      .replace(/(\d{4})/g, "$1 ")
+      .trim()
+      .slice(0, 19);
     setCardNumber(formatted);
   };
   const onExpiry = (v) => {
-    const digits = v.replace(/\s+/g, "").replace(/[^0-9]/g, "").slice(0, 4);
-    const formatted = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+    const digits = v
+      .replace(/\s+/g, "")
+      .replace(/[^0-9]/g, "")
+      .slice(0, 4);
+    const formatted =
+      digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
     setExpiryDate(formatted);
   };
   const onCvv = (v) => setCvv(v.replace(/[^0-9]/g, "").slice(0, 3));
@@ -198,17 +270,28 @@ export default function PaymentPage() {
   const onChooseFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    setFile(f); setProgress(0);
+    setFile(f);
+    setProgress(0);
     const t = setInterval(() => {
-      setProgress((p) => { if (p >= 100) { clearInterval(t); return 100; } return p + 5; });
+      setProgress((p) => {
+        if (p >= 100) {
+          clearInterval(t);
+          return 100;
+        }
+        return p + 5;
+      });
     }, 100);
   };
-  const clearFile = () => { setFile(null); setProgress(0); };
+  const clearFile = () => {
+    setFile(null);
+    setProgress(0);
+  };
 
   // validation
   const validateCustomer = () => {
     if (!fullName.trim()) return false;
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      return false;
     if (!phone.trim()) return false;
     if (!country) return false;
     if (!address.trim()) return false;
@@ -227,8 +310,8 @@ export default function PaymentPage() {
 
   // submit — CARD
   async function submitCard() {
-    if (!effectiveOrderId) {
-      openModal("Order not found", "Go back to the product and try again.");
+    if (!effectiveOrderId && !effectiveGemId) {
+      openModal("Nothing to pay", "Go back to the product and try again.");
       return;
     }
     if (!validateCustomer()) {
@@ -241,11 +324,14 @@ export default function PaymentPage() {
     }
 
     try {
-      const json = await api.orders.checkoutCard(effectiveOrderId, {
+      const payload = {
         country,
         customer: { fullName, email, phone, country, address, city, zipCode },
         payment: { remember: !!rememberCard, card: { cardName, cardNumber } },
-      });
+      };
+      const json = effectiveOrderId
+        ? await api.orders.checkoutCard(effectiveOrderId, payload)            // old path
+        : await api.orders.checkoutFromGem(effectiveGemId, payload);          // NEW path
       if (json?.ok) {
         openModal(
           "Payment successful",
@@ -261,14 +347,17 @@ export default function PaymentPage() {
       }
     } catch (e) {
       console.error(e);
-      openModal("Network error", "We couldn’t reach the server. Please try again.");
+      openModal(
+        "Network error",
+        "We couldn’t reach the server. Please try again."
+      );
     }
   }
 
   // submit — BANK
   async function submitBank() {
-    if (!effectiveOrderId) {
-      openModal("Order not found", "Go back to the product and try again.");
+    if (!effectiveOrderId && !effectiveGemId) {
+      openModal("Nothing to pay", "Go back to the product and try again.");
       return;
     }
     if (!validateCustomer()) {
@@ -276,16 +365,26 @@ export default function PaymentPage() {
       return;
     }
     if (!file) {
-      openModal("Upload required", "Please upload your payment confirmation slip.");
+      openModal(
+        "Upload required",
+        "Please upload your payment confirmation slip."
+      );
       return;
     }
 
     try {
-      const json = await api.orders.checkoutBank(effectiveOrderId, {
-        country,
-        customer: { fullName, email, phone, country, address, city, zipCode },
-        slip: file,
-      });
+      const json = effectiveOrderId
+        ? await api.orders.checkoutBank(effectiveOrderId, {
+            country,
+           customer: { fullName, email, phone, country, address, city, zipCode },
+            slip: file,
+         })
+        : await api.orders.checkoutFromGem(effectiveGemId, {
+            country,
+            customer: { fullName, email, phone, country, address, city, zipCode },
+            payment: { method: "bank" },
+            slip: file,
+          });
       if (json?.ok) {
         openModal(
           "Bank transfer submitted",
@@ -302,7 +401,10 @@ export default function PaymentPage() {
       }
     } catch (e) {
       console.error(e);
-      openModal("Network error", "We couldn’t reach the server. Please try again.");
+      openModal(
+        "Network error",
+        "We couldn’t reach the server. Please try again."
+      );
     }
   }
 
@@ -325,7 +427,8 @@ export default function PaymentPage() {
               marginBottom: 12,
               padding: "10px 14px",
               borderRadius: 10,
-              background: "linear-gradient(135deg, rgba(212,175,55,.15), rgba(249,242,149,.1))",
+              background:
+                "linear-gradient(135deg, rgba(212,175,55,.15), rgba(249,242,149,.1))",
               border: "1px solid rgba(212,175,55,.35)",
               color: "#eaeaea",
               display: "flex",
@@ -341,7 +444,9 @@ export default function PaymentPage() {
                 Auction Purchase{auctionCtx.code ? ` • ${auctionCtx.code}` : ""}
               </div>
               {auctionCtx.title ? (
-                <div style={{ opacity: 0.85, fontSize: 13 }}>{auctionCtx.title}</div>
+                <div style={{ opacity: 0.85, fontSize: 13 }}>
+                  {auctionCtx.title}
+                </div>
               ) : null}
             </div>
           </div>
@@ -349,7 +454,10 @@ export default function PaymentPage() {
 
         <div className="payment-header">
           <h1>Complete Your Purchase</h1>
-          <p>Securely pay for your premium gemstones using your preferred payment method</p>
+          <p>
+            Securely pay for your premium gemstones using your preferred payment
+            method
+          </p>
         </div>
 
         <div className="payment-layout">
@@ -361,23 +469,52 @@ export default function PaymentPage() {
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="fullName">Full Name</label>
-                    <input id="fullName" className="form-control" value={fullName} onChange={(e)=>setFullName(e.target.value)} placeholder="John Doe" autoComplete="off" />
+                    <input
+                      id="fullName"
+                      className="form-control"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="John Doe"
+                      autoComplete="off"
+                    />
                   </div>
                   <div className="form-group">
                     <label htmlFor="email">Email Address</label>
-                    <input id="email" type="email" className="form-control" value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="john@example.com" autoComplete="off" />
+                    <input
+                      id="email"
+                      type="email"
+                      className="form-control"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="john@example.com"
+                      autoComplete="off"
+                    />
                   </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="phone">Phone Number</label>
-                    <input id="phone" className="form-control" value={phone} onChange={(e)=>setPhone(e.target.value)} placeholder="+1 234 567 8900" autoComplete="off" />
+                    <input
+                      id="phone"
+                      className="form-control"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+1 234 567 8900"
+                      autoComplete="off"
+                    />
                   </div>
                   <div className="form-group">
                     <label htmlFor="country">Country</label>
-                    <select id="country" className="form-control" value={country} onChange={(e)=>setCountry(e.target.value)}>
-                      <option value="" disabled>Select Country</option>
+                    <select
+                      id="country"
+                      className="form-control"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                    >
+                      <option value="" disabled>
+                        Select Country
+                      </option>
                       <option value="LK">Sri Lanka</option>
                       <option value="AU">Australia</option>
                       <option value="US">United States</option>
@@ -389,17 +526,39 @@ export default function PaymentPage() {
 
                 <div className="form-group">
                   <label htmlFor="address">Shipping Address</label>
-                  <textarea id="address" rows={3} className="form-control" value={address} onChange={(e)=>setAddress(e.target.value)} placeholder={"123 Main St\nColombo"} autoComplete="off" />
+                  <textarea
+                    id="address"
+                    rows={3}
+                    className="form-control"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder={"123 Main St\nColombo"}
+                    autoComplete="off"
+                  />
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="city">City</label>
-                    <input id="city" className="form-control" value={city} onChange={(e)=>setCity(e.target.value)} placeholder="Colombo" autoComplete="off" />
+                    <input
+                      id="city"
+                      className="form-control"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder="Colombo"
+                      autoComplete="off"
+                    />
                   </div>
                   <div className="form-group">
                     <label htmlFor="zipCode">ZIP / Postal Code</label>
-                    <input id="zipCode" className="form-control" value={zipCode} onChange={(e)=>setZipCode(e.target.value)} placeholder="10000" autoComplete="off" />
+                    <input
+                      id="zipCode"
+                      className="form-control"
+                      value={zipCode}
+                      onChange={(e) => setZipCode(e.target.value)}
+                      placeholder="10000"
+                      autoComplete="off"
+                    />
                   </div>
                 </div>
               </div>
@@ -407,8 +566,18 @@ export default function PaymentPage() {
 
             {/* Tabs */}
             <div className="payment-tabs">
-              <div className={`tab ${tab==="card"?"active":""}`} onClick={()=>setTab("card")}>Card Payment</div>
-              <div className={`tab ${tab==="bank"?"active":""}`} onClick={()=>setTab("bank")}>Bank Transfer</div>
+              <div
+                className={`tab ${tab === "card" ? "active" : ""}`}
+                onClick={() => setTab("card")}
+              >
+                Card Payment
+              </div>
+              <div
+                className={`tab ${tab === "bank" ? "active" : ""}`}
+                onClick={() => setTab("bank")}
+              >
+                Bank Transfer
+              </div>
             </div>
 
             <div className="payment-content">
@@ -418,40 +587,88 @@ export default function PaymentPage() {
 
                   <div className="form-group">
                     <label htmlFor="cardNumber">Card Number</label>
-                    <input id="cardNumber" className="form-control" value={cardNumber} onChange={(e)=>onCardNumber(e.target.value)} placeholder="1234 5678 9012 3456" maxLength={19} autoComplete="off" />
+                    <input
+                      id="cardNumber"
+                      className="form-control"
+                      value={cardNumber}
+                      onChange={(e) => onCardNumber(e.target.value)}
+                      placeholder="1234 5678 9012 3456"
+                      maxLength={19}
+                      autoComplete="off"
+                    />
                   </div>
                   <div className="form-group">
                     <label htmlFor="cardName">Cardholder Name</label>
-                    <input id="cardName" className="form-control" value={cardName} onChange={(e)=>setCardName(e.target.value)} placeholder="John Doe" autoComplete="off" />
+                    <input
+                      id="cardName"
+                      className="form-control"
+                      value={cardName}
+                      onChange={(e) => setCardName(e.target.value)}
+                      placeholder="John Doe"
+                      autoComplete="off"
+                    />
                   </div>
 
                   <div className="form-row">
                     <div className="form-group">
                       <label htmlFor="expiryDate">Expiry Date</label>
-                      <input id="expiryDate" className="form-control" value={expiryDate} onChange={(e)=>onExpiry(e.target.value)} placeholder="MM/YY" autoComplete="off" />
+                      <input
+                        id="expiryDate"
+                        className="form-control"
+                        value={expiryDate}
+                        onChange={(e) => onExpiry(e.target.value)}
+                        placeholder="MM/YY"
+                        autoComplete="off"
+                      />
                     </div>
                     <div className="form-group">
                       <label htmlFor="cvv">CVV</label>
-                      <input id="cvv" className="form-control" value={cvv} onChange={(e)=>onCvv(e.target.value)} placeholder="123" maxLength={3} autoComplete="off" />
+                      <input
+                        id="cvv"
+                        className="form-control"
+                        value={cvv}
+                        onChange={(e) => onCvv(e.target.value)}
+                        placeholder="123"
+                        maxLength={3}
+                        autoComplete="off"
+                      />
                     </div>
                   </div>
 
                   <div className="remember-card">
-                    <input type="checkbox" id="rememberCard" checked={rememberCard} onChange={(e)=>setRememberCard(e.target.checked)} />
-                    <label htmlFor="rememberCard">Remember my card details for future purchases</label>
+                    <input
+                      type="checkbox"
+                      id="rememberCard"
+                      checked={rememberCard}
+                      onChange={(e) => setRememberCard(e.target.checked)}
+                    />
+                    <label htmlFor="rememberCard">
+                      Remember my card details for future purchases
+                    </label>
                   </div>
 
                   <div className="card-icons">
-                    <div className="card-icon"><i className="fab fa-cc-visa" /></div>
-                    <div className="card-icon"><i className="fab fa-cc-mastercard" /></div>
-                    <div className="card-icon"><i className="fab fa-cc-amex" /></div>
-                    <div className="card-icon"><i className="fab fa-cc-discover" /></div>
+                    <div className="card-icon">
+                      <i className="fab fa-cc-visa" />
+                    </div>
+                    <div className="card-icon">
+                      <i className="fab fa-cc-mastercard" />
+                    </div>
+                    <div className="card-icon">
+                      <i className="fab fa-cc-amex" />
+                    </div>
+                    <div className="card-icon">
+                      <i className="fab fa-cc-discover" />
+                    </div>
                   </div>
 
-                  <button className="submit-btn" onClick={submitCard}>Pay Now</button>
+                  <button className="submit-btn" onClick={submitCard}>
+                    Pay Now
+                  </button>
 
                   <div className="payment-notice">
-                    <i className="fas fa-lock" /> Demo: server encrypts card only if “Remember” is checked.
+                    <i className="fas fa-lock" /> Demo: server encrypts card
+                    only if “Remember” is checked.
                   </div>
                 </section>
               ) : (
@@ -459,20 +676,52 @@ export default function PaymentPage() {
                   <h2>Bank Transfer</h2>
 
                   <div className="bank-info">
-                    <div className="bank-detail"><span className="label">Bank Name:</span><span className="value">Global Premium Bank</span></div>
-                    <div className="bank-detail"><span className="label">Account Name:</span><span className="value">GemZyne Holdings Ltd</span></div>
-                    <div className="bank-detail"><span className="label">Account Number:</span><span className="value">XXXX-XXXX-XXXX-7890</span></div>
-                    <div className="bank-detail"><span className="label">Reference:</span><span className="value">{current?.orderNo || "ORD-REF"}</span></div>
+                    <div className="bank-detail">
+                      <span className="label">Bank Name:</span>
+                      <span className="value">Global Premium Bank</span>
+                    </div>
+                    <div className="bank-detail">
+                      <span className="label">Account Name:</span>
+                      <span className="value">GemZyne Holdings Ltd</span>
+                    </div>
+                    <div className="bank-detail">
+                      <span className="label">Account Number:</span>
+                      <span className="value">XXXX-XXXX-XXXX-7890</span>
+                    </div>
+                    <div className="bank-detail">
+                      <span className="label">Reference:</span>
+                      <span className="value">
+                        {current?.orderNo || "ORD-REF"}
+                      </span>
+                    </div>
                   </div>
 
-                  <p>After making your transfer, please upload the payment confirmation below for verification.</p>
+                  <p>
+                    After making your transfer, please upload the payment
+                    confirmation below for verification.
+                  </p>
 
-                  <div className="upload-area" onClick={()=>document.getElementById("fileInputHidden").click()}>
-                    <div className="upload-icon"><i className="fas fa-cloud-upload-alt" /></div>
-                    <div className="upload-text">Upload Payment Confirmation</div>
+                  <div
+                    className="upload-area"
+                    onClick={() =>
+                      document.getElementById("fileInputHidden").click()
+                    }
+                  >
+                    <div className="upload-icon">
+                      <i className="fas fa-cloud-upload-alt" />
+                    </div>
+                    <div className="upload-text">
+                      Upload Payment Confirmation
+                    </div>
                     <div className="upload-note">JPG, PNG or PDF (Max 5MB)</div>
                     <div className="upload-btn">Choose File</div>
-                    <input id="fileInputHidden" type="file" accept=".jpg,.jpeg,.png,.pdf" style={{ display:"none" }} onChange={onChooseFile} />
+                    <input
+                      id="fileInputHidden"
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      style={{ display: "none" }}
+                      onChange={onChooseFile}
+                    />
                   </div>
 
                   {file && (
@@ -482,14 +731,22 @@ export default function PaymentPage() {
                         <i className="fas fa-times" onClick={clearFile} />
                       </div>
                       <div className="file-progress">
-                        <div className="file-progress-bar" style={{ width: `${progress}%` }} />
+                        <div
+                          className="file-progress-bar"
+                          style={{ width: `${progress}%` }}
+                        />
                       </div>
                     </div>
                   )}
 
-                  <button className="submit-btn" onClick={submitBank}>Submit Payment Confirmation</button>
+                  <button className="submit-btn" onClick={submitBank}>
+                    Submit Payment Confirmation
+                  </button>
 
-                  <div className="payment-notice"><i className="fas fa-clock" /> Your order will be processed after verification.</div>
+                  <div className="payment-notice">
+                    <i className="fas fa-clock" /> Your order will be processed
+                    after verification.
+                  </div>
                 </section>
               )}
             </div>
@@ -502,15 +759,40 @@ export default function PaymentPage() {
 
               {/* Keep custom-order extras if present */}
               {hasOrder && current?.selections && (
-                <div style={{ marginBottom: 10, fontSize: 14, color: "#cfcfcf" }}>
+                <div
+                  style={{ marginBottom: 10, fontSize: 14, color: "#cfcfcf" }}
+                >
                   {current.selections.weight != null && (
-                    <div><strong>Weight:</strong> {Number(current.selections.weight).toFixed(1).replace(/\.0$/, "")} ct</div>
+                    <div>
+                      <strong>Weight:</strong>{" "}
+                      {Number(current.selections.weight)
+                        .toFixed(1)
+                        .replace(/\.0$/, "")}{" "}
+                      ct
+                    </div>
                   )}
-                  {current.selections.grade && <div><strong>Grade:</strong> {current.selections.grade}</div>}
-                  {current.selections.polish && <div><strong>Polish:</strong> {current.selections.polish}</div>}
-                  {current.selections.symmetry && <div><strong>Symmetry:</strong> {current.selections.symmetry}</div>}
+                  {current.selections.grade && (
+                    <div>
+                      <strong>Grade:</strong> {current.selections.grade}
+                    </div>
+                  )}
+                  {current.selections.polish && (
+                    <div>
+                      <strong>Polish:</strong> {current.selections.polish}
+                    </div>
+                  )}
+                  {current.selections.symmetry && (
+                    <div>
+                      <strong>Symmetry:</strong> {current.selections.symmetry}
+                    </div>
+                  )}
                   {current.estimatedFinishDate && (
-                    <div><strong>Estimated Finish:</strong> {new Date(current.estimatedFinishDate).toLocaleDateString()}</div>
+                    <div>
+                      <strong>Estimated Finish:</strong>{" "}
+                      {new Date(
+                        current.estimatedFinishDate
+                      ).toLocaleDateString()}
+                    </div>
                   )}
                 </div>
               )}
@@ -522,12 +804,16 @@ export default function PaymentPage() {
 
               <div className="order-item" id="shipping-item">
                 <span className="item-name">Shipping</span>
-                <span className="item-price" id="shipping-price">{money(shippingCost)}</span>
+                <span className="item-price" id="shipping-price">
+                  {money(shippingCost)}
+                </span>
               </div>
 
               <div className="order-total">
                 <span className="total-label">Total</span>
-                <span className="total-price" id="total-price">{money(total)}</span>
+                <span className="total-price" id="total-price">
+                  {money(total)}
+                </span>
               </div>
             </div>
           </aside>
@@ -535,9 +821,17 @@ export default function PaymentPage() {
       </div>
 
       {/* if you rely on these icons */}
-      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+      <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      />
 
-      <Modal open={modalOpen} title={modalTitle} message={modalMessage} onClose={closeModal} />
+      <Modal
+        open={modalOpen}
+        title={modalTitle}
+        message={modalMessage}
+        onClose={closeModal}
+      />
     </>
   );
 }

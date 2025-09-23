@@ -4,6 +4,7 @@ const CustomOrder = require('../Models/CustomOrderModel');
 const { encrypt } = require('../Utills/Crypto');
 const Winner = require('../Models/Winner');
 const Auction = require('../Models/Auction');
+const Gem = require('../Models/AddGems/Gem');
 
 function getShipping(country) {
   if (!country) return 0;
@@ -15,6 +16,45 @@ function parseMaybeJSON(v) {
     try { return JSON.parse(v); } catch { return v; }
   }
   return v;
+}
+
+async function markGemSoldForOrder(order) {
+  try {
+    const gemId = order?.gemId || order?.selections?.gem?.id;
+    if (!gemId) return;
+
+    const gem = await Gem.findById(gemId);
+    if (!gem) return;
+
+    // If it’s already sold or out of stock, do nothing
+    const cur = String(gem.status || '').toLowerCase().replace(/\s+/g, '_');
+    if (['sold','out_of_stock'].includes(cur)) return;
+
+    gem.status = 'sold';
+    gem.isActive = false;
+    await gem.save();
+  } catch (e) {
+    console.warn('Could not mark gem sold for order', order?._id, e?.message || e);
+  }
+}
+
+// === helper: reserve gem when order is paid ===
+async function markGemReservedForOrder(order) {
+  try {
+    const gemId = order?.gemId || order?.selections?.gem?.id;
+    if (!gemId) return;
+
+    const gem = await Gem.findById(gemId);
+    if (!gem) return;
+
+    const cur = String(gem.status || '').toLowerCase().replace(/\s+/g, '_');
+    if (!['reserved','sold','out_of_stock'].includes(cur)) {
+      gem.status = 'reserved';
+      await gem.save();
+    }
+  } catch (e) {
+    console.warn('Could not reserve gem for order', order?._id, e?.message || e);
+  }
 }
 
 // POST /api/orders/:id/checkout
@@ -103,6 +143,8 @@ exports.checkout = async (req, res, next) => {
       if (order.status !== 'paid') {
         order.status = 'paid';
         await order.save();
+        // === reserve gem now that it's paid ===
+        await markGemSoldForOrder(order);
       }
     } else {
       // bank transfer remains pending
@@ -110,9 +152,11 @@ exports.checkout = async (req, res, next) => {
         order.status = 'pending';
         await order.save();
       }
+      // Reserve the gem while we wait for bank verification
+      await markGemReservedForOrder(order);
     }
 
-    // === NEW: Sync Winner.purchaseStatus based on Payment ===
+    // Sync Winner.purchaseStatus based on Payment ===
     // Lookup Winner by auctionCode == order.orderNo (for auction-originated orders)
     // If no Winner found, it's probably a regular custom order — skip safely.
     try {
@@ -155,7 +199,160 @@ exports.checkout = async (req, res, next) => {
   }
 };
 
+// --- NEW: one-shot checkout directly from a gem (no precreated order) ---
+exports.checkoutFromGem = async (req, res, next) => {
+  const CustomOrder = require('../Models/CustomOrderModel');
+  const Gem = require('../Models/AddGems/Gem');
 
+  // helpers reused from the standard checkout above
+  const finalizeGemSoldForOrder = async (order) => {
+    try {
+      let gemId = order?.gemId || order?.selections?.gem?.id;
+      if (!gemId) return;
+      const gem = await Gem.findById(gemId);
+      if (!gem) return;
+      gem.status = 'sold';
+      gem.isActive = false;
+      await gem.save();
+    } catch (e) {
+      console.warn('finalizeGemSoldForOrder (fromGem) error:', e.message);
+    }
+  };
+  const ensureGemReservedForOrder = async (order) => {
+    try {
+      let gemId = order?.gemId || order?.selections?.gem?.id;
+      if (!gemId) return;
+      const gem = await Gem.findById(gemId);
+      if (!gem) return;
+      if (gem.status === 'in_stock') {
+        gem.status = 'reserved';
+        await gem.save();
+      }
+    } catch (e) {
+      console.warn('ensureGemReservedForOrder (fromGem) error:', e.message);
+    }
+  };
+
+  try {
+    const buyerId = req.user?.id || req.user?._id;
+    if (!buyerId) return res.status(401).json({ ok: false, error: 'UNAUTHORIZED' });
+
+    const { gemId } = req.params;
+    let gem;
+    try { gem = await Gem.findById(gemId); } catch { return res.status(400).json({ ok: false, error: 'INVALID_GEM' }); }
+    if (!gem) return res.status(404).json({ ok: false, error: 'GEM_NOT_FOUND' });
+    const s = String(gem.status || '').toLowerCase().replace(/\s+/g,'_');
+    if (['sold','out_of_stock','reserved'].includes(s)) {
+    return res.status(400).json({ ok: false, error: 'GEM_UNAVAILABLE' });
+}
+
+    // Build order data (use your mappings; fill required fields)
+    const priceUSD = Number(gem.priceUSD ?? 0);
+    if (!Number.isFinite(priceUSD) || priceUSD < 0) {
+      return res.status(400).json({ ok: false, error: 'INVALID_PRICE' });
+    }
+
+    const orderNo = gem.gemId || `ORD-${Date.now()}`;
+    const selections = {
+      source: 'inventory',
+      type: gem.type || 'N/A',
+      shape: gem.shape || 'N/A',
+      weight: Number(gem.carat ?? 0),
+      grade: 'N/A',
+      polish: 'good',     // required by your model
+      symmetry: 'good',   // required by your model
+      gem: {
+        id: gem._id,
+        gemId: gem.gemId || null,
+        name: gem.name || null,
+        images: Array.isArray(gem.images) ? gem.images.slice(0, 4) : [],
+        certificateUrl: gem.certificateUrl || '',
+      },
+    };
+
+    const customerRaw = parseMaybeJSON(req.body.customer) || {};
+    const paymentRaw  = parseMaybeJSON(req.body.payment)  || {};
+    const country     = (req.body.country || customerRaw.country || '').trim();
+    const shipping    = getShipping(country);
+    const subtotal    = priceUSD;
+    const total       = subtotal + shipping;
+    const method      = (paymentRaw.method || 'card').trim();
+
+    // Create order now (status depends on method)
+    const order = await CustomOrder.create({
+      orderNo,
+      title: gem.name || gem.gemId || 'Gem',
+      selections,
+      buyerId,
+      currency: 'USD',
+      pricing: { subtotal },
+      status: method === 'card' ? 'paid' : 'pending',
+      gemId: gem._id,
+    });
+
+    // Build payment block
+    const paymentBlock = { method, status: method === 'card' ? 'paid' : 'pending' };
+    if (method === 'card') {
+      const remember  = !!paymentRaw.remember;
+      const cardName  = paymentRaw.card?.cardName || '';
+      const rawNumber = (paymentRaw.card?.cardNumber || '').replace(/\s/g, '');
+      if (remember && rawNumber) {
+        const last4 = rawNumber.slice(-4);
+        const { encrypt } = require('../Utills/Crypto');
+        const { cipher, iv } = encrypt(rawNumber);
+        paymentBlock.card = { cardName, last4, cardCipher: cipher, cardIv: iv, provider: 'demo' };
+      }
+    } else if (method === 'bank') {
+      if (req.file) paymentBlock.bankSlipPath = req.file.path;
+    }
+
+    const customer = {
+      fullName: customerRaw.fullName || '',
+      email:    customerRaw.email || '',
+      phone:    customerRaw.phone || '',
+      country:  customerRaw.country || country || '',
+      address:  customerRaw.address || '',
+      city:     customerRaw.city || '',
+      zipCode:  customerRaw.zipCode || '',
+    };
+
+    // Write Payment
+    const paymentDoc = await Payment.findOneAndUpdate(
+      { orderId: order._id },
+      {
+        orderId: order._id,
+        orderNo: order.orderNo,
+        currency: order.currency || 'USD',
+        buyerId: order.buyerId,
+        customer,
+        payment: paymentBlock,
+        amounts: { subtotal, shipping, total },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    // Update gem state
+    if (method === 'card') {
+      await finalizeGemSoldForOrder(order);   // sold + hidden
+    } else {
+      await ensureGemReservedForOrder(order); // keep reserved while pending
+    }
+
+    // (Auction Winner sync is skipped here on purpose; not relevant for inventory)
+
+    return res.json({
+      ok: true,
+      paymentId: paymentDoc._id,
+      orderId: order._id,
+      orderNo: order.orderNo,
+      total: paymentDoc.amounts.total,
+      paymentStatus: paymentDoc.payment.status,
+      orderStatus: order.status,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
 
 // ========= Listings & management ===========
@@ -247,9 +444,12 @@ exports.markBankPaid = async (req, res, next) => {
     await p.save();
 
     // sync order
-    await CustomOrder.findByIdAndUpdate(p.orderId, { $set: { status: 'paid' } });
+    const order = await CustomOrder.findByIdAndUpdate(p.orderId, { $set: { status: 'paid' } }, { new: true });
 
-    // === NEW: Sync Winner.purchaseStatus too ===
+    // === reserve gem now that bank is paid ===
+    if (order) await markGemSoldForOrder(order);
+
+    // Sync Winner.purchaseStatus too ===
     try {
       // For auction-originated orders, orderNo is the auctionCode (AUC-YYYY-###)
       const w = await Winner.findOne({ auctionCode: p.orderNo, user: p.buyerId });
@@ -305,7 +505,16 @@ exports.updateStatus = async (req, res, next) => {
     // helper: sync related docs (CustomOrder + Winner) based on status
     async function syncRelated(orderStatus) {
       // sync order
-      await CustomOrder.findByIdAndUpdate(p.orderId, { $set: { status: orderStatus } });
+      const order = await CustomOrder.findByIdAndUpdate(p.orderId, { $set: { status: orderStatus } }, { new: true });
+
+      // when order becomes paid -> mark SOLD
+      if (orderStatus === 'paid' && order) {
+        await  markGemSoldForOrder(order); // 
+      }
+      // when order is pending (bank slip waiting) -> mark RESERVED
+      if (orderStatus === 'pending' && order) {
+      await markGemReservedForOrder(order);
+     }
 
       // sync winner (try by auctionCode == orderNo; fallback via Auction._id)
       try {

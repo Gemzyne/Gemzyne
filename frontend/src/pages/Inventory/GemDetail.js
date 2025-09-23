@@ -160,24 +160,20 @@ export default function GemDetail() {
     alert("Added to cart");
   };
 
-  const instantBuy = async () => {
-  if (!requireLogin() || !gem) return;
-  try {
-    const res = await api.orders.createFromGem(gem._id);
-    const orderId = res?.order?._id || res?.orderId || res?._id;
-    if (!orderId) throw new Error("Failed to create order");
-    navigate(`/payment?orderId=${encodeURIComponent(orderId)}`);
-  } catch (e) {
-    console.error(e);
-    alert(e?.message || "Failed to start checkout");
-  }
-};
+    const instantBuy = () => {
+    if (!requireLogin() || !gem) return;
+    // Go to payment with gemId; order will be created after payment
+    navigate(`/payment?gemId=${encodeURIComponent(gem._id)}`);
+  };
 
 
   const goLogin = () => {
     setShowLoginPrompt(false);
     navigate("/login");
   };
+
+  const normalizedStatus = (gem?.status || '').toLowerCase().replace(/\s+/g,'_');
+  const canBuy = normalizedStatus === 'in_stock';
 
   return (
   <div className="page-root">
@@ -277,8 +273,14 @@ export default function GemDetail() {
               <p className="gem-description">{gem.description || "—"}</p>
 
               <div className="gem-actions-detail">
-                <button className="add-to-cart-btn-detail" onClick={addToCart}>Add to Cart</button>
-                <button className="buy-now-btn-detail" onClick={instantBuy}>Buy Now</button>
+                <button
+                  className="buy-now-btn-detail"
+                  onClick={instantBuy}
+                  disabled={!canBuy}
+                  title={!canBuy ? 'This gem is not available' : 'Buy Now'}
+                >
+                  {canBuy ? 'Buy Now' : (normalizedStatus.replace(/_/g,' ') || 'Unavailable')}
+                </button>
               </div>
 
               <div className="gem-certification" id="certification">
