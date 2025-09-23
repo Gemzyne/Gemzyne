@@ -8,6 +8,7 @@ import Gemimg from "../../Assets/rathnapura-gems.webp";
 import Gems from "../../Assets/gems.webp";
 import Bggems from "../../Assets/gemhero.jpg";
 import signature from "../../Assets/sig.png";
+import EbgImg from "../../Assets/explorebg.webp";
 
 const AboutUs = () => {
   // Particles (same vibe as Home, slightly lighter)
@@ -276,7 +277,7 @@ const AboutUs = () => {
         // keep it theme-consistent and fast — no external bg:
         style={{
           backgroundImage:
-            "linear-gradient(135deg, rgba(26,26,26,.85), rgba(10,10,10,.92))",
+            `linear-gradient(135deg, rgba(26,26,26,.85), rgba(10,10,10,.92)),url(${EbgImg})`,
         }}
       >
         <div className="cta-content">
