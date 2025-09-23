@@ -58,6 +58,43 @@ body {
     z-index: 1;
 }
 
+/* Status pill */
+.sac-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 1.4;
+    font-weight: 600;
+    letter-spacing: .2px;
+    border: 1px solid transparent;
+}
+
+.sac-status--paid {
+    background: rgba(31, 143, 78, 0.15);
+    color: #1f8f4e;
+    border-color: rgba(31, 143, 78, 0.35);
+}
+
+.sac-status--pending {
+    background: rgba(212, 175, 55, 0.15);
+    color: #d4af37;
+    border-color: rgba(212, 175, 55, 0.35);
+}
+
+.sac-status--expired {
+    background: rgba(231, 76, 60, 0.15);
+    color: #e74c3c;
+    border-color: rgba(231, 76, 60, 0.35);
+}
+
+.sac-status--cancelled {
+    background: rgba(150, 150, 150, 0.15);
+    color: #b9b9b9;
+    border-color: rgba(150, 150, 150, 0.35);
+}
+
+
 @media (max-width: 1200px) {
     .sac-content {
         margin-left: 240px;

@@ -256,7 +256,7 @@ const EditGem = () => {
   const clearExistingCert = () => setExistingCertUrl("");
 
   return (
-    <div>
+    <div className="editgem-root">
       {/* Particle Background */}
       <div id="particles-js" />
 

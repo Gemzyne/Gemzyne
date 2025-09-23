@@ -8,6 +8,10 @@ router.use(requireAuth);
 // Buyer: my payments
 router.get('/my', ctrl.listMyPayments);
 
+// Buyer/Staff: remove saved card from a single payment
+router.delete('/:id/card', ctrl.deleteSavedCard);
+
+
 // Seller/Admin: all payments
 router.get('/', requireRoles('seller', 'admin'), ctrl.listAllPayments);
 

@@ -6,6 +6,15 @@ import { Link, useNavigate } from "react-router-dom";
 const Header = () => {
   const navigate = useNavigate();
 
+  // Header shadow on scroll
+      const handleScroll = () => {
+        const header = document.getElementById("header");
+        if (!header) return;
+        if (window.scrollY > 100) header.classList.add("scrolled");
+        else header.classList.remove("scrolled");
+      };
+      window.addEventListener("scroll", handleScroll);
+
   const handleProfileClick = () => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user) {

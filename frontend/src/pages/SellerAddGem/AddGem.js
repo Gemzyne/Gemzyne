@@ -180,7 +180,7 @@ const AddGem = () => {
   const handleCancel = () => setShowCancelConfirm(true);
 
   return (
-    <div>
+    <div className="addgem-root">
       {/* Particle Background */}
       <div id="particles-js" />
 

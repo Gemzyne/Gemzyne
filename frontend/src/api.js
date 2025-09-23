@@ -364,7 +364,30 @@ api.gems = {
   byId: (id) => request(`/api/gems/${id}`),
 
   // seller: my gems in inventory page
-  mine: () => request(`/api/gems/mine/list`),
+   mine: async () => {
+    const attempts = [
+      () => request(`/api/gems/mine/list`),
+      () => request(`/api/gems/mine`),
+      () => request(`/api/gems?mine=1`),
+      () => request(`/api/gems/owner/me`),
+      () => request(`/api/gems?owner=me`),
+      () => request(`/api/gems`), // last resort (we'll just return all)
+    ];
+
+    for (const fn of attempts) {
+      try {
+        const res = await fn();
+        if (Array.isArray(res)) return res;
+        if (Array.isArray(res?.data)) return res.data;
+        if (Array.isArray(res?.items)) return res.items;
+        if (Array.isArray(res?.gems)) return res.gems;
+      } catch (_) {
+        // try next
+      }
+    }
+    return [];
+  },
+
 
   // seller: create (multipart/form-data)
   // pass a FormData instance with fields and files:

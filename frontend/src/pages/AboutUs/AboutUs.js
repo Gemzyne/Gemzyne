@@ -8,6 +8,7 @@ import Gemimg from "../../Assets/rathnapura-gems.webp";
 import Gems from "../../Assets/gems.webp";
 import Bggems from "../../Assets/gemhero.jpg";
 import signature from "../../Assets/sig.png";
+import EbgImg from "../../Assets/explorebg.webp";
 
 const AboutUs = () => {
   // Particles (same vibe as Home, slightly lighter)
@@ -25,22 +26,23 @@ const AboutUs = () => {
             distance: 140,
             color: "#d4af37",
             opacity: 0.08,
-            width: 1
+            width: 1,
           },
-          move: { enable: true, speed: 0.9, random: true, out_mode: "out" }
+          move: { enable: true, speed: 0.9, random: true, out_mode: "out" },
         },
         interactivity: {
           detect_on: "canvas",
           events: {
             onhover: { enable: true, mode: "repulse" },
             onclick: { enable: true, mode: "push" },
-            resize: true
-          }
+            resize: true,
+          },
         },
-        retina_detect: true
+        retina_detect: true,
       });
     }
   }, []);
+  
 
   return (
     <div className="about-container">
@@ -56,7 +58,7 @@ const AboutUs = () => {
           backgroundImage: `linear-gradient(rgba(10,10,10,.72), rgba(10,10,10,.72)), url(${Bggems})`,
           backgroundRepeat: "no-repeat",
           backgroundPosition: "center",
-          backgroundSize: "cover"
+          backgroundSize: "cover",
         }}
       >
         <div className="about-hero-content">
@@ -94,11 +96,11 @@ const AboutUs = () => {
         <div className="story-content">
           <div className="story-text">
             <p>
-              GemZyne was founded by <strong>Mr. Wickramarathna</strong>, a
-              master gemologist with deep roots in Ratnapura—Sri Lanka’s
-              legendary “City of Gems.” For over three decades, our family has
-              sourced exceptional stones directly from trusted miners and
-              artisanal cutters.
+              GemZyne was founded by <strong>Mr. Hapuu</strong>, a master
+              gemologist with deep roots in Ratnapura—Sri Lanka’s legendary
+              “City of Gems.” For over three decades, our family has sourced
+              exceptional stones directly from trusted miners and artisanal
+              cutters.
             </p>
             <p>
               What began as a small family workshop has grown into a trusted
@@ -140,11 +142,11 @@ const AboutUs = () => {
           </div>
 
           <div className="founder-details">
-            <h2>Mr. Wickramarathna</h2>
+            <h2>Mr. Hapuu</h2>
             <h3>Founder &amp; Master Gemologist</h3>
             <p>
               With over <strong>35 years</strong> in the trade, Mr.
-              Wickramarathna is known for uncompromising standards in color,
+              Hapuu is known for uncompromising standards in color,
               clarity, and cut. He personally oversees the selection and
               preparation of each stone, working with a network of Sri Lankan
               miners whose families have collaborated with ours for generations.
@@ -156,11 +158,7 @@ const AboutUs = () => {
               gems possible.
             </p>
             <div className="founder-signature">
-              <img
-                src={signature}
-                alt="Founder’s signature"
-                loading="lazy"
-              />
+              <img src={signature} alt="Founder’s signature" loading="lazy" />
             </div>
           </div>
         </div>
@@ -212,8 +210,8 @@ const AboutUs = () => {
             </div>
             <h3>Passion</h3>
             <p>
-              We’re storytellers as much as sellers—each stone is a piece of
-              Sri Lanka’s heritage.
+              We’re storytellers as much as sellers—each stone is a piece of Sri
+              Lanka’s heritage.
             </p>
           </div>
         </div>
@@ -248,8 +246,8 @@ const AboutUs = () => {
                 centered lines
               </li>
               <li>
-                <strong>Padparadscha:</strong> Rare pink-orange sapphire
-                unique to the island
+                <strong>Padparadscha:</strong> Rare pink-orange sapphire unique
+                to the island
               </li>
               <li>
                 <strong>Alexandrite:</strong> Dramatic color-change from green
@@ -279,7 +277,7 @@ const AboutUs = () => {
         // keep it theme-consistent and fast — no external bg:
         style={{
           backgroundImage:
-            "linear-gradient(135deg, rgba(26,26,26,.85), rgba(10,10,10,.92))"
+            `linear-gradient(135deg, rgba(26,26,26,.85), rgba(10,10,10,.92)),url(${EbgImg})`,
         }}
       >
         <div className="cta-content">
