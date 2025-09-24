@@ -134,12 +134,7 @@
 
 .review-content { margin-bottom: 15px; color: #e0e0e0; }
 
-.review-gem {
-  display: flex; align-items: center; gap: 10px;
-  background: rgba(10, 10, 10, 0.5); padding: 10px 15px; border-radius: 8px; margin-top: 15px;
-}
-.review-gem img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; }
-.review-gem p { color: #b0b0b0; font-size: 0.9rem; }
+
 
 .review-actions { display: flex; gap: 15px; margin-top: 15px; }
 .review-action-btn {

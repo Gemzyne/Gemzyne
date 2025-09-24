@@ -27,6 +27,7 @@ export default function AdminFeedbackPage() {
   // UI state
   const [view, setView] = useState("reviews"); // "reviews" | "complaints"
   const [category, setCategory] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all"); // all | pending | resolved
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]); // raw feedback from API
   const [error, setError] = useState("");
@@ -140,18 +141,37 @@ export default function AdminFeedbackPage() {
   const doHide = async (id) => {
     try {
       await apiRequest(`/api/feedback/${id}`, { method: "DELETE" });
-      setItems((prev) => prev.map((x) => (x._id === id ? { ...x, isAdminHidden: true } : x)));
     } catch (e) {
       alert(e.message || "Failed to hide");
+      return;
     }
+    setItems((prev) => prev.map((x) => (x._id === id ? { ...x, isAdminHidden: true } : x)));
   };
+
   const doRestore = async (id) => {
     try {
       await apiRequest(`/api/feedback/${id}/restore`, { method: "PATCH" });
-      setItems((prev) => prev.map((x) => (x._id === id ? { ...x, isAdminHidden: false } : x)));
     } catch (e) {
       alert(e.message || "Failed to restore");
+      return;
     }
+    setItems((prev) => prev.map((x) => (x._id === id ? { ...x, isAdminHidden: false } : x)));
+  };
+
+  // Change complaint status (uses existing PUT /api/feedback/:id)
+  const setComplaintStatus = async (id, nextStatus) => {
+    try {
+      await apiRequest(`/api/feedback/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ status: nextStatus }),
+      });
+    } catch (e) {
+      alert(e.message || "Failed to update status");
+      return;
+    }
+    setItems((prev) =>
+      prev.map((x) => (x._id === id ? { ...x, status: nextStatus } : x))
+    );
   };
 
   // send reply
@@ -166,10 +186,8 @@ export default function AdminFeedbackPage() {
         method: "PATCH",
         body: JSON.stringify({ text }),
       });
-
-      // refresh so status="Resolved" and reply show instantly
+      // refresh so the reply shows instantly (and if backend marks status, it updates too)
       await loadAll();
-
       setReplyText("");
       setReplyOpenId(null);
     } catch (e) {
@@ -180,6 +198,29 @@ export default function AdminFeedbackPage() {
   // Derived lists
   const reviews = useMemo(() => items.filter((i) => i.type === "review"), [items]);
   const complaints = useMemo(() => items.filter((i) => i.type === "complaint"), [items]);
+
+
+  // === Derived metrics: Response & Resolution rates (complaints only) ===
+const { responseRate, resolutionRate } = useMemo(() => {
+  const total = complaints.length;
+  if (!total) return { responseRate: 0, resolutionRate: 0 };
+
+  // Responded = complaints with a non-empty adminReply.text
+  const responded = complaints.filter(
+    (c) => c?.adminReply && typeof c.adminReply.text === "string" && c.adminReply.text.trim().length > 0
+  ).length;
+
+  // Resolved = status equals "resolved" (case-insensitive)
+  const resolved = complaints.filter(
+    (c) => String(c.status || "").toLowerCase() === "resolved"
+  ).length;
+
+  return {
+    responseRate: Math.round((responded / total) * 100),
+    resolutionRate: Math.round((resolved / total) * 100),
+  };
+}, [complaints]);
+
 
   const categoryMatch = (fb) => {
     if (category === "all") return true;
@@ -192,7 +233,14 @@ export default function AdminFeedbackPage() {
     return Array.isArray(fb.categories) && fb.categories.includes(category);
   };
 
-  const shown = (view === "reviews" ? reviews : complaints).filter(categoryMatch);
+  // Apply category + status filters
+  const shown = (view === "reviews" ? reviews : complaints)
+    .filter(categoryMatch)
+    .filter((f) => {
+      if (view !== "complaints" || statusFilter === "all") return true;
+      const s = String(f.status || "").toLowerCase();
+      return statusFilter === "resolved" ? s === "resolved" : s !== "resolved";
+    });
 
   // Sidebar stats + rating distribution
   const { totalReviews, totalComplaints, avgRating, dist } = useMemo(() => {
@@ -265,6 +313,22 @@ export default function AdminFeedbackPage() {
             <option value="authenticity">Authenticity</option>
           </select>
         </div>
+
+        {/* NEW: Status filter (only for complaints view) */}
+        {view === "complaints" && (
+          <div className="filter-group">
+            <span className="filter-label">Status:</span>
+            <select
+              className="filter-select"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">All</option>
+              <option value="pending">Pending</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </div>
+        )}
 
         <div className="view-toggle">
           <button
@@ -339,6 +403,9 @@ export default function AdminFeedbackPage() {
                   ? ` • ${f.productName || f.productId}`
                   : "";
 
+              const statusLower = String(f.status || "").toLowerCase();
+              const isResolved = statusLower === "resolved";
+
               return (
                 <div className={rowClass} key={f._id}>
                   <div className="review-header">
@@ -400,18 +467,13 @@ export default function AdminFeedbackPage() {
                           borderRadius: 999,
                           fontSize: 12,
                           border: "1px solid",
-                          borderColor:
-                            String(f.status).toLowerCase() === "resolved"
-                              ? "rgba(80,200,120,.6)"
-                              : "rgba(212,175,55,.5)",
-                          background:
-                            String(f.status).toLowerCase() === "resolved"
-                              ? "rgba(80,200,120,.15)"
-                              : "rgba(212,175,55,.12)",
-                          color:
-                            String(f.status).toLowerCase() === "resolved"
-                              ? "#7DDEA5"
-                              : "#d4af37",
+                          borderColor: isResolved
+                            ? "rgba(80,200,120,.6)"
+                            : "rgba(212,175,55,.5)",
+                          background: isResolved
+                            ? "rgba(80,200,120,.15)"
+                            : "rgba(212,175,55,.12)",
+                          color: isResolved ? "#7DDEA5" : "#d4af37",
                         }}
                       >
                         {f.status || "Pending"}
@@ -432,64 +494,76 @@ export default function AdminFeedbackPage() {
 
                   {/* Actions with inline confirm/cancel + Reply */}
                   <div className="review-actions">
-                    {/* Reply only for complaints */}
+                    {/* Resolve/Toggle + Reply only for complaints */}
                     {!isReview && (
                       <>
-                       {replyOpenId === f._id ? (
-                           <div style={{ width: "100%", marginTop: 10 }}>
-                           <textarea
-                            value={replyText}
-                                onChange={(e) => setReplyText(e.target.value)}
-                                placeholder="Type your reply…"
-                                rows={4}
-                                style={{
-                                  width: "100%",
-                                  padding: "10px 12px",
-                                  borderRadius: 10,
-                                  border: "1px solid #333",
-                                  background: "#141414",
-                                  color: "#eee",
-                                  outline: "none",
-                                  resize: "vertical",
-                                }}
-                             />
-                              <div
-                                style={{
-                                 display: "flex",
-                                 gap: 10,
-                                 justifyContent: "flex-end",
-                                 marginTop: 8,
-                               }}
-                              >
-                           <button
-                              className="review-action-btn"
-                              onClick={() => sendReply(f._id)}
-                           >
-                            Send
-                          </button>
-                           <button
-                             className="review-action-btn delete"
-                             onClick={() => {
-                             setReplyOpenId(null);
-                             setReplyText("");
-                           }}
-                            >
-                             Cancel
-                          </button>
-                        </div>
-                     </div>
-                     ) : (
-                    <button
-                       className="review-action-btn"
-                       onClick={() => {
-                          setReplyOpenId(f._id);
-                          setReplyText(f.adminReply?.text || "");
-                         }}
-                     >
-                    <i className="fas fa-reply" /> Reply
-                    </button>
-                    )}
+                        <button
+                          className="review-action-btn"
+                          onClick={() =>
+                            setComplaintStatus(
+                              f._id,
+                              isResolved ? "Pending" : "Resolved"
+                            )
+                          }
+                        >
+                          <i className="fas fa-check-circle" />{" "}
+                          {isResolved ? "Mark Pending" : "Resolve"}
+                        </button>
 
+                        {replyOpenId === f._id ? (
+                          <div style={{ width: "100%", marginTop: 10 }}>
+                            <textarea
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              placeholder="Type your reply…"
+                              rows={4}
+                              style={{
+                                width: "100%",
+                                padding: "10px 12px",
+                                borderRadius: 10,
+                                border: "1px solid #333",
+                                background: "#141414",
+                                color: "#eee",
+                                outline: "none",
+                                resize: "vertical",
+                              }}
+                            />
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 10,
+                                justifyContent: "flex-end",
+                                marginTop: 8,
+                              }}
+                            >
+                              <button
+                                className="review-action-btn"
+                                onClick={() => sendReply(f._id)}
+                              >
+                                Send
+                              </button>
+                              <button
+                                className="review-action-btn delete"
+                                onClick={() => {
+                                  setReplyOpenId(null);
+                                  setReplyText("");
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            className="review-action-btn"
+                            onClick={() => {
+                              setReplyOpenId(f._id);
+                              setReplyText(f.adminReply?.text || "");
+                            }}
+                          >
+                            <i className="fas fa-reply" /> Reply
+                          </button>
+                        )}
                       </>
                     )}
 
@@ -545,14 +619,15 @@ export default function AdminFeedbackPage() {
               <span>Average Rating</span>
               <span className="stat-value">{avgRating}</span>
             </div>
-            <div className="stat-item">
-              <span>Response Rate</span>
-              <span className="stat-value">98%</span>
+            <div className="stat-item" title="Complaints with at least one seller/admin reply">
+               <span>Response Rate</span>
+               <span className="stat-value">{responseRate}%</span>
             </div>
-            <div className="stat-item">
+            <div className="stat-item" title="Complaints marked as Resolved">
               <span>Resolution Rate</span>
-              <span className="stat-value">92%</span>
+              <span className="stat-value">{resolutionRate}%</span>
             </div>
+
 
             {/* Rating Distribution */}
             <div className="rating-summary">
