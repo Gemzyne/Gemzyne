@@ -18,7 +18,8 @@ import PaymentPage from "./pages/Payment/PaymentPage";
 import PaymentHistory from "./pages/Payment/PaymentHistory";
 import SellerPayments from "./pages/Payment/SellerPayments";
 import AboutUs from "./pages/AboutUs/AboutUs";
-
+import SellerOrder from "./pages/Order/SellerOrders";
+import UserOrders from "./pages/Order/UserOrders";
 
 // Public shop pages
 import GemInventory from "./pages/Inventory/InventoryPage";
@@ -60,10 +61,10 @@ export default function App() {
       <Route path="/about" element={<AboutUs />} />
 
       {/* Public shop routes */}
-     {/* <Route path="/collection" element={<GemInventory />} />*/}
+      {/* <Route path="/collection" element={<GemInventory />} />*/}
       <Route path="/inventory" element={<GemInventory />} />
       <Route path="/gems/:id" element={<GemDetail />} />
-      
+
       {/* Shop */}
       <Route path="/custom" element={<CustomPage />} />
       <Route
@@ -75,7 +76,6 @@ export default function App() {
         }
       />
 
-      
       {/* User */}
       <Route
         path="/udashboard"
@@ -100,6 +100,11 @@ export default function App() {
             <PaymentHistory />
           </RequireAuth>
         }
+      />
+
+      <Route 
+      path="/my-orders" 
+      element={<UserOrders />} 
       />
 
       {/* Admin */}
@@ -217,13 +222,24 @@ export default function App() {
         element={
           <RequireAuth>
             <RequireRole role="seller">
-              <SellerPayments/>
+              <SellerPayments />
             </RequireRole>
           </RequireAuth>
         }
       />
 
-      
+      {/*Seller order*/}
+      <Route
+        path="/seller/orders"
+        element={
+          <RequireAuth>
+            <RequireRole role="seller">
+              <SellerOrder />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
       {/* === AUCTION: Public centre === */}
       <Route path="/auction" element={<AuctionCentre />} />
 

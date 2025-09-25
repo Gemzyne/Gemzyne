@@ -91,6 +91,11 @@ app.use("/api/wins", winnerRoutes);
 // ✅ error handler last
 app.use(errorMiddleware);
 
+
+app.use("/api/orders", require("./Routes/CustomOrderRoutes"));
+app.use("/api/my-orders", require("./Routes/UserOrdersRoutes"));
+
+
 // --- Connect DB + Start Server
 mongoose
   .connect(process.env.MONGO_URI)
