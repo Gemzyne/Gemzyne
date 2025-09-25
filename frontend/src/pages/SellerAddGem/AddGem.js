@@ -175,11 +175,11 @@ const AddGem = () => {
       return;
     }
 
-    // --- Centered popup + instant redirect ---
+    // --- Centered popup + 1 second delay before redirect ---
     setShowSuccessToast(true);
     setTimeout(() => {
       window.location.href = "/seller/gems";
-    }, 10); // tiny delay to allow the popup to render before redirect
+    }, 1000);
   };
 
   const handleCancel = () => setShowCancelConfirm(true);
