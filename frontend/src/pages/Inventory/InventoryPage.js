@@ -342,7 +342,13 @@ export default function GemInventory() {
 
           <div className="inventory-gems-grid">
             {!loading &&
-              gems.map((gem) => {
+              gems
+              // hide reserved / out_of_stock at UI level too (defense-in-depth)
+              .filter(g => {
+              const s = String(g.status || '').toLowerCase().replace(/\s+/g,'_');
+              return !['reserved','out_of_stock','sold'].includes(s);
+              })
+              .map((gem) => {
                 const firstImg = gem.images?.[0] ? getImageUrl(gem.images[0]) : "/images/placeholder-gem.jpg";
                 return (
                   <div
@@ -368,19 +374,13 @@ export default function GemInventory() {
                       </div>
                       <div className="inventory-gem-actions">
                         <button
-                          className="inventory-add-to-cart-btn"
-                          onClick={(e) => addToCart(gem, e)}
-                        >
-                          Add to Cart
-                        </button>
-                        <button
                           className="inventory-buy-now-btn"
                           onClick={(e) => {
-                            e.stopPropagation();
-                            if (!requireLogin()) return;
-                            // TODO: Link to Payment page here later
-                            // e.g., navigate(`/checkout?gem=${gem._id}`)
-                          }}
+                          e.stopPropagation();
+                          if (!requireLogin()) return;
+                          // Go to payment with gemId; no order is created yet
+                          navigate(`/payment?gemId=${encodeURIComponent(gem._id)}`);
+                        }}
                         >
                           Buy Now
                         </button>

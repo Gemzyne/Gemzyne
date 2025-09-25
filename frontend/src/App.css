@@ -1,0 +1,56 @@
+/* === Global base (safe) === */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: "Poppins", sans-serif; /* fonts are loaded in index.html */
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  color: #f5f5f5;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* Media defaults */
+img,
+svg,
+canvas,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+/* Accessible focus ring */
+:focus-visible {
+  outline: 3px solid rgba(212, 175, 55, 0.4);
+  outline-offset: 2px;
+}
+
+/* One canonical particles rule (prevents click/scroll issues) */
+#particles-js {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Optional: dark UI scrollbars (remove if you don’t want them) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+}

@@ -74,6 +74,24 @@ const SellerInventory = () => {
     return () => { cancelled = true; };
   }, []);
 
+   // Fetch *my* gems (show all statuses to seller)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        const res = await api.gems.mine();
+        if (!cancelled) setItems(res?.data || res || []);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setItems([]);
+    } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const numberUSD = (n) =>
     typeof n === "number"
       ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n)

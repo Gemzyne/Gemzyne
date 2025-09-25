@@ -1,10 +1,11 @@
+/* Reset kept small to avoid surprises */
 * {
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
-body {
+/* Scope page visuals to home only (same look, no leaks) */
+.home-container {
   font-family: "Poppins", sans-serif;
   background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
   color: #f5f5f5;
@@ -14,7 +15,7 @@ body {
 }
 
 /* Hero Section */
-.btn {
+.home-container .btn {
   padding: 12px 28px;
   background: linear-gradient(45deg, #d4af37, #f9f295);
   border: none;
@@ -27,12 +28,12 @@ body {
   letter-spacing: 0.5px;
   box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
 }
-.btn:hover {
+.home-container .btn:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 20px rgba(212, 175, 55, 0.4);
 }
 
-.hero {
+.home-container .hero {
   height: 100vh;
   display: flex;
   align-items: center;
@@ -40,12 +41,12 @@ body {
   overflow: hidden;
   padding: 0 5%;
 }
-.hero-content {
+.home-container .hero-content {
   max-width: 600px;
   z-index: 2;
   position: relative;
 }
-.hero h1 {
+.home-container .hero h1 {
   font-family: "Playfair Display", serif;
   font-size: 70px;
   font-weight: 700;
@@ -56,14 +57,14 @@ body {
   background-clip: text;
   color: transparent;
 }
-.hero p {
+.home-container .hero p {
   font-size: 18px;
   margin-bottom: 30px;
   color: #c0c0c0;
   max-width: 500px;
 }
 
-#gem-container {
+.home-container #gem-container {
   position: absolute;
   top: 50%;
   right: 5%;
@@ -79,38 +80,38 @@ body {
 }
 
 /* Featured / Random Gems */
-.featured-gems {
+.home-container .featured-gems {
   padding: 100px 5%;
   background: #121212;
   position: relative;
   z-index: 2;
 }
 
-.section-title {
+.home-container .section-title {
   text-align: center;
   margin-bottom: 60px;
 }
-.section-title h2 {
+.home-container .section-title h2 {
   font-family: "Playfair Display", serif;
   font-size: 42px;
   margin-bottom: 15px;
   color: #f5f5f5;
 }
-.section-title p {
+.home-container .section-title p {
   color: #b0b0b0;
   max-width: 600px;
   margin: 0 auto;
 }
 
 /* === Force 3 big cards on desktop === */
-.gems-grid {
+.home-container .gems-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 34px;
   align-items: stretch;
 }
 
-.gem-card {
+.home-container .gem-card {
   background: rgba(26, 26, 26, 0.7);
   border-radius: 18px;
   overflow: hidden;
@@ -120,14 +121,14 @@ body {
   border: 1px solid rgba(212, 175, 55, 0.12);
   transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
 }
-.gem-card:hover {
+.home-container .gem-card:hover {
   transform: translateY(-6px);
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
   border-color: rgba(212, 175, 55, 0.28);
 }
 
-.gem-image {
-  height: 360px; /* larger image window */
+.home-container .gem-image {
+  height: 360px;
   background: #0a0a0a;
   display: flex;
   align-items: center;
@@ -135,32 +136,32 @@ body {
   position: relative;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
-.gem-model {
+.home-container .gem-model {
   width: 100%;
   height: 100%;
 }
-.gem-image img {
+.home-container .gem-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.gem-info {
+.home-container .gem-info {
   padding: 28px;
 }
-.gem-info h3 {
+.home-container .gem-info h3 {
   font-size: 26px;
   margin-bottom: 12px;
   color: #f5f5f5;
 }
-.gem-price {
+.home-container .gem-price {
   color: #d4af37;
   font-size: 22px;
   font-weight: 600;
   margin-bottom: 16px;
 }
-.gem-specs {
+.home-container .gem-specs {
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -169,7 +170,7 @@ body {
   font-size: 15px;
 }
 
-.cta-btn {
+.home-container .cta-btn {
   display: inline-block;
   padding: 12px 26px;
   background: transparent;
@@ -180,27 +181,27 @@ body {
   font-weight: 500;
   transition: 0.25s;
 }
-.cta-btn:hover {
+.home-container .cta-btn:hover {
   background: rgba(212, 175, 55, 0.1);
 }
 
 /* Benefits Section */
-.benefits {
+.home-container .benefits {
   padding: 100px 5%;
   background: linear-gradient(to bottom, #0a0a0a 0%, #121212 100%);
   position: relative;
   overflow: hidden;
 }
-.benefits::before {
+.home-container .benefits::before {
   content: none;
 }
 
-.benefits-grid {
+.home-container .benefits-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 30px;
 }
-.benefit-card {
+.home-container .benefit-card {
   text-align: center;
   padding: 40px 25px;
   background: rgba(26, 26, 26, 0.5);
@@ -209,28 +210,28 @@ body {
   backdrop-filter: blur(10px);
   border: 1px solid rgba(212, 175, 55, 0.1);
 }
-.benefit-card:hover {
+.home-container .benefit-card:hover {
   background: rgba(212, 175, 55, 0.05);
   transform: translateY(-5px);
   border-color: rgba(212, 175, 55, 0.3);
 }
-.benefit-icon {
+.home-container .benefit-icon {
   font-size: 50px;
   color: #d4af37;
   margin-bottom: 20px;
   text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
 }
-.benefit-card h3 {
+.home-container .benefit-card h3 {
   font-size: 22px;
   margin-bottom: 15px;
   color: #f5f5f5;
 }
-.benefit-card p {
+.home-container .benefit-card p {
   color: #b0b0b0;
 }
 
 /* Newsletter (with bg image kept) */
-.newsletter {
+.home-container .newsletter {
   padding: 100px 5%;
   background: linear-gradient(
       135deg,
@@ -246,23 +247,23 @@ body {
   margin: 0 5%;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
 }
-.newsletter h2 {
+.home-container .newsletter h2 {
   font-family: "Playfair Display", serif;
   font-size: 42px;
   margin-bottom: 20px;
   color: #f5f5f5;
 }
-.newsletter p {
+.home-container .newsletter p {
   max-width: 600px;
   margin: 0 auto 30px;
   color: #c0c0c0;
 }
-.newsletter-form {
+.home-container .newsletter-form {
   display: flex;
   max-width: 500px;
   margin: 0 auto;
 }
-.newsletter-form input {
+.home-container .newsletter-form input {
   flex: 1;
   padding: 15px 20px;
   border: none;
@@ -272,14 +273,14 @@ body {
   font-size: 16px;
   backdrop-filter: blur(5px);
 }
-.newsletter-form input::placeholder {
+.home-container .newsletter-form input::placeholder {
   color: #b0b0b0;
 }
-.newsletter-form input:focus {
+.home-container .newsletter-form input:focus {
   outline: none;
   background: rgba(255, 255, 255, 0.15);
 }
-.newsletter-form button {
+.home-container .newsletter-form button {
   padding: 15px 30px;
   background: linear-gradient(45deg, #d4af37, #f9f295);
   border: none;
@@ -289,22 +290,22 @@ body {
   cursor: pointer;
   transition: 0.3s;
 }
-.newsletter-form button:hover {
+.home-container .newsletter-form button:hover {
   background: linear-gradient(45deg, #c5a12d, #e9dc8a);
 }
 
-/* Particle Background */
-#particles-js {
+/* Particle Background (home-only id) */
+#home-particles {
   position: fixed;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
+  top: 0;
+  left: 0;
   z-index: 0;
 }
 
 /* Loading animation */
-.loader {
+.home-container .loader {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -325,107 +326,17 @@ body {
     transform: translate(-50%, -50%) rotate(360deg);
   }
 }
-.gem-loading {
+.home-container .gem-loading {
   position: relative;
 }
 
-/* Responsive */
-@media (max-width: 980px) {
-  .gems-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .gem-image {
-    height: 300px;
-  }
-}
-@media (max-width: 768px) {
-  .hero {
-    flex-direction: column;
-    text-align: center;
-    padding-top: 100px;
-  }
-  .hero-content {
-    max-width: 100%;
-    margin-bottom: 50px;
-  }
-  .hero p {
-    margin: 0 auto 30px;
-  }
-
-  #gem-container {
-    position: relative;
-    top: auto;
-    right: auto;
-    transform: none;
-    width: 100%;
-    height: 400px;
-    max-width: 100%;
-    margin-top: 30px;
-  }
-  .nav-links {
-    display: none;
-  }
-}
-@media (max-width: 640px) {
-  .gems-grid {
-    grid-template-columns: 1fr;
-  }
-  .gem-image {
-    height: 260px;
-  }
-}
-@media (max-width: 576px) {
-  .newsletter-form {
-    flex-direction: column;
-    gap: 15px;
-  }
-  .newsletter-form input,
-  .newsletter-form button {
-    border-radius: 30px;
-  }
-  .hero h1 {
-    font-size: 40px;
-  }
-}
-
-/* Ensure card images always fit */
-.gem-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-/* ==== FORCE 3 BIG CARDS ON DESKTOP (override any other CSS) ==== */
-.featured-gems > .gems-grid {
-  display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: 36px !important;
-  width: 100% !important;
-}
-
-/* Bigger card & image */
-.featured-gems .gem-image { height: 360px !important; }
-.featured-gems .gem-info h3 { font-size: 28px !important; }
-.featured-gems .gem-price { font-size: 24px !important; }
-
-/* Enhanced particles container */
-#particles-js {
-  position: fixed;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  z-index: 0;
-}
-
 /* Premium hero actions */
-.hero-actions {
+.home-container .hero-actions {
   display: flex;
   gap: 1rem;
   margin-top: 2rem;
 }
-
-.btn-primary {
+.home-container .btn-primary {
   background: linear-gradient(135deg, #d4af37 0%, #b38728 100%);
   border: none;
   padding: 1rem 2rem;
@@ -437,13 +348,11 @@ body {
   text-decoration: none;
   display: inline-block;
 }
-
-.btn-primary:hover {
+.home-container .btn-primary:hover {
   transform: translateY(-3px);
   box-shadow: 0 15px 25px rgba(212, 175, 55, 0.4);
 }
-
-.btn-secondary {
+.home-container .btn-secondary {
   background: transparent;
   border: 1px solid #d4af37;
   padding: 1rem 2rem;
@@ -454,51 +363,16 @@ body {
   text-decoration: none;
   display: inline-block;
 }
-
-.btn-secondary:hover {
+.home-container .btn-secondary:hover {
   background: rgba(212, 175, 55, 0.1);
 }
 
-/* Enhanced gem container */
-#gem-container {
-  position: absolute;
-  top: 50%;
-  right: 5%;
-  transform: translateY(-50%);
-  width: 50%;
-  height: 70%;
-  max-width: 600px;
-  z-index: 1;
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-  background: rgba(20, 20, 20, 0.5);
-}
-
-/* Premium gem cards */
-.gem-card {
-  background: rgba(26, 26, 26, 0.7);
-  border-radius: 18px;
-  overflow: hidden;
-  position: relative;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(212, 175, 55, 0.12);
-  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
-}
-
-.gem-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
-  border-color: rgba(212, 175, 55, 0.28);
-}
-
-.gem-image {
+/* Premium gem cards extras */
+.home-container .gem-image {
   position: relative;
   overflow: hidden;
 }
-
-.premium-badge {
+.home-container .premium-badge {
   position: absolute;
   top: 15px;
   right: 15px;
@@ -510,8 +384,7 @@ body {
   font-weight: 600;
   z-index: 2;
 }
-
-.gem-overlay {
+.home-container .gem-overlay {
   position: absolute;
   top: 0;
   left: 0;
@@ -524,12 +397,10 @@ body {
   opacity: 0;
   transition: opacity 0.3s ease;
 }
-
-.gem-card:hover .gem-overlay {
+.home-container .gem-card:hover .gem-overlay {
   opacity: 1;
 }
-
-.view-details-btn {
+.home-container .view-details-btn {
   background: white;
   color: #333;
   padding: 10px 20px;
@@ -538,13 +409,12 @@ body {
   text-decoration: none;
 }
 
-/* Enhanced newsletter */
-.newsletter-content {
+/* Newsletter extras */
+.home-container .newsletter-content {
   max-width: 800px;
   margin: 0 auto;
 }
-
-.premium-input {
+.home-container .premium-input {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(212, 175, 55, 0.3);
   padding: 15px 25px;
@@ -553,8 +423,7 @@ body {
   width: 300px;
   margin-right: 15px;
 }
-
-.premium-button {
+.home-container .premium-button {
   background: linear-gradient(135deg, #d4af37 0%, #b38728 100%);
   border: none;
   padding: 15px 30px;
@@ -564,23 +433,13 @@ body {
   cursor: pointer;
   transition: all 0.3s ease;
 }
-
-.premium-button:hover {
+.home-container .premium-button:hover {
   transform: translateY(-3px);
   box-shadow: 0 10px 20px rgba(212, 175, 55, 0.3);
 }
 
-/* Enhanced loader */
-.loader {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #d4af37;
-}
-
-.loader-spinner {
+/* Enhanced loader spinner */
+.home-container .loader-spinner {
   width: 50px;
   height: 50px;
   border: 3px solid rgba(212, 175, 55, 0.3);
@@ -589,40 +448,96 @@ body {
   animation: spin 1s ease-in-out infinite;
   margin-bottom: 15px;
 }
-
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* Responsive adjustments */
+/* Responsive */
+@media (max-width: 980px) {
+  .home-container .gems-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .home-container .gem-image {
+    height: 300px;
+  }
+}
 @media (max-width: 768px) {
-  .hero-actions {
+  .home-container .hero {
+    flex-direction: column;
+    text-align: center;
+    padding-top: 100px;
+  }
+  .home-container .hero-content {
+    max-width: 100%;
+    margin-bottom: 50px;
+  }
+  .home-container .hero p {
+    margin: 0 auto 30px;
+  }
+  .home-container #gem-container {
+    position: relative;
+    top: auto;
+    right: auto;
+    transform: none;
+    width: 100%;
+    height: 400px;
+    max-width: 100%;
+    margin-top: 30px;
+  }
+  .home-container .nav-links {
+    display: none;
+  }
+  .home-container .hero-actions {
     flex-direction: column;
     align-items: center;
   }
-  
-  .premium-input {
+  .home-container .premium-input {
     width: 100%;
     margin-right: 0;
     margin-bottom: 15px;
   }
-  
-  .newsletter-form {
+  .home-container .newsletter-form {
     flex-direction: column;
     align-items: center;
   }
 }
-
-/* Keep 2 cols on tablets, 1 on phones */
-@media (max-width: 980px) {
-  .featured-gems > .gems-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-  .featured-gems .gem-image { height: 320px !important; }
-}
 @media (max-width: 640px) {
-  .featured-gems > .gems-grid {
-    grid-template-columns: 1fr !important;
+  .home-container .gems-grid {
+    grid-template-columns: 1fr;
   }
-  .featured-gems .gem-image { height: 280px !important; }
+  .home-container .gem-image {
+    height: 260px;
+  }
+}
+@media (max-width: 576px) {
+  .home-container .newsletter-form {
+    flex-direction: column;
+    gap: 15px;
+  }
+  .home-container .newsletter-form input,
+  .home-container .newsletter-form button {
+    border-radius: 30px;
+  }
+  .home-container .hero h1 {
+    font-size: 40px;
+  }
+}
+
+/* Strong desktop layout overrides (scoped) */
+.home-container .featured-gems > .gems-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 36px !important;
+  width: 100% !important;
+}
+.home-container .featured-gems .gem-image {
+  height: 360px !important;
+}
+.home-container .featured-gems .gem-info h3 {
+  font-size: 28px !important;
+}
+.home-container .featured-gems .gem-price {
+  font-size: 24px !important;
 }

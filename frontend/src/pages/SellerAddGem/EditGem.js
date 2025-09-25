@@ -109,7 +109,13 @@ const EditGem = () => {
         setCertification(g.certificationAgency || "");
         setCertNumber(g.certificateNumber || "");
         setPrice(g.priceUSD ?? "");
-        setStatus(g.status === "out_of_stock" ? "out-of-stock" : "in-stock");
+        setStatus(
+        g.status === "out_of_stock"
+        ? "out-of-stock"
+        : g.status === "reserved"
+        ? "reserved"
+        : "in-stock"
+ );
         setDescription(g.description || "");
 
         // Images (support g.images or g.imageUrls)
@@ -190,7 +196,14 @@ const EditGem = () => {
     fd.append("certificationAgency", certification);
     fd.append("certificateNumber", certNumber);
     fd.append("priceUSD", String(price));
-    fd.append("status", status === "in-stock" ? "in_stock" : "out_of_stock");
+    fd.append(
+    "status",
+      status === "in-stock"
+      ? "in_stock"
+      : status === "reserved"
+      ? "reserved"
+      : "out_of_stock"
+    );
     fd.append("gemId", gemId);
     fd.append("description", description);
 
@@ -243,7 +256,7 @@ const EditGem = () => {
   const clearExistingCert = () => setExistingCertUrl("");
 
   return (
-    <div>
+    <div className="editgem-root">
       {/* Particle Background */}
       <div id="particles-js" />
 
@@ -464,6 +477,7 @@ const EditGem = () => {
                 onChange={(e) => setStatus(e.target.value)}
               >
                 <option value="in-stock">In Stock</option>
+                <option value="reserved">Reserved</option>
                 <option value="out-of-stock">Out of Stock</option>
               </select>
             </div>

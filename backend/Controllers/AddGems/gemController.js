@@ -121,6 +121,16 @@ exports.listGems = async (req, res) => {
     } = req.query;
 
     const filter = { isActive: true };
+
+    // Default: hide reserved / out_of_stock / sold from public inventory
+    // If the client supplies ?status=..., we respect it instead.
+    if (!status) {
+      // include legacy-cased values so older docs don't leak through
+    filter.status = { $nin: ['reserved', 'Reserved', 'out_of_stock', 'Out of Stock', 'sold', 'Sold'] };
+    } else if (status && status !== 'all') {
+      filter.status = STATUS_MAP[status] || status;
+    }
+
     if (types) filter.type = { $in: types.split(",").filter(Boolean) };
     if (treatment && treatment !== "all-treatments") filter.treatment = treatment;
     if (priceMax) filter.priceUSD = { ...(filter.priceUSD || {}), $lte: Number(priceMax) };
@@ -154,7 +164,7 @@ exports.publicRandom = async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit || '6', 10), 24);
     // Treat "active" inventory as anything not sold/out_of_stock
     const items = await Gem.aggregate([
-      { $match: { isActive: true, status: { $nin: ['sold','out_of_stock'] } } },
+      { $match: { isActive: true, status: { $nin: ['reserved','Reserved','sold','Sold','out_of_stock','Out of Stock'] } } },
       { $sample: { size: limit } },
       { $project: { title: '$name', type: 1, priceUSD: 1, images: 1 } }
     ]);

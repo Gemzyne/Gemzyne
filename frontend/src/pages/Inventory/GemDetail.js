@@ -160,16 +160,20 @@ export default function GemDetail() {
     alert("Added to cart");
   };
 
-  const instantBuy = () => {
-    if (!requireLogin()) return;
-    addToCart();
-    navigate("/checkout");
+    const instantBuy = () => {
+    if (!requireLogin() || !gem) return;
+    // Go to payment with gemId; order will be created after payment
+    navigate(`/payment?gemId=${encodeURIComponent(gem._id)}`);
   };
+
 
   const goLogin = () => {
     setShowLoginPrompt(false);
     navigate("/login");
   };
+
+  const normalizedStatus = (gem?.status || '').toLowerCase().replace(/\s+/g,'_');
+  const canBuy = normalizedStatus === 'in_stock';
 
   return (
   <div className="page-root">
@@ -269,8 +273,14 @@ export default function GemDetail() {
               <p className="gem-description">{gem.description || "—"}</p>
 
               <div className="gem-actions-detail">
-                <button className="add-to-cart-btn-detail" onClick={addToCart}>Add to Cart</button>
-                <button className="buy-now-btn-detail" onClick={instantBuy}>Buy Now</button>
+                <button
+                  className="buy-now-btn-detail"
+                  onClick={instantBuy}
+                  disabled={!canBuy}
+                  title={!canBuy ? 'This gem is not available' : 'Buy Now'}
+                >
+                  {canBuy ? 'Buy Now' : (normalizedStatus.replace(/_/g,' ') || 'Unavailable')}
+                </button>
               </div>
 
               <div className="gem-certification" id="certification">

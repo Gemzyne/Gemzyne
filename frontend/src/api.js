@@ -239,6 +239,37 @@ export const api = {
 
     // SELLER/ADMIN: delete order
     remove: (id) => request(`/api/orders/${id}`, { method: "DELETE" }),
+    // From inventory gem
+    createFromGem: (gemId) =>
+      request(`/api/orders/from-gem/${encodeURIComponent(gemId)}`, {
+        method: "POST",
+      }),
+
+    // NEW: one-shot checkout directly from an inventory gem
+    checkoutFromGem: (
+      gemId,
+      { customer, payment = {}, country, slip } = {}
+    ) => {
+      // supports JSON for card, multipart for bank (with slip)
+      const path = `/api/orders/from-gem/${encodeURIComponent(gemId)}/checkout`;
+      if (payment?.method === "bank" || slip) {
+        const fd = new FormData();
+        if (country) fd.append("country", country);
+        if (customer) fd.append("customer", JSON.stringify(customer));
+        fd.append("payment", JSON.stringify({ method: "bank", ...payment }));
+        if (slip) fd.append("slip", slip);
+        return request(path, { method: "POST", body: fd });
+      }
+      // default: card
+      return request(path, {
+        method: "POST",
+        body: JSON.stringify({
+          country,
+          customer,
+          payment: { method: "card", ...payment },
+        }),
+      });
+    },
 
     // Card checkout
     checkoutCard: (id, { customer, payment, country }) =>
@@ -335,7 +366,6 @@ export const api = {
   },
   // === AUCTION END ===
 
-  //=== Order Track Management ===
 };
 
 // ---- GEMS ----
@@ -350,7 +380,30 @@ api.gems = {
   byId: (id) => request(`/api/gems/${id}`),
 
   // seller: my gems in inventory page
-  mine: () => request(`/api/gems/mine/list`),
+   mine: async () => {
+    const attempts = [
+      () => request(`/api/gems/mine/list`),
+      () => request(`/api/gems/mine`),
+      () => request(`/api/gems?mine=1`),
+      () => request(`/api/gems/owner/me`),
+      () => request(`/api/gems?owner=me`),
+      () => request(`/api/gems`), // last resort (we'll just return all)
+    ];
+
+    for (const fn of attempts) {
+      try {
+        const res = await fn();
+        if (Array.isArray(res)) return res;
+        if (Array.isArray(res?.data)) return res.data;
+        if (Array.isArray(res?.items)) return res.items;
+        if (Array.isArray(res?.gems)) return res.gems;
+      } catch (_) {
+        // try next
+      }
+    }
+    return [];
+  },
+
 
   // seller: create (multipart/form-data)
   // pass a FormData instance with fields and files:
