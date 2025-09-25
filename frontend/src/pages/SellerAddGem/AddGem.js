@@ -1,4 +1,3 @@
-// src/pages/SellerAddGem/AddGem.js
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
@@ -38,6 +37,9 @@ const AddGem = () => {
 
   // Cancel confirmation modal
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  // Success toast (custom JS message)
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   // --- Particles.js loader ---
   useEffect(() => {
@@ -173,8 +175,11 @@ const AddGem = () => {
       return;
     }
 
-    alert("Gem saved successfully!");
-    window.location.href = "/seller/gems";
+    // --- Centered popup + instant redirect ---
+    setShowSuccessToast(true);
+    setTimeout(() => {
+      window.location.href = "/seller/gems";
+    }, 10); // tiny delay to allow the popup to render before redirect
   };
 
   const handleCancel = () => setShowCancelConfirm(true);
@@ -559,6 +564,42 @@ const AddGem = () => {
                 Continue
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Centered success popup (inline styles) */}
+      {showSuccessToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2147483647,
+          }}
+        >
+          <div
+            style={{
+              background: "#1a1a1a",
+              border: "1px solid rgba(212,175,55,0.35)",
+              color: "#f5f5f5",
+              padding: "20px 24px",
+              borderRadius: 14,
+              boxShadow: "0 18px 42px rgba(0,0,0,0.5)",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              minWidth: 260,
+              justifyContent: "center",
+            }}
+          >
+            <i className="fas fa-check-circle" style={{ color: "#d4af37", fontSize: 22 }} />
+            <span style={{ fontWeight: 600 }}>Gem added successfully!</span>
           </div>
         </div>
       )}
