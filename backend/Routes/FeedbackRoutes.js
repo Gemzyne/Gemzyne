@@ -21,10 +21,12 @@ const {
   // preferred explicit endpoints (admin/seller hide/unhide)
   hideFeedback,
   unhideFeedback,
+
+   addReply,
 } = require("../Controllers/FeedbackController");
 
 // ✅ reuse your existing auth middleware
-const { requireAuth } = require("../Middleware/auth");
+const { requireAuth, requireRoles } = require("../Middleware/auth");
 
 /* =========================
  * PUBLIC ROUTES (no token)
@@ -62,6 +64,10 @@ router.delete("/my/:id", requireAuth, deleteMyFeedback);
  */
 router.patch("/:id/hide", requireAuth, hideFeedback);
 router.patch("/:id/unhide", requireAuth, unhideFeedback);
+
+
+// ⬇️ ADD THIS (admin/seller only)
+router.patch("/:id/reply", requireAuth, requireRoles("admin", "seller"), addReply);
 
 /* Legacy soft-delete by default (hard delete with ?hard=true)
  * Kept for backward compatibility / existing admin UI buttons

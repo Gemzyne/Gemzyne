@@ -489,3 +489,11 @@
   padding: 8px 12px;
   margin-left: 8px;
 }
+/* Hide any empty chips so they don't render as boxes */
+.review-category:empty {
+  display: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+}
+.review-category:empty::before { content: none !important; }
