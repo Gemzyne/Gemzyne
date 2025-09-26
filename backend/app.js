@@ -18,14 +18,15 @@ const adminComplaintsRoutes = require("./Routes/AdminComplaintsRoutes");
 
 // new gem routes
 const gemRoutes = require("./Routes/AddGem/gemRoutes");
-const AdminMetricsRoutes = require("./Routes/AdminMetricsRoutes"); // <-- add
+const AdminMetricsRoutes = require("./Routes/AdminMetricsRoutes"); 
 
 const orderRoutes = require('./Routes/OrderRoutes');
 const errorMiddleware = require('./Middleware/CustomError');
 const paymentRoutes = require('./Routes/PaymentRoutes'); // <-- add
+const feedbackRoutes = require('./Routes/FeedbackRoutes');
+
 
 //Auction 
-// --- AUCTION: add below your other requires ---
 const auctionRoutes = require("./Routes/AuctionRoutes");
 const bidRoutes = require("./Routes/BidRoutes");
 const winnerRoutes = require("./Routes/WinnerRoutes");
@@ -55,6 +56,13 @@ app.get("/", (_req, res) => res.send("🚀 API up"));
 // mount
 app.use("/users", meRoutes);
 app.use("/auth", authRoutes);
+
+// feedback api
+app.use('/api/feedback', feedbackRoutes);
+
+
+
+//admin routes
 app.use("/admin/overview", adminOverviewRoutes);
 app.use("/admin/complaints", adminComplaintsRoutes);
 app.use("/admin/users", adminUsersRoutes);
@@ -77,9 +85,9 @@ app.use((err, _req, res, _next) => {
 const PORT = process.env.PORT || 5000;
 // ✅ mount your Custom Order + Checkout API
 app.use('/api/orders', orderRoutes);
-app.use('/api/payments', paymentRoutes); // <-- add
+app.use('/api/payments', paymentRoutes); 
 app.use('/api/metrics', require('./Routes/MetricsRoutes'));
-
+app.use("/api/dashboard", require("./Routes/UserDashboardRoutes"));
 
 //Auction
 // --- AUCTION: mount routes (all prefixed) ---
@@ -90,6 +98,11 @@ app.use("/api/wins", winnerRoutes);
 
 // ✅ error handler last
 app.use(errorMiddleware);
+
+
+app.use("/api/orders", require("./Routes/CustomOrderRoutes"));
+app.use("/api/my-orders", require("./Routes/UserOrdersRoutes"));
+
 
 // --- Connect DB + Start Server
 mongoose

@@ -1,4 +1,3 @@
-// src/api.js
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 function getToken() {
@@ -50,7 +49,6 @@ async function coreRequest(path, options = {}, _retried = false) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  // 🛠️ FIX: properly destructure options to use rest/signal safely
   const { signal, ...rest } = options;
 
   const res = await fetch(`${API_URL}${path}`, {
@@ -66,7 +64,6 @@ async function coreRequest(path, options = {}, _retried = false) {
     if (ok) return coreRequest(path, options, true);
   }
 
-  // Parse body safely (handles empty responses)
   let data = null;
   try {
     data = await res.json();
@@ -95,7 +92,6 @@ export const metrics = {
   category: (year) => request(`/api/metrics/seller/category?year=${year}`),
 };
 
-
 export const api = {
   // ===== AUTH =====
   register: (data) =>
@@ -107,7 +103,6 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  // resend verification code
   resendVerify: (email) =>
     request("/auth/resend-verify", {
       method: "POST",
@@ -119,7 +114,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    // Store once, only when present
     if (result?.accessToken)
       localStorage.setItem("accessToken", result.accessToken);
     if (result?.sessionId) localStorage.setItem("sessionId", result.sessionId);
@@ -132,7 +126,7 @@ export const api = {
     try {
       await request("/auth/logout", {
         method: "POST",
-        body: JSON.stringify({ sessionId }), // ← SEND IT
+        body: JSON.stringify({ sessionId }),
       });
     } finally {
       localStorage.removeItem("accessToken");
@@ -182,10 +176,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+//user dashboard
+  dashboard: { me: (opts) => request("/api/dashboard/me", opts) },
 
   // ===== ADMIN =====
   admin: {
-    // Metrics / Overview
     getMetrics: () => request("/admin/metrics"),
     getOverview: () => request("/admin/overview"),
 
@@ -207,7 +202,6 @@ export const api = {
 
     deleteUser: (id) => request(`/admin/users/${id}`, { method: "DELETE" }),
 
-    // Complaints (from your “payment management” / merged branch)
     listComplaints: (params = {}) => {
       const qs = new URLSearchParams(params).toString();
       return request(`/admin/complaints${qs ? `?${qs}` : ""}`);
@@ -224,6 +218,22 @@ export const api = {
 
     get: (id) => request(`/api/orders/${id}`),
 
+    //Order track
+    // SELLER/ADMIN: list all custom orders
+    listAll: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/api/orders${qs ? `?${qs}` : ""}`);
+    },
+
+    // SELLER/ADMIN: update production status
+    updateStatus: (id, orderStatus) =>
+      request(`/api/orders/${id}/order-status`, {
+        method: "PATCH",
+        body: JSON.stringify({ orderStatus }),
+      }),
+
+    // SELLER/ADMIN: delete order
+    remove: (id) => request(`/api/orders/${id}`, { method: "DELETE" }),
     // From inventory gem
     createFromGem: (gemId) =>
       request(`/api/orders/from-gem/${encodeURIComponent(gemId)}`, {
@@ -235,7 +245,6 @@ export const api = {
       gemId,
       { customer, payment = {}, country, slip } = {}
     ) => {
-      // supports JSON for card, multipart for bank (with slip)
       const path = `/api/orders/from-gem/${encodeURIComponent(gemId)}/checkout`;
       if (payment?.method === "bank" || slip) {
         const fd = new FormData();
@@ -245,13 +254,35 @@ export const api = {
         if (slip) fd.append("slip", slip);
         return request(path, { method: "POST", body: fd });
       }
-      // default: card
       return request(path, {
         method: "POST",
         body: JSON.stringify({
           country,
           customer,
           payment: { method: "card", ...payment },
+        }),
+      });
+    },
+
+    // NEW: pay-first custom checkout (no pre-created order)
+    checkoutCustom: ({ selections, customer, payment = {}, country, slip } = {}) => {
+      const path = `/api/orders/custom/checkout`;
+      if (payment?.method === 'bank' || slip) {
+        const fd = new FormData();
+        if (selections) fd.append('selections', JSON.stringify(selections));
+        if (country)    fd.append('country', country);
+        if (customer)   fd.append('customer', JSON.stringify(customer));
+        fd.append('payment', JSON.stringify({ method: 'bank', ...payment }));
+        if (slip) fd.append('slip', slip);
+        return request(path, { method: 'POST', body: fd });
+      }
+      return request(path, {
+        method: 'POST',
+        body: JSON.stringify({
+          selections,
+          country,
+          customer,
+          payment: { method: 'card', ...payment },
         }),
       });
     },
@@ -274,14 +305,13 @@ export const api = {
       if (customer) fd.append("customer", JSON.stringify(customer));
       fd.append("payment", JSON.stringify({ method: "bank", ...payment }));
       if (slip) fd.append("slip", slip);
-      return request(`/api/orders/${id}/checkout`, {
+      return request(`/api/orders/${id}`, {
         method: "POST",
         body: fd,
       });
     },
   },
 
-  // Winner creates (or reuses) a payable order for an ended auction
   wins: {
     createPurchase: (auctionIdOrCode) =>
       request(`/api/wins/purchase/${encodeURIComponent(auctionIdOrCode)}`, {
@@ -289,29 +319,18 @@ export const api = {
       }),
   },
 
-  // === AUCTION (multipart-aware; safe to paste over just this block) ===
   auctions: {
-    // public lists
     listPublic: (params = {}) => {
       const qs = new URLSearchParams(params).toString();
       return request(`/api/auctions/public${qs ? `?${qs}` : ""}`);
     },
     get: (id) => request(`/api/auctions/${id}`),
-
-    // seller
     overview: () => request(`/api/auctions/seller/overview`),
 
-    // Create accepts:
-    //  - FormData (send as-is)
-    //  - payload with .file or .image (File/Blob) -> builds FormData
-    //  - plain JSON (fallback; server also accepts imageUrl dataURL)
     create: (payload) => {
-      // If caller already gives FormData, just send it
       if (typeof FormData !== "undefined" && payload instanceof FormData) {
         return request(`/api/auctions`, { method: "POST", body: payload });
       }
-
-      // If payload contains a File/Blob, build FormData to bypass express.json()
       const maybeFile = payload?.file || payload?.image;
       const isBlob =
         typeof Blob !== "undefined" &&
@@ -320,7 +339,6 @@ export const api = {
 
       if (isBlob) {
         const fd = new FormData();
-        // support both 'title' and 'name' keys for gem name
         if (payload?.title || payload?.name)
           fd.append("title", payload.title || payload.name);
         if (payload?.type) fd.append("type", payload.type);
@@ -329,12 +347,11 @@ export const api = {
           fd.append("basePrice", String(payload.basePrice));
         if (payload?.startTime) fd.append("startTime", payload.startTime);
         if (payload?.endTime) fd.append("endTime", payload.endTime);
-        fd.append("image", maybeFile); // must match upload.single("image") on the server
-        if (payload?.imageUrl) fd.append("imageUrl", payload.imageUrl); // optional fallback
+        fd.append("image", maybeFile);
+        if (payload?.imageUrl) fd.append("imageUrl", payload.imageUrl);
         return request(`/api/auctions`, { method: "POST", body: fd });
       }
 
-      // Fallback to JSON (small bodies or dataURL via imageUrl)
       return request(`/api/auctions`, {
         method: "POST",
         body: JSON.stringify(payload),
@@ -350,28 +367,26 @@ export const api = {
     remove: (id) => request(`/api/auctions/${id}`, { method: "DELETE" }),
   },
   // === AUCTION END ===
+
 };
 
 // ---- GEMS ----
 api.gems = {
-  // public list (storefront /collection)
   list: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`/api/gems${qs ? `?${qs}` : ""}`);
   },
-
-  // public details (/gems/:id)
   byId: (id) => request(`/api/gems/${id}`),
 
   // seller: my gems in inventory page
-   mine: async () => {
+  mine: async () => {
     const attempts = [
       () => request(`/api/gems/mine/list`),
       () => request(`/api/gems/mine`),
       () => request(`/api/gems?mine=1`),
       () => request(`/api/gems/owner/me`),
       () => request(`/api/gems?owner=me`),
-      () => request(`/api/gems`), // last resort (we'll just return all)
+      () => request(`/api/gems`),
     ];
 
     for (const fn of attempts) {
@@ -381,13 +396,10 @@ api.gems = {
         if (Array.isArray(res?.data)) return res.data;
         if (Array.isArray(res?.items)) return res.items;
         if (Array.isArray(res?.gems)) return res.gems;
-      } catch (_) {
-        // try next
-      }
+      } catch (_) {}
     }
     return [];
   },
-
 
   // seller: create (multipart/form-data)
   // pass a FormData instance with fields and files:
@@ -397,19 +409,15 @@ api.gems = {
   create: (formData) =>
     request(`/api/gems`, {
       method: "POST",
-      body: formData, // DO NOT set Content-Type; browser sets boundary
+      body: formData,
     }),
 
-  // seller: update (multipart/form-data)
-  // include keepImages as JSON string of URLs to keep:
-  //   form.append("keepImages", JSON.stringify(existingImageUrls))
   update: (id, formData) =>
     request(`/api/gems/${id}`, {
       method: "PUT",
       body: formData,
     }),
 
-  // seller: delete
   remove: (id) => request(`/api/gems/${id}`, { method: "DELETE" }),
 };
 

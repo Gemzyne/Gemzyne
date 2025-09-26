@@ -42,9 +42,9 @@ export default function SellerSidebar() {
             </NavLink>
           </li>
           <li>
-            <a href="#">
+            <NavLink to="/seller/orders">
               <i className="fas fa-shopping-bag"></i> Orders
-            </a>
+            </NavLink>
           </li>
           <li>
             <NavLink to="/seller/auction-control">
@@ -57,9 +57,9 @@ export default function SellerSidebar() {
             </NavLink>
           </li>
           <li>
-            <a href="#">
+            <NavLink to="/admin/feedback">
               <i className="fas fa-star"></i> Reviews
-            </a>
+            </NavLink>
           </li>
           <li>
             <NavLink to="/seller/settings">

@@ -22,6 +22,16 @@ body {
 /* ===== Page shell */
 .inventory-page { width: 100%; }
 
+/* after (correct) */
+.inventory-page .dashboard-sidebar {
+  position: fixed;                /* or sticky, if you prefer */
+  top: var(--header-h, 96px);     /* fallback to 96px if the var isn’t defined */
+  left: 0;
+  height: calc(100vh - var(--header-h, 96px));
+  z-index: 2;                     /* keep above background particles */
+}
+
+
 /* Left-align the content; keep space for fixed header */
 .inventory-container {
   /* move to left (no centering) */
@@ -34,8 +44,18 @@ body {
 /* Title */
 .inventory-header {
   margin-bottom: 24px;
-  text-align: center;
+  /* CHANGED: make header a row with button on right */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  text-align: left; /* override old center */
 }
+
+.inventory-header .header-text {
+  max-width: 780px;
+}
+
 .inventory-header h1 {
   font-family: 'Playfair Display', serif;
   font-size: 42px;
@@ -45,10 +65,18 @@ body {
   background-clip: text;
   color: transparent;
 }
+
 .inventory-header p {
   color: #b0b0b0;
-  max-width: 780px;
-  margin: 0 auto;
+  margin: 0; /* keep tight next to button */
+}
+
+/* Make the header layout stack nicely on small screens */
+@media (max-width: 768px) {
+  .inventory-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 /* Filter & Search row */
@@ -255,28 +283,6 @@ inventory-table td,
   color: #b0b0b0;
   font-size: 13px;
   padding: 0 6px;
-}
-
-/* Add New Gem panel */
-.add-item-section {
-  text-align: center;
-  margin-top: 30px;
-  padding: 32px 24px;
-  background: rgba(26, 26, 26, 0.7);
-  border-radius: 14px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(212, 175, 55, 0.12);
-}
-.add-item-section h2 {
-  font-family: 'Playfair Display', serif;
-  font-size: 28px;
-  margin-bottom: 10px;
-  color: #f5f5f5;
-}
-.add-item-section p {
-  color: #b0b0b0;
-  max-width: 640px;
-  margin: 0 auto 18px;
 }
 
 /* Primary CTA */

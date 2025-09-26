@@ -28,12 +28,74 @@ function Modal({ open, title, message, onClose }) {
 }
 
 function isLoggedIn() {
-  // Your app stores user + token; either works. Keeping user check to avoid breaking existing flows.
   try {
     return !!JSON.parse(localStorage.getItem("user") || "null");
   } catch {
     return false;
   }
+}
+
+// client-side preview calculator for custom selections
+function computePreviewSubtotal(sel) {
+  if (!sel) return 0;
+  const GEM_TYPES = {
+    diamond: 5000,
+    sapphire: 3200,
+    ruby: 3800,
+    emerald: 3500,
+    amethyst: 1200,
+    topaz: 950,
+  };
+  const SHAPES = {
+    round: 0,
+    princess: 300,
+    cushion: 250,
+    oval: 200,
+    pear: 350,
+    emerald: 400,
+  };
+  const gradePrice = (g) =>
+    g === "premium"
+      ? 1500
+      : g === "excellent"
+      ? 800
+      : g === "very-good"
+      ? 400
+      : 0;
+  const polishPrice = (p) =>
+    p === "excellent" ? 300 : p === "very-good" ? 150 : 0;
+  const symmetryPrice = (s) =>
+    s === "excellent" ? 250 : s === "very-good" ? 100 : 0;
+  const weightExtra = (w) => (w && w > 1 ? Math.round((w - 1) * 1000) : 0);
+  return (
+    (GEM_TYPES[sel.type] || 0) +
+    (SHAPES[sel.shape] || 0) +
+    weightExtra(Number(sel.weight)) +
+    gradePrice(sel.grade) +
+    polishPrice(sel.polish) +
+    symmetryPrice(sel.symmetry)
+  );
+}
+
+/** ===== Expiry helpers (NEW) ===== */
+// MM/YY -> { month, year } or null
+function parseExpiry(str) {
+  const m = /^(\d{2})\/(\d{2})$/.exec(str || "");
+  if (!m) return null;
+  const mm = parseInt(m[1], 10);
+  const yy = 2000 + parseInt(m[2], 10);
+  if (mm < 1 || mm > 12) return null;
+  return { month: mm, year: yy };
+}
+// true if the date is in the past; current month is OK
+function isExpired(exp) {
+  if (!exp) return true;
+  const now = new Date();
+  const curY = now.getFullYear();
+  const curM = now.getMonth() + 1; // 1..12
+  if (exp.year < curY) return true;
+  if (exp.year === curY && exp.month < curM) return true;
+  return false;
 }
 
 export default function PaymentPage() {
@@ -42,8 +104,9 @@ export default function PaymentPage() {
   const [sp] = useSearchParams();
   const orderIdFromQuery = sp.get("orderId") || null;
   const gemIdFromQuery = sp.get("gemId") || null;
+  const kindFromQuery = (sp.get("kind") || "").toLowerCase();
+  const isCustomMode = kindFromQuery === "custom";
 
-  // Fallbacks (kept from your code)
   const orderIdFromNav =
     state?.orderId ||
     (() => {
@@ -57,27 +120,35 @@ export default function PaymentPage() {
       }
     })();
 
-  // Prefer the query param if present
-  const effectiveOrderId = orderIdFromQuery || orderIdFromNav || null;
-  const effectiveGemId = gemIdFromQuery; // inventory “buy now” new flow
+  const hasGemParam = !!gemIdFromQuery;
+  const effectiveOrderId =
+    hasGemParam || isCustomMode
+      ? null
+      : orderIdFromQuery || orderIdFromNav || null;
+  const effectiveGemId = gemIdFromQuery || null;
 
-  // Guard guests (you also have <RequireAuth> on routes; this is extra safety)
+  if (hasGemParam) {
+    try {
+      localStorage.removeItem("pendingOrder");
+    } catch {}
+  }
+
   useEffect(() => {
     if (!isLoggedIn()) {
       const next = effectiveOrderId
         ? `/payment?orderId=${encodeURIComponent(effectiveOrderId)}`
         : effectiveGemId
         ? `/payment?gemId=${encodeURIComponent(effectiveGemId)}`
+        : isCustomMode
+        ? `/payment?kind=custom`
         : "/payment";
       localStorage.setItem("nextAfterLogin", next);
       navigate(`/login?next=${encodeURIComponent(next)}`, { replace: true });
     }
-  }, [effectiveOrderId, effectiveGemId, navigate]);
+  }, [effectiveOrderId, effectiveGemId, isCustomMode, navigate]);
 
-  // Auction banner context (kept)
   const [auctionCtx, setAuctionCtx] = useState(null);
 
-  // Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [modalMessage, setModalMessage] = useState("");
@@ -95,11 +166,14 @@ export default function PaymentPage() {
     if (typeof cb === "function") cb();
   };
 
-  // Order load
-  const [loading, setLoading] = useState(!!effectiveOrderId || !!effectiveGemId);
-  const [order, setOrder] = useState(null); // existing flows (custom/auction)
+  const [loading, setLoading] = useState(
+    !!effectiveOrderId || !!effectiveGemId || !!isCustomMode
+  );
+  const [order, setOrder] = useState(null);
   const [gem, setGem] = useState(null);
+  const [custom, setCustom] = useState(null);
 
+  // load order (classic flow)
   useEffect(() => {
     if (!effectiveOrderId) return;
     let ignore = false;
@@ -111,7 +185,7 @@ export default function PaymentPage() {
         if (!ignore) setOrder(data);
       } catch (e) {
         console.error("fetch order error:", e);
-        if (!ignore)
+        if (!ignore && !effectiveGemId)
           openModal(
             "Couldn’t load order",
             "Please refresh the page or go back to the product."
@@ -123,9 +197,9 @@ export default function PaymentPage() {
     return () => {
       ignore = true;
     };
-  }, [effectiveOrderId]);
+  }, [effectiveOrderId, effectiveGemId]);
 
-    //load gem if coming from inventory
+  // load gem (inventory flow)
   useEffect(() => {
     if (!effectiveGemId) return;
     let ignore = false;
@@ -137,15 +211,46 @@ export default function PaymentPage() {
         if (!ignore) setGem(data);
       } catch (e) {
         console.error("fetch gem error:", e);
-       if (!ignore) openModal("Couldn’t load product", "Please refresh the page or go back to the product.");
+        if (!ignore)
+          openModal(
+            "Couldn’t load product",
+            "Please refresh the page or go back to the product."
+          );
       } finally {
-       if (!ignore) setLoading(false);
+        if (!ignore) setLoading(false);
       }
     })();
-    return () => { ignore = true; };
+    return () => {
+      ignore = true;
+    };
   }, [effectiveGemId]);
 
-  // Show auction banner only for AUC-* orders, and only if context matches
+  // load custom selections (custom pay-first flow)
+  useEffect(() => {
+    if (!isCustomMode) {
+      setCustom(null);
+      return;
+    }
+    let stale = false;
+    try {
+      const raw = localStorage.getItem("pendingCustom");
+      const parsed = raw ? JSON.parse(raw) : null;
+      const MAX_AGE = 2 * 60 * 60 * 1000;
+      if (parsed?.ts && Date.now() - parsed.ts > MAX_AGE) {
+        localStorage.removeItem("pendingCustom");
+      } else {
+        if (!stale) setCustom(parsed);
+      }
+    } catch {
+      setCustom(null);
+    }
+    if (!stale) setLoading(false);
+    return () => {
+      stale = true;
+    };
+  }, [isCustomMode]);
+
+  // auction banner context (kept)
   useEffect(() => {
     if (!order) {
       localStorage.removeItem("auctionContext");
@@ -173,7 +278,6 @@ export default function PaymentPage() {
     }
   }, [order]);
 
-  // Fallback (kept)
   const fallbackItem = useMemo(
     () => ({
       title: "Product",
@@ -184,34 +288,63 @@ export default function PaymentPage() {
     []
   );
 
-  // Current display context
   const hasOrder = !!order;
-  const current  = hasOrder ? order : fallbackItem;
+  const current = hasOrder ? order : fallbackItem;
 
-  // Summary values (work in both modes)
   const productTitle = hasOrder
-   ? (current?.title || "Product")
-   : (gem?.name || gem?.gemId || "Product");
+    ? current?.title || "Product"
+    : isCustomMode
+    ? "Custom Gem Order"
+    : gem?.name || gem?.gemId || "Product";
+
+  const previewSubtotal = isCustomMode
+    ? computePreviewSubtotal(custom?.selections)
+    : 0;
+
   const subtotal = hasOrder
-   ? Number(current?.pricing?.subtotal ?? 0)
+    ? Number(current?.pricing?.subtotal ?? 0)
+    : isCustomMode
+    ? Number(previewSubtotal)
     : Number(gem?.priceUSD ?? 0);
 
-  /// Display block works both ways
   const display = {
-    orderNo: hasOrder ? (current?.orderNo || 'N/A') : (gem?.gemId || 'N/A'),
-    title:   hasOrder ? (current?.title   || 'N/A') : (gem?.name   || 'N/A'),
-    type:    hasOrder ? (current?.selections?.type || 'N/A') : (gem?.type || 'N/A'),
-    shape:   hasOrder ? (current?.selections?.shape|| 'N/A') : (gem?.shape|| 'N/A'),
-    weight:  hasOrder
-      ? (current?.selections?.weight != null
-          ? `${Number(current.selections.weight).toFixed(2).replace(/\.00$/,'')} ct`
-          : 'N/A')
-      : (gem?.carat != null
-          ? `${Number(gem.carat).toFixed(2).replace(/\.00$/,'')} ct`
-          : 'N/A'),
+    orderNo: hasOrder
+      ? current?.orderNo || "N/A"
+      : isCustomMode
+      ? "CUSTOM"
+      : gem?.gemId || "N/A",
+    title: hasOrder
+      ? current?.title || "N/A"
+      : isCustomMode
+      ? "Custom Gem"
+      : gem?.name || "N/A",
+    type: hasOrder
+      ? current?.selections?.type || "N/A"
+      : isCustomMode
+      ? custom?.selections?.type || "N/A"
+      : gem?.type || "N/A",
+    shape: hasOrder
+      ? current?.selections?.shape || "N/A"
+      : isCustomMode
+      ? custom?.selections?.shape || "N/A"
+      : gem?.shape || "N/A",
+    weight: hasOrder
+      ? current?.selections?.weight != null
+        ? `${Number(current.selections.weight)
+            .toFixed(2)
+            .replace(/\.00$/, "")} ct`
+        : "N/A"
+      : isCustomMode
+      ? custom?.selections?.weight != null
+        ? `${Number(custom.selections.weight)
+            .toFixed(2)
+            .replace(/\.00$/, "")} ct`
+        : "N/A"
+      : gem?.carat != null
+      ? `${Number(gem.carat).toFixed(2).replace(/\.00$/, "")} ct`
+      : "N/A",
   };
 
-  // tabs
   const [tab, setTab] = useState("card");
 
   // customer
@@ -229,6 +362,9 @@ export default function PaymentPage() {
   const [expiryDate, setExpiryDate] = useState("");
   const [cvv, setCvv] = useState("");
   const [rememberCard, setRememberCard] = useState(false);
+  const [expiryError, setExpiryError] = useState("");
+  const [cvvError, setCvvError] = useState("");
+  const [cardNameError, setCardNameError] = useState("");
 
   // bank upload
   const [file, setFile] = useState(null);
@@ -255,6 +391,7 @@ export default function PaymentPage() {
       .slice(0, 19);
     setCardNumber(formatted);
   };
+  // UPDATED: live validate expiry; allow current month, reject past
   const onExpiry = (v) => {
     const digits = v
       .replace(/\s+/g, "")
@@ -263,8 +400,51 @@ export default function PaymentPage() {
     const formatted =
       digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
     setExpiryDate(formatted);
+
+    if (formatted.length === 5) {
+      const exp = parseExpiry(formatted);
+      if (!exp) {
+        setExpiryError("Enter a valid expiry date (MM/YY).");
+      } else if (isExpired(exp)) {
+        setExpiryError("Expiry date has passed.");
+      } else {
+        setExpiryError("");
+      }
+    } else {
+      setExpiryError("");
+    }
   };
-  const onCvv = (v) => setCvv(v.replace(/[^0-9]/g, "").slice(0, 3));
+
+  const onCvv = (v) => {
+    const next = v.replace(/[^0-9]/g, "").slice(0, 3);
+    setCvv(next);
+    if (next.length > 0 && next.length < 3) {
+      setCvvError("CVV must be 3 digits.");
+    } else {
+      setCvvError("");
+    }
+  };
+
+  const onCardNameChange = (v) => {
+    setCardName(v);
+    const name = v.trim();
+
+    if (!name) {
+      setCardNameError("Enter the cardholder name.");
+      return;
+    }
+    if (/[0-9]/.test(name)) {
+      setCardNameError("Name cannot contain numbers.");
+      return;
+    }
+    // Reject weird punctuation-only entries
+    if (!/[A-Za-z]/.test(name)) {
+      setCardNameError("Name must contain letters.");
+      return;
+    }
+
+    setCardNameError("");
+  };
 
   // upload simulate
   const onChooseFile = (e) => {
@@ -299,18 +479,46 @@ export default function PaymentPage() {
     if (!zipCode.trim()) return false;
     return true;
   };
+  // UPDATED: include future-or-current month rule + inline message
   const validateCard = () => {
     const num = cardNumber.replace(/\s/g, "");
     if (!num || num.length !== 16) return false;
-    if (!cardName.trim()) return false;
-    if (!expiryDate || !/^\d{2}\/\d{2}$/.test(expiryDate)) return false;
-    if (!cvv || cvv.length < 3) return false;
+    const trimmedName = cardName.trim();
+    if (!trimmedName) {
+      setCardNameError("Enter the cardholder name.");
+      return false;
+    }
+    if (/[0-9]/.test(trimmedName)) {
+      setCardNameError("Name cannot contain numbers.");
+      return false;
+    }
+    setCardNameError("");
+
+    if (!expiryDate || !/^\d{2}\/\d{2}$/.test(expiryDate)) {
+      setExpiryError("Enter a valid expiry date (MM/YY).");
+      return false;
+    }
+    const exp = parseExpiry(expiryDate);
+    if (!exp) {
+      setExpiryError("Enter a valid expiry date (MM/YY).");
+      return false;
+    }
+    if (isExpired(exp)) {
+      setExpiryError("Expiry date has passed.");
+      return false;
+    }
+    setExpiryError("");
+
+    if (!/^\d{3}$/.test(cvv)) {
+      setCvvError("CVV must be 3 digits.");
+      return false;
+    }
+    setCvvError("");
     return true;
   };
 
-  // submit — CARD
   async function submitCard() {
-    if (!effectiveOrderId && !effectiveGemId) {
+    if (!effectiveOrderId && !effectiveGemId && !isCustomMode) {
       openModal("Nothing to pay", "Go back to the product and try again.");
       return;
     }
@@ -318,6 +526,13 @@ export default function PaymentPage() {
       openModal("Missing info", "Please fill all customer fields.");
       return;
     }
+    // Guard if any inline error is present
+    if (expiryError || cvvError || cardNameError) {
+      openModal("Card details", expiryError || cvvError || cardNameError);
+      return;
+    }
+
+
     if (!validateCard()) {
       openModal("Card details", "Please fill all card fields correctly.");
       return;
@@ -329,15 +544,21 @@ export default function PaymentPage() {
         customer: { fullName, email, phone, country, address, city, zipCode },
         payment: { remember: !!rememberCard, card: { cardName, cardNumber } },
       };
-      const json = effectiveOrderId
-        ? await api.orders.checkoutCard(effectiveOrderId, payload)            // old path
-        : await api.orders.checkoutFromGem(effectiveGemId, payload);          // NEW path
+      const json = isCustomMode
+        ? await api.orders.checkoutCustom({
+            selections: custom?.selections,
+            ...payload,
+          })
+        : effectiveOrderId
+        ? await api.orders.checkoutCard(effectiveOrderId, payload)
+        : await api.orders.checkoutFromGem(effectiveGemId, payload);
       if (json?.ok) {
         openModal(
           "Payment successful",
           "Thanks! Your card payment was processed and your order is confirmed.",
           () => {
             localStorage.removeItem("pendingOrder");
+            localStorage.removeItem("pendingCustom");
             localStorage.removeItem("auctionContext");
             navigate("/");
           }
@@ -354,9 +575,8 @@ export default function PaymentPage() {
     }
   }
 
-  // submit — BANK
   async function submitBank() {
-    if (!effectiveOrderId && !effectiveGemId) {
+    if (!effectiveOrderId && !effectiveGemId && !isCustomMode) {
       openModal("Nothing to pay", "Go back to the product and try again.");
       return;
     }
@@ -373,15 +593,47 @@ export default function PaymentPage() {
     }
 
     try {
-      const json = effectiveOrderId
+      const json = isCustomMode
+        ? await api.orders.checkoutCustom({
+            selections: custom?.selections,
+            country,
+            customer: {
+              fullName,
+              email,
+              phone,
+              country,
+              address,
+              city,
+              zipCode,
+            },
+            payment: { method: "bank" },
+            slip: file,
+          })
+        : effectiveOrderId
         ? await api.orders.checkoutBank(effectiveOrderId, {
             country,
-           customer: { fullName, email, phone, country, address, city, zipCode },
+            customer: {
+              fullName,
+              email,
+              phone,
+              country,
+              address,
+              city,
+              zipCode,
+            },
             slip: file,
-         })
+          })
         : await api.orders.checkoutFromGem(effectiveGemId, {
             country,
-            customer: { fullName, email, phone, country, address, city, zipCode },
+            customer: {
+              fullName,
+              email,
+              phone,
+              country,
+              address,
+              city,
+              zipCode,
+            },
             payment: { method: "bank" },
             slip: file,
           });
@@ -392,6 +644,7 @@ export default function PaymentPage() {
           () => {
             clearFile();
             localStorage.removeItem("pendingOrder");
+            localStorage.removeItem("pendingCustom");
             localStorage.removeItem("auctionContext");
             navigate("/");
           }
@@ -603,10 +856,16 @@ export default function PaymentPage() {
                       id="cardName"
                       className="form-control"
                       value={cardName}
-                      onChange={(e) => setCardName(e.target.value)}
+                      onChange={(e) => onCardNameChange(e.target.value)}
                       placeholder="John Doe"
                       autoComplete="off"
+                      aria-invalid={cardNameError ? "true" : "false"}
                     />
+                    {cardNameError && (
+                      <div className="field-error" role="alert">
+                        {cardNameError}
+                      </div>
+                    )}
                   </div>
 
                   <div className="form-row">
@@ -619,7 +878,13 @@ export default function PaymentPage() {
                         onChange={(e) => onExpiry(e.target.value)}
                         placeholder="MM/YY"
                         autoComplete="off"
+                        aria-invalid={expiryError ? "true" : "false"}
                       />
+                      {expiryError && (
+                        <div className="field-error" role="alert">
+                          {expiryError}
+                        </div>
+                      )}
                     </div>
                     <div className="form-group">
                       <label htmlFor="cvv">CVV</label>
@@ -631,7 +896,13 @@ export default function PaymentPage() {
                         placeholder="123"
                         maxLength={3}
                         autoComplete="off"
+                        aria-invalid={cvvError ? "true" : "false"}
                       />
+                      {cvvError && (
+                        <div className="field-error" role="alert">
+                          {cvvError}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -691,7 +962,7 @@ export default function PaymentPage() {
                     <div className="bank-detail">
                       <span className="label">Reference:</span>
                       <span className="value">
-                        {current?.orderNo || "ORD-REF"}
+                        {display.orderNo || "ORD-REF"}
                       </span>
                     </div>
                   </div>
@@ -757,7 +1028,6 @@ export default function PaymentPage() {
             <div className="order-summary">
               <h3>Order Summary</h3>
 
-              {/* Keep custom-order extras if present */}
               {hasOrder && current?.selections && (
                 <div
                   style={{ marginBottom: 10, fontSize: 14, color: "#cfcfcf" }}
@@ -797,6 +1067,36 @@ export default function PaymentPage() {
                 </div>
               )}
 
+              {/* custom-mode quick summary */}
+              {!hasOrder && isCustomMode && custom?.selections && (
+                <div
+                  style={{ marginBottom: 10, fontSize: 14, color: "#cfcfcf" }}
+                >
+                  <div>
+                    <strong>Type:</strong> {custom.selections.type}
+                  </div>
+                  <div>
+                    <strong>Shape:</strong> {custom.selections.shape}
+                  </div>
+                  <div>
+                    <strong>Weight:</strong>{" "}
+                    {Number(custom.selections.weight)
+                      .toFixed(1)
+                      .replace(/\.0$/, "")}{" "}
+                    ct
+                  </div>
+                  <div>
+                    <strong>Grade:</strong> {custom.selections.grade}
+                  </div>
+                  <div>
+                    <strong>Polish:</strong> {custom.selections.polish}
+                  </div>
+                  <div>
+                    <strong>Symmetry:</strong> {custom.selections.symmetry}
+                  </div>
+                </div>
+              )}
+
               <div className="order-item">
                 <span className="item-name">{productTitle}</span>
                 <span className="item-price">{money(subtotal)}</span>
@@ -820,7 +1120,6 @@ export default function PaymentPage() {
         </div>
       </div>
 
-      {/* if you rely on these icons */}
       <link
         rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"

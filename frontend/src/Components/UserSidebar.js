@@ -35,9 +35,9 @@ export default function UserSidebar() {
             </NavLink>
           </li>
           <li>
-            <a href="#">
+            <NavLink to="/my-orders">
               <i className="fas fa-shopping-bag"></i> Orders
-            </a>
+            </NavLink>
           </li>
           <li>
             <NavLink to="/payment-history">
@@ -50,9 +50,9 @@ export default function UserSidebar() {
             </NavLink>
           </li>
           <li>
-            <a href="#">
+            <NavLink to="/my-feedback">
               <i className="fas fa-star"></i> Reviews
-            </a>
+            </NavLink>
           </li>
           <li>
             <NavLink to="/settings">

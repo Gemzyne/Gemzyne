@@ -1,0 +1,257 @@
+/* UserOrders.css
+   Styled to match SellerOrders.css vibes.
+   Fully scoped under .userorders-root to avoid global collisions.
+   Works with your fixed 280px sidebar and 80px header.
+*/
+
+.userorders-root {
+  /* theme tokens */
+  --uo-bg1: #0a0a0a;
+  --uo-bg2: #1a1a1a;
+  --uo-panel: rgba(26, 26, 26, 0.72);
+  --uo-text: #f5f5f5;
+  --uo-sub: #b0b0b0;
+  --uo-gold1: #d4af37;
+  --uo-gold2: #f9f295;
+  --uo-border: rgba(255, 255, 255, 0.08);
+  --uo-shadow: rgba(0, 0, 0, 0.25);
+
+  --uo-header-h: 80px;
+  /* your fixed site header height */
+  --uo-sidebar-w: 280px;
+  /* your fixed sidebar width */
+
+  background: linear-gradient(135deg, var(--uo-bg1) 0%, var(--uo-bg2) 100%);
+  color: var(--uo-text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+  font-family: "Poppins", sans-serif;
+}
+
+/* keep particles behind content, but scoped to this page */
+.userorders-root #particles-js {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ===== Shell (accounts for fixed header + fixed sidebar) ===== */
+.userorders-root .userorders-layout {
+  /* the sidebar is fixed, so we offset content ourselves */
+  padding-top: var(--uo-header-h);
+}
+
+.userorders-root .userorders-main {
+  margin-left: calc(var(--uo-sidebar-w) + 20px);
+  padding: 32px 5%;
+  position: relative;
+  z-index: 1;
+  min-height: calc(100vh - var(--uo-header-h));
+}
+
+/* ===== Page header ===== */
+.userorders-root .userorders-header {
+  margin-bottom: 16px;
+}
+
+.userorders-root .userorders-header h1 {
+  margin: 0 0 6px;
+  font-family: "Playfair Display", serif;
+  font-size: clamp(22px, 2.4vw, 34px);
+  background: linear-gradient(90deg, var(--uo-gold1), var(--uo-gold2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.userorders-root .userorders-header p {
+  margin: 0;
+  color: var(--uo-sub);
+}
+
+/* ===== KPI counters ===== */
+.userorders-root .uo-counters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 12px 0 16px;
+}
+
+.userorders-root .uo-counter {
+  background: #14161c;
+  border: 1px solid #2a2e36;
+  color: #e6e9ef;
+  border-radius: 16px;
+  padding: 18px;
+  text-align: center;
+  box-shadow: 0 8px 24px var(--uo-shadow);
+}
+
+.userorders-root .uo-counter-label {
+  font-size: 14px;
+  color: #a8b3c7;
+  letter-spacing: 0.2px;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.userorders-root .uo-counter-value {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #f7d774;
+  /* warm gold tone */
+}
+
+/* ===== Card ===== */
+.userorders-root .uo-card {
+  background: var(--uo-panel);
+  border: 1px solid var(--uo-border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px var(--uo-shadow);
+}
+
+.userorders-root .uo-error {
+  border-color: #7a1f1f;
+  background: rgba(125, 31, 31, 0.2);
+  padding: 14px 16px;
+  border-radius: 14px;
+  margin-bottom: 14px;
+}
+
+/* ===== Table ===== */
+.userorders-root .uo-table-wrap {
+  overflow-x: auto;
+}
+
+.userorders-root .uo-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 880px;
+  /* avoids squish under sidebar */
+}
+
+.userorders-root .uo-table thead th {
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--uo-gold1);
+  font-weight: 600;
+}
+
+.userorders-root .uo-table th,
+.userorders-root .uo-table td {
+  border-bottom: 1px solid var(--uo-border);
+  padding: 14px 16px;
+  text-align: left;
+  vertical-align: top;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.userorders-root .uo-code {
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.userorders-root .uo-title {
+  font-weight: 600;
+}
+
+.userorders-root .uo-details {
+  color: var(--uo-sub);
+  max-width: 440px;
+  white-space: normal;
+  /* wrap long spec strings */
+}
+
+/* ===== Badges (payment + order status) ===== */
+.userorders-root .uo-badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  border: 1px solid var(--uo-border);
+}
+
+/* payment */
+.userorders-root .ps-paid {
+  background: rgba(40, 167, 69, 0.12);
+  color: #71d58e;
+}
+
+.userorders-root .ps-pending {
+  background: rgba(0, 123, 255, 0.12);
+  color: #7ab2ff;
+}
+
+.userorders-root .ps-cancelled {
+  background: rgba(255, 85, 85, 0.12);
+  color: #ff8c8c;
+}
+
+/* order */
+.userorders-root .os-processing {
+  background: #263248;
+  color: #cfe1ff;
+  border-color: #3f5c99;
+}
+
+.userorders-root .os-shipping,
+.userorders-root .os-shipped {
+  background: #2b3d2e;
+  color: #c7ffd1;
+  border-color: #3d7a45;
+}
+
+.userorders-root .os-completed {
+  background: #1f2d1f;
+  color: #b8ffb8;
+  border-color: #3f8f3f;
+}
+
+/* hint text under table */
+.userorders-root .uo-hint {
+  padding: 10px 14px;
+  color: var(--uo-sub);
+  font-size: 13px;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1100px) {
+  .userorders-root .userorders-main {
+    margin-left: calc(var(--uo-sidebar-w) + 12px);
+    padding: 28px 4%;
+  }
+}
+
+@media (max-width: 1024px) {
+
+  /* your fixed sidebar usually hides at this size; give content full width */
+  .userorders-root .userorders-main {
+    margin-left: 0;
+    padding: 24px 4%;
+  }
+
+  .userorders-root .uo-table {
+    min-width: 760px;
+  }
+}
+
+@media (max-width: 620px) {
+  .userorders-root .uo-counters {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .userorders-root .uo-counters {
+    grid-template-columns: 1fr;
+  }
+
+  .userorders-root .uo-table {
+    min-width: 560px;
+  }
+}

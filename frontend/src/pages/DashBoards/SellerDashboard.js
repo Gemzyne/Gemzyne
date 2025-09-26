@@ -143,6 +143,7 @@ export default function SellerDashboard() {
   // Stat card: total revenue
   const [revenue, setRevenue] = useState("—");
   const [revLoading, setRevLoading] = useState(true);
+  const [avgRating, setAvgRating] = useState(null);
 
   // Charts
   const revenueChartInstance = useRef(null);
@@ -242,7 +243,12 @@ export default function SellerDashboard() {
         const s = await metrics.summary(year);
         const ccy = s?.currency || "USD";
         const total = Number(s?.totalRevenue || 0);
-        if (alive) setRevenue(money(total, ccy));
+        if (alive){
+          setRevenue(money(total, ccy));
+        setAvgRating(
+          typeof s?.avgRating === "number" ? s.avgRating : null
+        );
+        }
       } catch {
         if (alive) setRevenue("—");
       } finally {
@@ -455,38 +461,42 @@ export default function SellerDashboard() {
       doc.text(`Generated: ${new Date().toLocaleString()}`, pad, 88);
 
       if (reportType === "Sales Report") {
-  // ▶ Sales by Category for the selected year
-  const [cat, s] = await Promise.all([
-    metrics.category(reportYear),
-    metrics.summary(reportYear),
-  ]);
+        // ▶ Sales by Category for the selected year
+        const [cat, s] = await Promise.all([
+          metrics.category(reportYear),
+          metrics.summary(reportYear),
+        ]);
 
-  const labels = Array.isArray(cat?.labels) ? cat.labels : [];
-  const values = Array.isArray(cat?.values) ? cat.values.map(Number) : [];
-  const ccy = s?.currency || "USD";
-  const total = values.reduce((a, b) => a + (Number(b) || 0), 0);
+        const labels = Array.isArray(cat?.labels) ? cat.labels : [];
+        const values = Array.isArray(cat?.values) ? cat.values.map(Number) : [];
+        const ccy = s?.currency || "USD";
+        const total = values.reduce((a, b) => a + (Number(b) || 0), 0);
 
-  const head = [["Category", `Revenue (${ccy})`]];
-  const body = labels.map((name, i) => [name, money(values[i] || 0, ccy)]);
-  // optional grand total row
-  body.push(["Total", money(total, ccy)]);
+        const head = [["Category", `Revenue (${ccy})`]];
+        const body = labels.map((name, i) => [
+          name,
+          money(values[i] || 0, ccy),
+        ]);
+        // optional grand total row
+        body.push(["Total", money(total, ccy)]);
 
-  doc.setFont("helvetica", "bold");
-  doc.text(`Period: ${reportYear}`, pad, 108);
-  doc.setFont("helvetica", "normal");
-  doc.text(`Total Revenue: ${money(total, ccy)}`, pad, 126);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Period: ${reportYear}`, pad, 108);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Total Revenue: ${money(total, ccy)}`, pad, 126);
 
-  doc.autoTable({
-    head, body,
-    startY: 150,
-    styles: { fontSize: 10, cellPadding: 6, halign: "left" },
-    headStyles: { fillColor: [24,24,24], textColor: 245 },
-    theme: "grid",
-    columnStyles: { 1: { halign: "right" } },
-  });
+        doc.autoTable({
+          head,
+          body,
+          startY: 150,
+          styles: { fontSize: 10, cellPadding: 6, halign: "left" },
+          headStyles: { fillColor: [24, 24, 24], textColor: 245 },
+          theme: "grid",
+          columnStyles: { 1: { halign: "right" } },
+        });
 
-  doc.save(`SalesByCategory_${reportYear}.pdf`);
-} else {
+        doc.save(`SalesByCategory_${reportYear}.pdf`);
+      } else {
         // Inventory Report
         const rows = gems.map((g) => ({
           name: g.name || g.title || g.gemId || "Gem",
@@ -551,7 +561,10 @@ export default function SellerDashboard() {
         <main className="dashboard-content">
           <div className="dashboard-header">
             <h2 className="dashboard-title">Seller Dashboard</h2>
-            <button className="btn" onClick={() => navigate("/Seller/gems/new")}>
+            <button
+              className="btn"
+              onClick={() => navigate("/Seller/gems/new")}
+            >
               New Gem
             </button>
           </div>
@@ -590,7 +603,7 @@ export default function SellerDashboard() {
                 <i className="fas fa-star" />
               </div>
               <div className="stat-info">
-                <h3>4.8</h3>
+                <h3>{avgRating == null ? "…" : avgRating.toFixed(1)}</h3>
                 <p>Average Rating</p>
               </div>
             </div>
