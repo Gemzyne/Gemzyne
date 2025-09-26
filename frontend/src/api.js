@@ -92,7 +92,6 @@ export const metrics = {
   category: (year) => request(`/api/metrics/seller/category?year=${year}`),
 };
 
-
 export const api = {
   // ===== AUTH =====
   register: (data) =>
@@ -177,6 +176,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+//user dashboard
+  dashboard: { me: (opts) => request("/api/dashboard/me", opts) },
 
   // ===== ADMIN =====
   admin: {
@@ -373,6 +374,7 @@ api.gems = {
   },
   byId: (id) => request(`/api/gems/${id}`),
 
+  // seller: my gems in inventory page
   mine: async () => {
     const attempts = [
       () => request(`/api/gems/mine/list`),
@@ -395,6 +397,11 @@ api.gems = {
     return [];
   },
 
+  // seller: create (multipart/form-data)
+  // pass a FormData instance with fields and files:
+  //  - images (1–4) -> append("images", file)
+  //  - certificate (optional) -> append("certificate", file)
+  //  - other text fields...
   create: (formData) =>
     request(`/api/gems`, {
       method: "POST",

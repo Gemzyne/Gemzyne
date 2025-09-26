@@ -58,6 +58,63 @@ const UserDashboard = () => {
     if (!token) navigate("/login", { replace: true });
   }, [navigate]);
 
+  /* ===== Dashboard summary (only bids + reviews) ===== */
+  const [summary, setSummary] = useState({
+    totals: { activeBids: 0, myReviews: 0 },
+    recent: { reviews: [] },
+  });
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState("");
+
+  const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString() : "");
+  const stars = (n) => {
+    const full = Math.floor(n);
+    const half = n - full >= 0.5 ? 1 : 0;
+    const empty = 5 - full - half;
+    return (
+      <>
+        {Array(full)
+          .fill(0)
+          .map((_, i) => (
+            <i key={`f${i}`} className="fas fa-star" />
+          ))}
+        {half ? <i className="fas fa-star-half-alt" /> : null}
+        {Array(empty)
+          .fill(0)
+          .map((_, i) => (
+            <i key={`e${i}`} className="far fa-star" />
+          ))}
+      </>
+    );
+  };
+
+  async function loadSummary() {
+    setSummaryLoading(true);
+    setSummaryError("");
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token) return navigate("/login", { replace: true });
+      const res = await fetch(`${API_BASE}/api/dashboard/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+      });
+      if (res.status === 401) return navigate("/login", { replace: true });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.message || "Failed to load dashboard");
+      setSummary({
+        totals: data.totals || { activeBids: 0, myReviews: 0 },
+        recent: data.recent || { reviews: [] },
+      });
+    } catch (e) {
+      setSummaryError(e.message || "Failed to load dashboard");
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+  useEffect(() => {
+    loadSummary();
+  }, []);
+
   /* =================== Payment Methods: fetch from backend ================== */
   const [savedCards, setSavedCards] = useState([]);
   const [cardsLoading, setCardsLoading] = useState(true);
@@ -85,7 +142,7 @@ const UserDashboard = () => {
   );
 
   const mask = (last4) => `•••• •••• •••• ${String(last4 || "").slice(-4)}`;
-  const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString() : "");
+  const fmtDate2 = (iso) => (iso ? new Date(iso).toLocaleDateString() : "");
 
   async function loadSavedCards() {
     setCardsLoading(true);
@@ -181,6 +238,10 @@ const UserDashboard = () => {
     }
   }
 
+  const recentReviews = Array.isArray(summary?.recent?.reviews)
+    ? summary.recent.reviews
+    : [];
+
   return (
     <>
       <div id="particles-js"></div>
@@ -194,8 +255,9 @@ const UserDashboard = () => {
             <h2 className="dashboard-title">Dashboard</h2>
           </div>
 
-          {/* ====== Stats (unchanged) ====== */}
+          {/* ====== Stats ====== */}
           <div className="stats-grid">
+            {/* keep Total Orders static for now */}
             <div className="stat-card">
               <div className="stat-icon">
                 <i className="fas fa-shopping-bag"></i>
@@ -205,27 +267,35 @@ const UserDashboard = () => {
                 <p>Total Orders</p>
               </div>
             </div>
+
+            {/* Active Bids → wired to backend */}
             <div className="stat-card">
               <div className="stat-icon">
                 <i className="fas fa-gavel"></i>
               </div>
               <div className="stat-info">
-                <h3>3</h3>
+                <h3>
+                  {summaryLoading ? "…" : summary?.totals?.activeBids ?? 0}
+                </h3>
                 <p>Active Bids</p>
               </div>
             </div>
+
+            {/* My Reviews → wired to backend */}
             <div className="stat-card">
               <div className="stat-icon">
                 <i className="fas fa-star"></i>
               </div>
               <div className="stat-info">
-                <h3>12</h3>
+                <h3>
+                  {summaryLoading ? "…" : summary?.totals?.myReviews ?? 0}
+                </h3>
                 <p>My Reviews</p>
               </div>
             </div>
           </div>
 
-          {/* ====== Recent Orders (unchanged demo data) ====== */}
+          {/* ====== Recent Orders (keep static) ====== */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Recent Orders</h3>
@@ -295,7 +365,7 @@ const UserDashboard = () => {
             </div>
           </div>
 
-          {/* ====== Payment Methods (NOW DYNAMIC) ====== */}
+          {/* ====== Payment Methods (dynamic) ====== */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Payment Methods</h3>
@@ -332,7 +402,7 @@ const UserDashboard = () => {
                       <div className="payment-details">
                         <div className="card-number">{mask(c.last4)}</div>
                         <div className="card-expiry">
-                          Saved on: {fmtDate(c.createdAt)}
+                          Saved on: {fmtDate2(c.createdAt)}
                         </div>
                       </div>
                       <div className="payment-actions">
@@ -362,49 +432,59 @@ const UserDashboard = () => {
             )}
           </div>
 
-          {/* ====== Recent Reviews (unchanged demo) ====== */}
+          {/* ====== Recent Reviews (wired) ====== */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Recent Reviews</h3>
-              <a href="#" className="view-all">
+              <a href="/my-feedback" className="view-all">
                 View All
               </a>
             </div>
-            <div className="reviews-list">
-              <div className="review-item">
-                <div className="review-header">
-                  <div className="review-gem">Royal Blue Sapphire</div>
-                  <div className="review-date">October 15, 2023</div>
-                </div>
-                <div className="review-rating">
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                </div>
-                <p className="review-text">
-                  Absolutely stunning sapphire! The color is even more vibrant
-                  in person…
-                </p>
+
+            {summaryLoading && <p>Loading your reviews…</p>}
+            {!summaryLoading && summaryError && (
+              <p className="error" style={{ color: "#e74c3c" }}>
+                {summaryError}
+              </p>
+            )}
+
+            {!summaryLoading && !summaryError && (
+              <div className="reviews-list">
+                {recentReviews.length === 0 ? (
+                  <div style={{ color: "#b0b0b0" }}>No reviews yet.</div>
+                ) : (
+                  recentReviews.map((r) => {
+                    const title =
+                      r.title || // ← what the API sends
+                      r.productName ||
+                      r.gemName ||
+                      r.productId ||
+                      (r.orderId ? `Order #${r.orderId}` : "Item");
+
+                    const rating = Number(r.rating) || 0;
+
+                    const text =
+                      r.text || // ← what the API sends
+                      r.feedbackText ||
+                      r.comment ||
+                      "(no text)";
+
+                    const when = r.date || r.createdAt; // ← API sends `date`, old code looked at `createdAt`
+
+                    return (
+                      <div className="review-item" key={r.id || r._id || title}>
+                        <div className="review-header">
+                          <div className="review-gem">{title}</div>
+                          <div className="review-date">{fmtDate(when)}</div>
+                        </div>
+                        <div className="review-rating">{stars(rating)}</div>
+                        <p className="review-text">{text}</p>
+                      </div>
+                    );
+                  })
+                )}
               </div>
-              <div className="review-item">
-                <div className="review-header">
-                  <div className="review-gem">Emerald Cut Diamond</div>
-                  <div className="review-date">October 10, 2023</div>
-                </div>
-                <div className="review-rating">
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star-half-alt"></i>
-                </div>
-                <p className="review-text">
-                  The diamond is exquisite with excellent clarity…
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         </main>
       </div>

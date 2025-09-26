@@ -22,7 +22,9 @@ const AdminMetricsRoutes = require("./Routes/AdminMetricsRoutes");
 
 const orderRoutes = require('./Routes/OrderRoutes');
 const errorMiddleware = require('./Middleware/CustomError');
-const paymentRoutes = require('./Routes/PaymentRoutes'); 
+const paymentRoutes = require('./Routes/PaymentRoutes'); // <-- add
+const feedbackRoutes = require('./Routes/FeedbackRoutes');
+
 
 //Auction 
 const auctionRoutes = require("./Routes/AuctionRoutes");
@@ -54,6 +56,13 @@ app.get("/", (_req, res) => res.send("🚀 API up"));
 // mount
 app.use("/users", meRoutes);
 app.use("/auth", authRoutes);
+
+// feedback api
+app.use('/api/feedback', feedbackRoutes);
+
+
+
+//admin routes
 app.use("/admin/overview", adminOverviewRoutes);
 app.use("/admin/complaints", adminComplaintsRoutes);
 app.use("/admin/users", adminUsersRoutes);
@@ -78,7 +87,7 @@ const PORT = process.env.PORT || 5000;
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes); 
 app.use('/api/metrics', require('./Routes/MetricsRoutes'));
-
+app.use("/api/dashboard", require("./Routes/UserDashboardRoutes"));
 
 //Auction
 // --- AUCTION: mount routes (all prefixed) ---
