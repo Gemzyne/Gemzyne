@@ -57,30 +57,10 @@ exports.getMetrics = async (req, res) => {
     //   { $sort: { count: -1 } },
     // ]);
 
-    // 5) Demo placeholders for “revenue / conversion”
-    // Make it explicit in the response so it’s graded as sample data.
-    const demoLineLabels = labels; // Reuse months
-    const demoConversion = [2.1, 2.3, 2.8, 3.0, 3.1, 3.2, 3.2, 3.3, 3.3, 3.4]; // %
-    const demoTraffic = { direct: 35, organic: 25, social: 20, referral: 15, email: 5 };
-
     res.json({
       usersByMonth: { labels, values },      // for the bar chart
       usersByRole: { labels: roles, values: roleCounts }, // doughnut
       usersByStatus: { labels: statuses, values: statusCounts }, // small bar/doughnut
-      demo: {
-        conversionByMonth: { labels: demoLineLabels, values: demoConversion },
-        trafficSources: {
-          labels: ["Direct", "Organic Search", "Social", "Referral", "Email"],
-          values: [
-            demoTraffic.direct,
-            demoTraffic.organic,
-            demoTraffic.social,
-            demoTraffic.referral,
-            demoTraffic.email,
-          ],
-        },
-        note: "University project: charts below use sample data (no real finances).",
-      },
     });
   } catch (e) {
     console.error("getMetrics", e);

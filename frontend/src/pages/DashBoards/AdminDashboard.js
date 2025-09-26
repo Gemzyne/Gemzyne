@@ -261,10 +261,7 @@ export default function AdminDashboard() {
         labels: ["active", "suspended"],
         values: [10, 1],
       };
-      const traffic = metrics.demo?.trafficSources || {
-        labels: ["Direct", "Organic Search", "Social", "Referral", "Email"],
-        values: [35, 25, 20, 15, 5],
-      };
+      
 
       const ug = document.getElementById("userGrowthChart");
       if (ug) {
@@ -370,42 +367,6 @@ export default function AdminDashboard() {
                 grid: { color: "rgba(255,255,255,0.1)" },
                 ticks: { color: "#b0b0b0" },
               },
-            },
-          },
-        });
-      }
-
-      const ts = document.getElementById("trafficChart");
-      if (ts) {
-        chartsRef.current.ts = new Chart(ts.getContext("2d"), {
-          type: "doughnut",
-          data: {
-            labels: traffic.labels,
-            datasets: [
-              {
-                data: traffic.values,
-                backgroundColor: [
-                  "rgba(212, 175, 55, 0.8)",
-                  "rgba(148, 121, 43, 0.8)",
-                  "rgba(212, 175, 55, 0.6)",
-                  "rgba(169, 140, 44, 0.8)",
-                  "rgba(212, 175, 55, 0.4)",
-                ],
-                borderColor: [
-                  "rgba(212,175,55,1)",
-                  "rgba(148,121,43,1)",
-                  "rgba(212,175,55,1)",
-                  "rgba(169,140,44,1)",
-                  "rgba(212,175,55,1)",
-                ],
-                borderWidth: 1,
-              },
-            ],
-          },
-          options: {
-            cutout: "60%",
-            plugins: {
-              legend: { position: "bottom", labels: { color: "#f5f5f5" } },
             },
           },
         });
@@ -648,10 +609,6 @@ export default function AdminDashboard() {
             </div>
 
             <div className="chart-container">
-              <div className="chart-card">
-                <h3 className="chart-title">Traffic Sources (Demo)</h3>
-                <canvas id="trafficChart" />
-              </div>
               <div className="chart-card">
                 <h3 className="chart-title">Users by Status</h3>
                 <canvas id="statusChart" />
