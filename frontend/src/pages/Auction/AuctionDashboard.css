@@ -1,12 +1,8 @@
-/* AuctionSellerDashboard.css
+/* AuctionDashboard.css
    ---------------------------------------------------------------------------
    All styles are scoped with .sd- prefix to avoid clashes.
-   Adjusted sizing to match Buyer/Centre pages:
-   - 56px control height
-   - 200px card images
-   - Uniform card height via --sd-card-h
-   - Container padding with 5% gutters
-   - Title uses clamp() sizes
+   Includes: particles layer, toasts, popup, inline warnings, inputs, tables.
+   Cards keep a uniform fixed height; images are the same height across cards.
    --------------------------------------------------------------------------- */
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600;700;800&display=swap');
 @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css');
@@ -25,7 +21,6 @@
   --sd-blue: #3498db;
   --sd-red: #e74c3c;
 
-  /* Sizing tokens (aligned with buyer/centre) */
   --sd-control-min-h: 56px;
   --sd-radius: 14px;
   --sd-focus-ring: 0 0 0 3px rgba(212, 175, 55, .25);
@@ -37,17 +32,34 @@
     radial-gradient(1200px 600px at 70% -10%, rgba(212,175,55,0.06), transparent),
     linear-gradient(135deg, var(--sd-bg1) 0%, var(--sd-bg2) 100%);
   min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* particles canvas (under content) */
+.sd-particles{
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display:block;
+  z-index: 0;
+  pointer-events: none;
+  will-change: transform;
+  opacity: .9;
 }
 
 .sd-container {
-  padding: 120px 5% 60px; /* 5% gutters + top space for fixed header */
-  max-width: 1400px;
+  padding: 100px;
+  max-width: 2400px;
   margin: 0 auto;
+  position: relative;
+  z-index: 1; /* above particles */
 }
 
 .sd-title {
   font-family: 'Playfair Display', serif;
-  font-size: clamp(30px, 5.2vw, 50px);
+  font-size: clamp(26px, 6vw, 50px);
   text-align: center;
   margin-bottom: 30px;
   background: linear-gradient(to right, var(--sd-text), var(--sd-gold1));
@@ -76,7 +88,6 @@
   backdrop-filter: blur(8px);
   transition: transform .2s ease, border-color .2s ease;
 }
-
 .sd-widget:hover { transform: translateY(-3px); border-color: rgba(212, 175, 55, .25); }
 
 .sd-widget i {
@@ -89,19 +100,16 @@
 }
 
 .sd-widget h3 { color: var(--sd-sub); font-size: 15px; margin: 4px 0 6px; }
-.sd-widget-value { font-size: 26px; font-weight: 800; color: var(--sd-gold1); }
+.sd-widget-value { font-size: clamp(20px, 3.5vw, 26px); font-weight: 800; color: var(--sd-gold1); }
 
 /* =========== Section + Grid ============================================== */
 .sd-section { margin-top: 24px; }
-
 .sd-section-title { margin-bottom: 16px; position: relative; }
-
 .sd-section-title h2 {
   font-family: 'Playfair Display', serif;
-  font-size: clamp(24px, 3.4vw, 32px);
+  font-size: clamp(22px, 4vw, 32px);
   margin: 0;
 }
-
 .sd-underline {
   display: block;
   width: 60px;
@@ -113,9 +121,9 @@
 
 .sd-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* match buyer/centre */
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 22px;
-  align-items: stretch; /* same row = same height track */
+  align-items: stretch; /* keep rows aligned */
 }
 
 /* =========== Cards ======================================================== */
@@ -131,11 +139,8 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  /* Uniform height like buyer/centre */
-  height: var(--sd-card-h);
-  max-height: none;
+  height: var(--sd-card-h);      /* fixed height for uniform cards */
 }
-
 .sd-card:hover { transform: translateY(-3px); border-color: rgba(212, 175, 55, .25); }
 
 .sd-badge {
@@ -147,14 +152,14 @@
   align-self: flex-start;
   margin-bottom: 10px;
 }
-
 .sd-badge-live { background: rgba(46, 204, 113, .18); color: var(--sd-green); }
 .sd-badge-upcoming { background: rgba(52, 152, 219, .18); color: var(--sd-blue); }
 .sd-badge-ended { background: rgba(231, 76, 60, .18); color: var(--sd-red); }
 
+/* same image height across all cards */
 .sd-image {
   width: 100%;
-  height: 200px;               /* align with buyer/centre */
+  height: 200px;                 /* fixed across breakpoints for consistency */
   object-fit: cover;
   border-radius: 12px;
   margin-bottom: 12px;
@@ -166,8 +171,6 @@
   font-size: 21px;
   margin: 4px 0 8px;
   color: var(--sd-text);
-
-  /* Clamp to keep cards equal height */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -183,8 +186,6 @@
   font-size: 14.5px;
   margin-bottom: 10px;
   line-height: 1.55;
-
-  /* Clamp to keep layout consistent */
   display: -webkit-box;
   -webkit-line-clamp: 3;
   line-clamp: 3;
@@ -197,7 +198,7 @@
 .sd-muted { color: var(--sd-sub); font-style: italic; }
 .sd-ok { color: var(--sd-green); font-weight: 700; }
 
-/* Push action row to bottom so buttons align across cards */
+/* keep action row pinned to bottom so heights align visually */
 .sd-actions { display: flex; gap: 10px; margin-top: auto; }
 
 /* =========== Countdown ===================================================== */
@@ -208,7 +209,6 @@
   justify-content: center;
   margin: 10px 0 12px;
 }
-
 .sd-timebox {
   text-align: center;
   background: rgba(0, 0, 0, .28);
@@ -229,7 +229,7 @@
   border: none;
   border-radius: 10px;
   padding: 0 16px;
-  min-height: 44px; /* consistent with buyer/centre */
+  min-height: 44px;
   font-weight: 800;
   letter-spacing: .3px;
   transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease, filter .15s ease;
@@ -238,7 +238,6 @@
   justify-content: center;
   margin-bottom: 5px;
 }
-
 .sd-btn {
   background: linear-gradient(45deg, var(--sd-gold1), var(--sd-gold2));
   color: #0a0a0a;
@@ -267,7 +266,6 @@
   border: 1px solid var(--sd-gold1);
 }
 .sd-btn-secondary:hover { background: rgba(212, 175, 55, .08); }
-
 .sd-btn-wide { width: 100%; }
 
 /* =========== Empty/Table =================================================== */
@@ -283,7 +281,6 @@
 }
 
 .sd-table { width: 100%; border-collapse: collapse; }
-
 .sd-table thead th {
   text-align: left;
   padding: 14px 16px;
@@ -384,10 +381,7 @@
 
 .sd-subtitle { margin: 10px 0; font-size: 16px; }
 
-.sd-bid-list {
-  border-top: 1px solid rgba(255, 255, 255, .06);
-  margin-top: 8px;
-}
+.sd-bid-list { border-top: 1px solid rgba(255, 255, 255, .06); margin-top: 8px; }
 .sd-bid-item {
   display: grid;
   grid-template-columns: 1fr auto auto;
@@ -409,7 +403,6 @@
 .sd-col-full { grid-column: 1 / -1; }
 
 .sd-form-group { display: flex; flex-direction: column; gap: 8px; }
-
 .sd-form-group label {
   color: var(--sd-text);
   font-weight: 600;
@@ -422,7 +415,7 @@
 .sd-form-group select,
 .sd-form-group textarea {
   width: 100%;
-  min-height: var(--sd-control-min-h); /* 56px */
+  min-height: var(--sd-control-min-h);
   padding: 12px 14px;
   font-size: 16px;
   line-height: 1.35;
@@ -433,7 +426,6 @@
   transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
   outline: none;
 }
-
 .sd-form-group textarea { min-height: 130px; resize: vertical; }
 
 .sd-form-group input::placeholder,
@@ -451,16 +443,18 @@
 .sd-form-group select:invalid,
 .sd-form-group textarea:invalid { border-color: rgba(231, 76, 60, .55); }
 
+/* remove number spinners */
 .sd-form-group input[type="number"]::-webkit-outer-spin-button,
 .sd-form-group input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .sd-form-group input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
+/* dark picker icon */
 .sd-form-group input[type="datetime-local"] { color-scheme: dark; }
 .sd-form-group input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(.85); cursor: pointer; }
 
 .sd-form-group select {
   appearance: none;
-  padding-right: 44px; /* space for arrow */
+  padding-right: 44px;
   background-image: url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 10l5 5 5-5' stroke='%23b0b0b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
@@ -483,7 +477,7 @@
 
 .sd-form-nav { display: flex; gap: 10px; justify-content: space-between; }
 
-/* =========== Security banner (screenshot) ================================= */
+/* =========== Security banner ============================================= */
 .sd-secure {
   display: flex;
   gap: 10px;
@@ -496,6 +490,24 @@
 }
 .sd-secure i { color: var(--sd-green); font-size: 18px; }
 .sd-secure strong { color: var(--sd-green); }
+
+/* =========== Inline warnings & invalid states ============================= */
+.sd-warn {
+  color: var(--sd-red);
+  font-size: 12.5px;
+  margin-top: 6px;
+  display: block;
+}
+.sd-invalid,
+.sd-invalid input,
+.sd-invalid textarea,
+.sd-invalid select,
+input.sd-invalid,
+textarea.sd-invalid,
+select.sd-invalid {
+  border-color: rgba(231, 76, 60, .85) !important;
+  box-shadow: 0 0 0 3px rgba(231, 76, 60, .18) !important;
+}
 
 /* =========== Create Modal ================================================== */
 .sd-modal-overlay {
@@ -538,6 +550,8 @@
   border-bottom: none;
   border-radius: 16px 16px 0 0;
   padding: 16px 18px;
+  position: relative;
+  padding-right: 56px;
 }
 .sd-modal-header h2 {
   margin: 0;
@@ -547,6 +561,22 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+.sd-modal-header .sd-icon-btn,
+.sd-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 22px;
+  line-height: 1;
+  padding: 6px;
+  border-radius: 8px;
+  background: transparent;
+}
+.sd-modal-header .sd-icon-btn:hover,
+.sd-modal-close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sd-gold1);
 }
 
 .sd-modal .sd-modal-body {
@@ -581,40 +611,12 @@
   padding-bottom: 6px;
   background: linear-gradient(145deg, #1a1a1a, #0f0f0f);
   justify-content: center;
-
 }
-
-/* --- Modal close button: top-right --- */
-.sd-modal-header {
-  position: relative;           /* anchor for absolute close btn */
-  padding-right: 56px;          /* keep title from overlapping the button */
-}
-
-/* If your close button uses .sd-icon-btn inside the modal header */
-.sd-modal-header .sd-icon-btn,
-.sd-modal-close {               /* or use a dedicated .sd-modal-close class */
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  font-size: 22px;
-  line-height: 1;
-  padding: 6px;
-  border-radius: 8px;
-  background: transparent;
-}
-
-.sd-modal-header .sd-icon-btn:hover,
-.sd-modal-close:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--sd-gold1);
-}
-
-/* baseline line behind all step numbers */
 .sd-steps::before {
   content: "";
   position: absolute;
-  left: 24px;                       /* start a bit after first circle */
-  right: 24px;                      /* end a bit before last circle */
+  left: 24px;
+  right: 24px;
   top: 50%;
   transform: translateY(-50%);
   height: 2px;
@@ -635,9 +637,8 @@
   flex: 0 0 auto;
 }
 .sd-step.active, .sd-step.completed { opacity: 1; }
-
 .sd-step-num {
-  position: relative;               /* keep above baseline */
+  position: relative;
   z-index: 1;
   width: 38px;
   height: 38px;
@@ -647,7 +648,7 @@
   justify-content: center;
   background: rgba(212, 175, 55, .2);
   color: var(--sd-gold1);
-  border: 2px solid rgba(212, 175, 55, .55); /* stronger for visibility */
+  border: 2px solid rgba(212, 175, 55, .55);
   font-weight: 800;
 }
 .sd-step.completed .sd-step-num {
@@ -655,7 +656,6 @@
   color: var(--sd-green);
   border-color: var(--sd-green);
 }
-
 .sd-step-text { color: var(--sd-sub); font-size: 14px; white-space: nowrap; }
 
 /* Upload & Preview */
@@ -717,8 +717,8 @@
 /* Floating Action Button */
 .sd-fab {
   position: fixed;
-  right: 26px;
-  bottom: 26px;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
   width: 58px;
   height: 58px;
   border-radius: 999px;
@@ -733,24 +733,111 @@
 }
 .sd-fab:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 10px 28px rgba(212, 175, 55, .55); }
 
-/* =========== Responsive ==================================================== */
-@media (max-width: 992px) {
-  .sd-title { font-size: 36px; }
+/* =========== Toasts ======================================================= */
+.sd-toast-rack {
+  position: fixed;
+  top: 86px;
+  right: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1200;
+}
+.sd-toast {
+  background: rgba(20,20,20,.92);
+  color: var(--sd-text);
+  border: 1px solid var(--sd-border);
+  border-left: 4px solid var(--sd-gold1);
+  padding: 10px 12px;
+  border-radius: 10px;
+  box-shadow: 0 8px 18px rgba(0,0,0,.35);
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  backdrop-filter: blur(6px);
+}
+.sd-toast--success { border-left-color: var(--sd-green); }
+.sd-toast--error { border-left-color: var(--sd-red); }
+.sd-toast--warn { border-left-color: #f1c40f; }
+.sd-toast__x {
+  background: transparent;
+  border: none;
+  color: var(--sd-sub);
+  cursor: pointer;
+  font-size: 18px;
 }
 
+/* =========== Popup modal (confirm/error/success) ========================== */
+.sd-pop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 1300;
+}
+.sd-pop {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  width: min(520px, 92vw);
+  background: linear-gradient(145deg, #1a1a1a, #0f0f0f);
+  border: 1px solid var(--sd-border);
+  border-radius: 16px;
+  box-shadow: 0 18px 36px rgba(0,0,0,.5);
+  z-index: 1301;
+}
+.sd-pop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.sd-pop-head h3 { margin: 0; font-size: 18px; }
+.sd-pop-body { padding: 14px 16px; color: var(--sd-text); }
+.sd-pop-foot {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* =========== Responsive ==================================================== */
+@media (max-width: 1024px) {
+  .sd-container { padding: 96px 24px 60px; }
+}
+@media (max-width: 900px) {
+  .sd-table-wrap { overflow: auto; }   /* enable horizontal scroll if needed */
+  .sd-table { min-width: 720px; }      /* keeps columns readable */
+}
 @media (max-width: 768px) {
-  .sd-container { padding-top: 100px; }
   .sd-grid { grid-template-columns: 1fr; }
   .sd-drawer { width: 100vw; }
   .sd-form-grid { grid-template-columns: 1fr; }
   .sd-review-grid { grid-template-columns: 1fr; }
   .sd-modal > .sd-modal-header,
   .sd-modal > .sd-modal-body { width: 95vw; }
+  .sd-container { padding: 96px 16px 50px; }
+  .sd-btn, .sd-btn-outline, .sd-btn-danger, .sd-btn-secondary {
+    min-height: 48px;
+    width: 100%;              /* full-width buttons in forms on mobile */
+  }
+  .sd-form-nav { flex-direction: column; align-items: stretch; }
+  .sd-drawer-header .sd-icon-btn { font-size: 26px; padding: 10px; }
 }
-
+@media (max-width: 640px) {
+  .sd-steps { padding: 8px 12px; gap: 10px; }
+  .sd-step-text { display: none; }     /* show only numbers on tiny screens */
+}
 @media (max-width: 480px) {
   .sd-title { font-size: 30px; }
   .sd-timebox { min-width: 44px; }
+  .sd-form-group input,
+  .sd-form-group select,
+  .sd-form-group textarea { font-size: 16px; } /* avoids iOS zoom */
 }
 
 /* =========== Motion accessibility ======================================== */
@@ -761,5 +848,7 @@
   .sd-fab,
   .sd-upload,
   .sd-modal,
-  .sd-drawer { transition: none !important; }
+  .sd-drawer,
+  .sd-toast,
+  .sd-pop { transition: none !important; }
 }
