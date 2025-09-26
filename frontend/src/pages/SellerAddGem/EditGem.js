@@ -49,6 +49,9 @@ const EditGem = () => {
   // Cancel modal
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
+  // Success popup
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+
   // ---------------- Particles (unchanged) ----------------
   useEffect(() => {
     const initParticles = () => {
@@ -110,12 +113,12 @@ const EditGem = () => {
         setCertNumber(g.certificateNumber || "");
         setPrice(g.priceUSD ?? "");
         setStatus(
-        g.status === "out_of_stock"
-        ? "out-of-stock"
-        : g.status === "reserved"
-        ? "reserved"
-        : "in-stock"
- );
+          g.status === "out_of_stock"
+            ? "out-of-stock"
+            : g.status === "reserved"
+            ? "reserved"
+            : "in-stock"
+        );
         setDescription(g.description || "");
 
         // Images (support g.images or g.imageUrls)
@@ -197,12 +200,12 @@ const EditGem = () => {
     fd.append("certificateNumber", certNumber);
     fd.append("priceUSD", String(price));
     fd.append(
-    "status",
+      "status",
       status === "in-stock"
-      ? "in_stock"
-      : status === "reserved"
-      ? "reserved"
-      : "out_of_stock"
+        ? "in_stock"
+        : status === "reserved"
+        ? "reserved"
+        : "out_of_stock"
     );
     fd.append("gemId", gemId);
     fd.append("description", description);
@@ -243,8 +246,11 @@ const EditGem = () => {
       return;
     }
 
-    alert("Gem updated successfully!");
-    window.location.href = "/seller/gems";
+    // Popup success message (no browser alert) + 1s delay before redirect
+    setShowSuccessToast(true);
+    setTimeout(() => {
+      window.location.href = "/seller/gems";
+    }, 1000);
   };
 
   // ---------------- UI helpers ----------------
@@ -655,6 +661,42 @@ const EditGem = () => {
                 Continue
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success popup (centered, 1s delay handled in submit) */}
+      {showSuccessToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2147483647,
+          }}
+        >
+          <div
+            style={{
+              background: "#1a1a1a",
+              border: "1px solid rgba(212,175,55,0.35)",
+              color: "#f5f5f5",
+              padding: "20px 24px",
+              borderRadius: 14,
+              boxShadow: "0 18px 42px rgba(0,0,0,0.5)",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              minWidth: 260,
+              justifyContent: "center",
+            }}
+          >
+            <i className="fas fa-check-circle" style={{ color: "#d4af37", fontSize: 22 }} />
+            <span style={{ fontWeight: 600 }}>Gem updated successfully!</span>
           </div>
         </div>
       )}
