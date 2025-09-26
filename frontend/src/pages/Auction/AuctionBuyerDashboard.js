@@ -1,15 +1,5 @@
-// Buyer dashboard: Ongoing, Your Bids, Auction History (Won), and Upcoming
-// ------------------------------------------------------------------------
-// This page shows public auctions, your active bids, your won auctions,
-// and upcoming auctions. It also connects to Bids/Winner/Payment APIs.
-//
-// ✅ Beginner notes:
-// - "state" is page data that can change (useState)
-// - "effects" are side-effects like fetching data (useEffect)
-// - We call backend APIs using our `request`/`api` helpers from ../../api
-// - We DON'T include CSS here (keep your CSS in the .css file)
-
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
 import "./AuctionBuyerDashboard.css"; // <- keep your CSS in this file (not included here)
@@ -92,6 +82,23 @@ export default function BuyerDashboard() {
   const [search, setSearch] = useState(""); // search text
   const [category, setCategory] = useState("all"); // filter by type
   const [status, setStatus] = useState("all"); // filter by status
+
+  // ✅ NEW: URL tab helpers (no existing lines changed)
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // ✅ NEW: if URL has ?tab=history (or any tab), open that tab on load / URL change
+  useEffect(() => {
+    const t = (searchParams.get("tab") || "").toLowerCase();
+    if (t && t !== tab) setTab(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // ✅ NEW: keep the URL in sync when the user switches tabs via buttons
+  useEffect(() => {
+    // write ?tab=<current> into the URL without reloading
+    setSearchParams({ tab });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   // Drawer (right-side details panel)
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -188,8 +195,7 @@ export default function BuyerDashboard() {
     });
   }, [ongoing, search, category, status]);
 
-  /* ---- DASHBOARD STATS (BEGINNER NOTE)
-     We compute several numbers for the stat cards above the tabs.
+  /* ---- DASHBOARD STATS ----
      - activeBids: count from yourBids (only active ones)
      - wonCount: total number of wins (paid or not)
      - paidCount: wins that are paid (purchaseStatus === 'paid' OR has paymentId)
@@ -545,7 +551,7 @@ export default function BuyerDashboard() {
 
                     {isPaid ? (
                       <button className="bd-btn bd-btn--ok" disabled>
-                        Transaction complete
+                        Transaction&nbsp;complete
                       </button>
                     ) : (
                       <button
@@ -822,18 +828,15 @@ function DetailsDrawer({ open, details, onClose, onPlace, onIncrease }) {
           )}
           {a.basePrice != null && (
             <div className="bd-drawer__row">
-              <span className="bd-drawer__label">Base:</span>$
-              {fmtMoney(a.basePrice)}
+              <span className="bd-drawer__label">Base:</span>$ {fmtMoney(a.basePrice)}
             </div>
           )}
           <div className="bd-drawer__row">
-            <span className="bd-drawer__label">Current:</span>$
-            {fmtMoney(a.currentPrice)}
+            <span className="bd-drawer__label">Current:</span>$ {fmtMoney(a.currentPrice)}
           </div>
           {yourBid != null && (
             <div className="bd-drawer__row">
-              <span className="bd-drawer__label">Your Bid:</span>$
-              {fmtMoney(yourBid)}
+              <span className="bd-drawer__label">Your Bid:</span>$ {fmtMoney(yourBid)}
             </div>
           )}
           {a.startTime && (
