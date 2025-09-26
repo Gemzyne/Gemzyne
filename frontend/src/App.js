@@ -18,8 +18,6 @@ import PaymentPage from "./pages/Payment/PaymentPage";
 import PaymentHistory from "./pages/Payment/PaymentHistory";
 import SellerPayments from "./pages/Payment/SellerPayments";
 import AboutUs from "./pages/AboutUs/AboutUs";
-import SellerOrder from "./pages/Order/SellerOrders";
-import UserOrders from "./pages/Order/UserOrders";
 
 import ReviewsPage from './pages/ReviewsPage/ReviewsPage';
 import AddFeedbackPage from "./pages/AddFeedbackPage/AddFeedbackPage";
@@ -28,6 +26,8 @@ import AdminFeedbackPage from "./pages/AdminFeedback/AdminFeedbackPage";
 import AdminFeedbackHub from "./pages/Admin/AdminFeedbackHub";
 
 
+import SellerOrder from "./pages/Order/SellerOrders";
+import UserOrders from "./pages/Order/UserOrders";
 
 // Public shop pages
 import GemInventory from "./pages/Inventory/InventoryPage";
