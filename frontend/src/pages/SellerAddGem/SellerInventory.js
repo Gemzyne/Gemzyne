@@ -161,7 +161,7 @@ const SellerInventory = () => {
           alignItems: "start",
         }}
       >
-        <aside style={{ position: "sticky", top: 96, alignSelf: "start", zIndex: 2 }}>
+        <aside >
           <SellerSidebar />
         </aside>
 
