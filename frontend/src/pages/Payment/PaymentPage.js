@@ -1,3 +1,4 @@
+// src/pages/Payment/PaymentPage.js
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import "./PaymentPage.css";
@@ -7,12 +8,19 @@ import { api } from "../../api";
 function Modal({ open, title, message, onClose }) {
   if (!open) return null;
   return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+    <div
+      className="modal-backdrop"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <h3 className="modal-title">{title}</h3>
         <p className="modal-message">{message}</p>
         <div className="modal-actions">
-          <button className="modal-btn" onClick={onClose}>OK</button>
+          <button className="modal-btn" onClick={onClose}>
+            OK
+          </button>
         </div>
       </div>
     </div>
@@ -30,18 +38,64 @@ function isLoggedIn() {
 // client-side preview calculator for custom selections
 function computePreviewSubtotal(sel) {
   if (!sel) return 0;
-  const GEM_TYPES = { diamond: 5000, sapphire: 3200, ruby: 3800, emerald: 3500, amethyst: 1200, topaz: 950 };
-  const SHAPES = { round: 0, princess: 300, cushion: 250, oval: 200, pear: 350, emerald: 400 };
-  const gradePrice = (g) => g === 'premium' ? 1500 : g === 'excellent' ? 800 : g === 'very-good' ? 400 : 0;
-  const polishPrice = (p) => p === 'excellent' ? 300 : p === 'very-good' ? 150 : 0;
-  const symmetryPrice = (s) => s === 'excellent' ? 250 : s === 'very-good' ? 100 : 0;
+  const GEM_TYPES = {
+    diamond: 5000,
+    sapphire: 3200,
+    ruby: 3800,
+    emerald: 3500,
+    amethyst: 1200,
+    topaz: 950,
+  };
+  const SHAPES = {
+    round: 0,
+    princess: 300,
+    cushion: 250,
+    oval: 200,
+    pear: 350,
+    emerald: 400,
+  };
+  const gradePrice = (g) =>
+    g === "premium"
+      ? 1500
+      : g === "excellent"
+      ? 800
+      : g === "very-good"
+      ? 400
+      : 0;
+  const polishPrice = (p) =>
+    p === "excellent" ? 300 : p === "very-good" ? 150 : 0;
+  const symmetryPrice = (s) =>
+    s === "excellent" ? 250 : s === "very-good" ? 100 : 0;
   const weightExtra = (w) => (w && w > 1 ? Math.round((w - 1) * 1000) : 0);
-  return (GEM_TYPES[sel.type] || 0)
-    + (SHAPES[sel.shape] || 0)
-    + weightExtra(Number(sel.weight))
-    + gradePrice(sel.grade)
-    + polishPrice(sel.polish)
-    + symmetryPrice(sel.symmetry);
+  return (
+    (GEM_TYPES[sel.type] || 0) +
+    (SHAPES[sel.shape] || 0) +
+    weightExtra(Number(sel.weight)) +
+    gradePrice(sel.grade) +
+    polishPrice(sel.polish) +
+    symmetryPrice(sel.symmetry)
+  );
+}
+
+/** ===== Expiry helpers (NEW) ===== */
+// MM/YY -> { month, year } or null
+function parseExpiry(str) {
+  const m = /^(\d{2})\/(\d{2})$/.exec(str || "");
+  if (!m) return null;
+  const mm = parseInt(m[1], 10);
+  const yy = 2000 + parseInt(m[2], 10);
+  if (mm < 1 || mm > 12) return null;
+  return { month: mm, year: yy };
+}
+// true if the date is in the past; current month is OK
+function isExpired(exp) {
+  if (!exp) return true;
+  const now = new Date();
+  const curY = now.getFullYear();
+  const curM = now.getMonth() + 1; // 1..12
+  if (exp.year < curY) return true;
+  if (exp.year === curY && exp.month < curM) return true;
+  return false;
 }
 
 export default function PaymentPage() {
@@ -57,18 +111,26 @@ export default function PaymentPage() {
     state?.orderId ||
     (() => {
       try {
-        return JSON.parse(localStorage.getItem("pendingOrder") || "{}").orderId || null;
+        return (
+          JSON.parse(localStorage.getItem("pendingOrder") || "{}").orderId ||
+          null
+        );
       } catch {
         return null;
       }
     })();
 
   const hasGemParam = !!gemIdFromQuery;
-  const effectiveOrderId = (hasGemParam || isCustomMode) ? null : (orderIdFromQuery || orderIdFromNav || null);
+  const effectiveOrderId =
+    hasGemParam || isCustomMode
+      ? null
+      : orderIdFromQuery || orderIdFromNav || null;
   const effectiveGemId = gemIdFromQuery || null;
 
   if (hasGemParam) {
-    try { localStorage.removeItem("pendingOrder"); } catch {}
+    try {
+      localStorage.removeItem("pendingOrder");
+    } catch {}
   }
 
   useEffect(() => {
@@ -104,7 +166,9 @@ export default function PaymentPage() {
     if (typeof cb === "function") cb();
   };
 
-  const [loading, setLoading] = useState(!!effectiveOrderId || !!effectiveGemId || !!isCustomMode);
+  const [loading, setLoading] = useState(
+    !!effectiveOrderId || !!effectiveGemId || !!isCustomMode
+  );
   const [order, setOrder] = useState(null);
   const [gem, setGem] = useState(null);
   const [custom, setCustom] = useState(null);
@@ -122,12 +186,17 @@ export default function PaymentPage() {
       } catch (e) {
         console.error("fetch order error:", e);
         if (!ignore && !effectiveGemId)
-          openModal("Couldn’t load order", "Please refresh the page or go back to the product.");
+          openModal(
+            "Couldn’t load order",
+            "Please refresh the page or go back to the product."
+          );
       } finally {
         if (!ignore) setLoading(false);
       }
     })();
-    return () => { ignore = true; };
+    return () => {
+      ignore = true;
+    };
   }, [effectiveOrderId, effectiveGemId]);
 
   // load gem (inventory flow)
@@ -142,17 +211,26 @@ export default function PaymentPage() {
         if (!ignore) setGem(data);
       } catch (e) {
         console.error("fetch gem error:", e);
-        if (!ignore) openModal("Couldn’t load product", "Please refresh the page or go back to the product.");
+        if (!ignore)
+          openModal(
+            "Couldn’t load product",
+            "Please refresh the page or go back to the product."
+          );
       } finally {
         if (!ignore) setLoading(false);
       }
     })();
-    return () => { ignore = true; };
+    return () => {
+      ignore = true;
+    };
   }, [effectiveGemId]);
 
   // load custom selections (custom pay-first flow)
   useEffect(() => {
-    if (!isCustomMode) { setCustom(null); return; }
+    if (!isCustomMode) {
+      setCustom(null);
+      return;
+    }
     let stale = false;
     try {
       const raw = localStorage.getItem("pendingCustom");
@@ -163,9 +241,13 @@ export default function PaymentPage() {
       } else {
         if (!stale) setCustom(parsed);
       }
-    } catch { setCustom(null); }
+    } catch {
+      setCustom(null);
+    }
     if (!stale) setLoading(false);
-    return () => { stale = true; };
+    return () => {
+      stale = true;
+    };
   }, [isCustomMode]);
 
   // auction banner context (kept)
@@ -175,7 +257,8 @@ export default function PaymentPage() {
       setAuctionCtx(null);
       return;
     }
-    const isAuctionOrder = typeof order.orderNo === "string" && order.orderNo.startsWith("AUC-");
+    const isAuctionOrder =
+      typeof order.orderNo === "string" && order.orderNo.startsWith("AUC-");
     if (!isAuctionOrder) {
       localStorage.removeItem("auctionContext");
       setAuctionCtx(null);
@@ -209,12 +292,14 @@ export default function PaymentPage() {
   const current = hasOrder ? order : fallbackItem;
 
   const productTitle = hasOrder
-    ? (current?.title || "Product")
+    ? current?.title || "Product"
     : isCustomMode
     ? "Custom Gem Order"
-    : (gem?.name || gem?.gemId || "Product");
+    : gem?.name || gem?.gemId || "Product";
 
-  const previewSubtotal = isCustomMode ? computePreviewSubtotal(custom?.selections) : 0;
+  const previewSubtotal = isCustomMode
+    ? computePreviewSubtotal(custom?.selections)
+    : 0;
 
   const subtotal = hasOrder
     ? Number(current?.pricing?.subtotal ?? 0)
@@ -223,21 +308,41 @@ export default function PaymentPage() {
     : Number(gem?.priceUSD ?? 0);
 
   const display = {
-    orderNo: hasOrder ? (current?.orderNo || 'N/A') : (isCustomMode ? 'CUSTOM' : (gem?.gemId || 'N/A')),
-    title:   hasOrder ? (current?.title   || 'N/A') : (isCustomMode ? 'Custom Gem' : (gem?.name   || 'N/A')),
-    type:    hasOrder ? (current?.selections?.type || 'N/A') : (isCustomMode ? (custom?.selections?.type || 'N/A') : (gem?.type || 'N/A')),
-    shape:   hasOrder ? (current?.selections?.shape|| 'N/A') : (isCustomMode ? (custom?.selections?.shape || 'N/A') : (gem?.shape|| 'N/A')),
-    weight:  hasOrder
-      ? (current?.selections?.weight != null
-          ? `${Number(current.selections.weight).toFixed(2).replace(/\.00$/,'')} ct`
-          : 'N/A')
-      : (isCustomMode
-          ? (custom?.selections?.weight != null
-              ? `${Number(custom.selections.weight).toFixed(2).replace(/\.00$/,'')} ct`
-              : 'N/A')
-          : (gem?.carat != null
-              ? `${Number(gem.carat).toFixed(2).replace(/\.00$/,'')} ct`
-              : 'N/A')),
+    orderNo: hasOrder
+      ? current?.orderNo || "N/A"
+      : isCustomMode
+      ? "CUSTOM"
+      : gem?.gemId || "N/A",
+    title: hasOrder
+      ? current?.title || "N/A"
+      : isCustomMode
+      ? "Custom Gem"
+      : gem?.name || "N/A",
+    type: hasOrder
+      ? current?.selections?.type || "N/A"
+      : isCustomMode
+      ? custom?.selections?.type || "N/A"
+      : gem?.type || "N/A",
+    shape: hasOrder
+      ? current?.selections?.shape || "N/A"
+      : isCustomMode
+      ? custom?.selections?.shape || "N/A"
+      : gem?.shape || "N/A",
+    weight: hasOrder
+      ? current?.selections?.weight != null
+        ? `${Number(current.selections.weight)
+            .toFixed(2)
+            .replace(/\.00$/, "")} ct`
+        : "N/A"
+      : isCustomMode
+      ? custom?.selections?.weight != null
+        ? `${Number(custom.selections.weight)
+            .toFixed(2)
+            .replace(/\.00$/, "")} ct`
+        : "N/A"
+      : gem?.carat != null
+      ? `${Number(gem.carat).toFixed(2).replace(/\.00$/, "")} ct`
+      : "N/A",
   };
 
   const [tab, setTab] = useState("card");
@@ -257,6 +362,9 @@ export default function PaymentPage() {
   const [expiryDate, setExpiryDate] = useState("");
   const [cvv, setCvv] = useState("");
   const [rememberCard, setRememberCard] = useState(false);
+  const [expiryError, setExpiryError] = useState("");
+  const [cvvError, setCvvError] = useState("");
+  const [cardNameError, setCardNameError] = useState("");
 
   // bank upload
   const [file, setFile] = useState(null);
@@ -269,20 +377,74 @@ export default function PaymentPage() {
     setShippingCost(country === "LK" ? 20 : 100);
   }, [country]);
   const total = (subtotal || 0) + (shippingCost || 0);
-  const money = (n) => `$${Number(n || 0).toFixed(2).replace(/\.00$/, "")}`;
+  const money = (n) =>
+    `$${Number(n || 0)
+      .toFixed(2)
+      .replace(/\.00$/, "")}`;
 
   // formatters
   const onCardNumber = (v) => {
     const digits = v.replace(/\s+/g, "").replace(/[^0-9]/g, "");
-    const formatted = digits.replace(/(\d{4})/g, "$1 ").trim().slice(0, 19);
+    const formatted = digits
+      .replace(/(\d{4})/g, "$1 ")
+      .trim()
+      .slice(0, 19);
     setCardNumber(formatted);
   };
+  // UPDATED: live validate expiry; allow current month, reject past
   const onExpiry = (v) => {
-    const digits = v.replace(/\s+/g, "").replace(/[^0-9]/g, "").slice(0, 4);
-    const formatted = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+    const digits = v
+      .replace(/\s+/g, "")
+      .replace(/[^0-9]/g, "")
+      .slice(0, 4);
+    const formatted =
+      digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
     setExpiryDate(formatted);
+
+    if (formatted.length === 5) {
+      const exp = parseExpiry(formatted);
+      if (!exp) {
+        setExpiryError("Enter a valid expiry date (MM/YY).");
+      } else if (isExpired(exp)) {
+        setExpiryError("Expiry date has passed.");
+      } else {
+        setExpiryError("");
+      }
+    } else {
+      setExpiryError("");
+    }
   };
-  const onCvv = (v) => setCvv(v.replace(/[^0-9]/g, "").slice(0, 3));
+
+  const onCvv = (v) => {
+    const next = v.replace(/[^0-9]/g, "").slice(0, 3);
+    setCvv(next);
+    if (next.length > 0 && next.length < 3) {
+      setCvvError("CVV must be 3 digits.");
+    } else {
+      setCvvError("");
+    }
+  };
+
+  const onCardNameChange = (v) => {
+    setCardName(v);
+    const name = v.trim();
+
+    if (!name) {
+      setCardNameError("Enter the cardholder name.");
+      return;
+    }
+    if (/[0-9]/.test(name)) {
+      setCardNameError("Name cannot contain numbers.");
+      return;
+    }
+    // Reject weird punctuation-only entries
+    if (!/[A-Za-z]/.test(name)) {
+      setCardNameError("Name must contain letters.");
+      return;
+    }
+
+    setCardNameError("");
+  };
 
   // upload simulate
   const onChooseFile = (e) => {
@@ -308,7 +470,8 @@ export default function PaymentPage() {
   // validation
   const validateCustomer = () => {
     if (!fullName.trim()) return false;
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      return false;
     if (!phone.trim()) return false;
     if (!country) return false;
     if (!address.trim()) return false;
@@ -316,12 +479,41 @@ export default function PaymentPage() {
     if (!zipCode.trim()) return false;
     return true;
   };
+  // UPDATED: include future-or-current month rule + inline message
   const validateCard = () => {
     const num = cardNumber.replace(/\s/g, "");
     if (!num || num.length !== 16) return false;
-    if (!cardName.trim()) return false;
-    if (!expiryDate || !/^\d{2}\/\d{2}$/.test(expiryDate)) return false;
-    if (!cvv || cvv.length < 3) return false;
+    const trimmedName = cardName.trim();
+    if (!trimmedName) {
+      setCardNameError("Enter the cardholder name.");
+      return false;
+    }
+    if (/[0-9]/.test(trimmedName)) {
+      setCardNameError("Name cannot contain numbers.");
+      return false;
+    }
+    setCardNameError("");
+
+    if (!expiryDate || !/^\d{2}\/\d{2}$/.test(expiryDate)) {
+      setExpiryError("Enter a valid expiry date (MM/YY).");
+      return false;
+    }
+    const exp = parseExpiry(expiryDate);
+    if (!exp) {
+      setExpiryError("Enter a valid expiry date (MM/YY).");
+      return false;
+    }
+    if (isExpired(exp)) {
+      setExpiryError("Expiry date has passed.");
+      return false;
+    }
+    setExpiryError("");
+
+    if (!/^\d{3}$/.test(cvv)) {
+      setCvvError("CVV must be 3 digits.");
+      return false;
+    }
+    setCvvError("");
     return true;
   };
 
@@ -334,6 +526,13 @@ export default function PaymentPage() {
       openModal("Missing info", "Please fill all customer fields.");
       return;
     }
+    // Guard if any inline error is present
+    if (expiryError || cvvError || cardNameError) {
+      openModal("Card details", expiryError || cvvError || cardNameError);
+      return;
+    }
+
+
     if (!validateCard()) {
       openModal("Card details", "Please fill all card fields correctly.");
       return;
@@ -346,10 +545,13 @@ export default function PaymentPage() {
         payment: { remember: !!rememberCard, card: { cardName, cardNumber } },
       };
       const json = isCustomMode
-        ? await api.orders.checkoutCustom({ selections: custom?.selections, ...payload })
-        : (effectiveOrderId
-            ? await api.orders.checkoutCard(effectiveOrderId, payload)
-            : await api.orders.checkoutFromGem(effectiveGemId, payload));
+        ? await api.orders.checkoutCustom({
+            selections: custom?.selections,
+            ...payload,
+          })
+        : effectiveOrderId
+        ? await api.orders.checkoutCard(effectiveOrderId, payload)
+        : await api.orders.checkoutFromGem(effectiveGemId, payload);
       if (json?.ok) {
         openModal(
           "Payment successful",
@@ -366,7 +568,10 @@ export default function PaymentPage() {
       }
     } catch (e) {
       console.error(e);
-      openModal("Network error", "We couldn’t reach the server. Please try again.");
+      openModal(
+        "Network error",
+        "We couldn’t reach the server. Please try again."
+      );
     }
   }
 
@@ -380,7 +585,10 @@ export default function PaymentPage() {
       return;
     }
     if (!file) {
-      openModal("Upload required", "Please upload your payment confirmation slip.");
+      openModal(
+        "Upload required",
+        "Please upload your payment confirmation slip."
+      );
       return;
     }
 
@@ -389,22 +597,46 @@ export default function PaymentPage() {
         ? await api.orders.checkoutCustom({
             selections: custom?.selections,
             country,
-            customer: { fullName, email, phone, country, address, city, zipCode },
+            customer: {
+              fullName,
+              email,
+              phone,
+              country,
+              address,
+              city,
+              zipCode,
+            },
             payment: { method: "bank" },
             slip: file,
           })
-        : (effectiveOrderId
-            ? await api.orders.checkoutBank(effectiveOrderId, {
-                country,
-                customer: { fullName, email, phone, country, address, city, zipCode },
-                slip: file,
-              })
-            : await api.orders.checkoutFromGem(effectiveGemId, {
-                country,
-                customer: { fullName, email, phone, country, address, city, zipCode },
-                payment: { method: "bank" },
-                slip: file,
-              }));
+        : effectiveOrderId
+        ? await api.orders.checkoutBank(effectiveOrderId, {
+            country,
+            customer: {
+              fullName,
+              email,
+              phone,
+              country,
+              address,
+              city,
+              zipCode,
+            },
+            slip: file,
+          })
+        : await api.orders.checkoutFromGem(effectiveGemId, {
+            country,
+            customer: {
+              fullName,
+              email,
+              phone,
+              country,
+              address,
+              city,
+              zipCode,
+            },
+            payment: { method: "bank" },
+            slip: file,
+          });
       if (json?.ok) {
         openModal(
           "Bank transfer submitted",
@@ -422,7 +654,10 @@ export default function PaymentPage() {
       }
     } catch (e) {
       console.error(e);
-      openModal("Network error", "We couldn’t reach the server. Please try again.");
+      openModal(
+        "Network error",
+        "We couldn’t reach the server. Please try again."
+      );
     }
   }
 
@@ -445,7 +680,8 @@ export default function PaymentPage() {
               marginBottom: 12,
               padding: "10px 14px",
               borderRadius: 10,
-              background: "linear-gradient(135deg, rgba(212,175,55,.15), rgba(249,242,149,.1))",
+              background:
+                "linear-gradient(135deg, rgba(212,175,55,.15), rgba(249,242,149,.1))",
               border: "1px solid rgba(212,175,55,.35)",
               color: "#eaeaea",
               display: "flex",
@@ -461,7 +697,9 @@ export default function PaymentPage() {
                 Auction Purchase{auctionCtx.code ? ` • ${auctionCtx.code}` : ""}
               </div>
               {auctionCtx.title ? (
-                <div style={{ opacity: 0.85, fontSize: 13 }}>{auctionCtx.title}</div>
+                <div style={{ opacity: 0.85, fontSize: 13 }}>
+                  {auctionCtx.title}
+                </div>
               ) : null}
             </div>
           </div>
@@ -469,7 +707,10 @@ export default function PaymentPage() {
 
         <div className="payment-header">
           <h1>Complete Your Purchase</h1>
-          <p>Securely pay for your premium gemstones using your preferred payment method</p>
+          <p>
+            Securely pay for your premium gemstones using your preferred payment
+            method
+          </p>
         </div>
 
         <div className="payment-layout">
@@ -524,7 +765,9 @@ export default function PaymentPage() {
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
                     >
-                      <option value="" disabled>Select Country</option>
+                      <option value="" disabled>
+                        Select Country
+                      </option>
                       <option value="LK">Sri Lanka</option>
                       <option value="AU">Australia</option>
                       <option value="US">United States</option>
@@ -576,10 +819,16 @@ export default function PaymentPage() {
 
             {/* Tabs */}
             <div className="payment-tabs">
-              <div className={`tab ${tab === "card" ? "active" : ""}`} onClick={() => setTab("card")}>
+              <div
+                className={`tab ${tab === "card" ? "active" : ""}`}
+                onClick={() => setTab("card")}
+              >
                 Card Payment
               </div>
-              <div className={`tab ${tab === "bank" ? "active" : ""}`} onClick={() => setTab("bank")}>
+              <div
+                className={`tab ${tab === "bank" ? "active" : ""}`}
+                onClick={() => setTab("bank")}
+              >
                 Bank Transfer
               </div>
             </div>
@@ -607,10 +856,16 @@ export default function PaymentPage() {
                       id="cardName"
                       className="form-control"
                       value={cardName}
-                      onChange={(e) => setCardName(e.target.value)}
+                      onChange={(e) => onCardNameChange(e.target.value)}
                       placeholder="John Doe"
                       autoComplete="off"
+                      aria-invalid={cardNameError ? "true" : "false"}
                     />
+                    {cardNameError && (
+                      <div className="field-error" role="alert">
+                        {cardNameError}
+                      </div>
+                    )}
                   </div>
 
                   <div className="form-row">
@@ -623,7 +878,13 @@ export default function PaymentPage() {
                         onChange={(e) => onExpiry(e.target.value)}
                         placeholder="MM/YY"
                         autoComplete="off"
+                        aria-invalid={expiryError ? "true" : "false"}
                       />
+                      {expiryError && (
+                        <div className="field-error" role="alert">
+                          {expiryError}
+                        </div>
+                      )}
                     </div>
                     <div className="form-group">
                       <label htmlFor="cvv">CVV</label>
@@ -635,7 +896,13 @@ export default function PaymentPage() {
                         placeholder="123"
                         maxLength={3}
                         autoComplete="off"
+                        aria-invalid={cvvError ? "true" : "false"}
                       />
+                      {cvvError && (
+                        <div className="field-error" role="alert">
+                          {cvvError}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -646,20 +913,33 @@ export default function PaymentPage() {
                       checked={rememberCard}
                       onChange={(e) => setRememberCard(e.target.checked)}
                     />
-                    <label htmlFor="rememberCard">Remember my card details for future purchases</label>
+                    <label htmlFor="rememberCard">
+                      Remember my card details for future purchases
+                    </label>
                   </div>
 
                   <div className="card-icons">
-                    <div className="card-icon"><i className="fab fa-cc-visa" /></div>
-                    <div className="card-icon"><i className="fab fa-cc-mastercard" /></div>
-                    <div className="card-icon"><i className="fab fa-cc-amex" /></div>
-                    <div className="card-icon"><i className="fab fa-cc-discover" /></div>
+                    <div className="card-icon">
+                      <i className="fab fa-cc-visa" />
+                    </div>
+                    <div className="card-icon">
+                      <i className="fab fa-cc-mastercard" />
+                    </div>
+                    <div className="card-icon">
+                      <i className="fab fa-cc-amex" />
+                    </div>
+                    <div className="card-icon">
+                      <i className="fab fa-cc-discover" />
+                    </div>
                   </div>
 
-                  <button className="submit-btn" onClick={submitCard}>Pay Now</button>
+                  <button className="submit-btn" onClick={submitCard}>
+                    Pay Now
+                  </button>
 
                   <div className="payment-notice">
-                    <i className="fas fa-lock" /> Demo: server encrypts card only if “Remember” is checked.
+                    <i className="fas fa-lock" /> Demo: server encrypts card
+                    only if “Remember” is checked.
                   </div>
                 </section>
               ) : (
@@ -681,15 +961,29 @@ export default function PaymentPage() {
                     </div>
                     <div className="bank-detail">
                       <span className="label">Reference:</span>
-                      <span className="value">{display.orderNo || "ORD-REF"}</span>
+                      <span className="value">
+                        {display.orderNo || "ORD-REF"}
+                      </span>
                     </div>
                   </div>
 
-                  <p>After making your transfer, please upload the payment confirmation below for verification.</p>
+                  <p>
+                    After making your transfer, please upload the payment
+                    confirmation below for verification.
+                  </p>
 
-                  <div className="upload-area" onClick={() => document.getElementById("fileInputHidden").click()}>
-                    <div className="upload-icon"><i className="fas fa-cloud-upload-alt" /></div>
-                    <div className="upload-text">Upload Payment Confirmation</div>
+                  <div
+                    className="upload-area"
+                    onClick={() =>
+                      document.getElementById("fileInputHidden").click()
+                    }
+                  >
+                    <div className="upload-icon">
+                      <i className="fas fa-cloud-upload-alt" />
+                    </div>
+                    <div className="upload-text">
+                      Upload Payment Confirmation
+                    </div>
                     <div className="upload-note">JPG, PNG or PDF (Max 5MB)</div>
                     <div className="upload-btn">Choose File</div>
                     <input
@@ -708,15 +1002,21 @@ export default function PaymentPage() {
                         <i className="fas fa-times" onClick={clearFile} />
                       </div>
                       <div className="file-progress">
-                        <div className="file-progress-bar" style={{ width: `${progress}%` }} />
+                        <div
+                          className="file-progress-bar"
+                          style={{ width: `${progress}%` }}
+                        />
                       </div>
                     </div>
                   )}
 
-                  <button className="submit-btn" onClick={submitBank}>Submit Payment Confirmation</button>
+                  <button className="submit-btn" onClick={submitBank}>
+                    Submit Payment Confirmation
+                  </button>
 
                   <div className="payment-notice">
-                    <i className="fas fa-clock" /> Your order will be processed after verification.
+                    <i className="fas fa-clock" /> Your order will be processed
+                    after verification.
                   </div>
                 </section>
               )}
@@ -729,26 +1029,39 @@ export default function PaymentPage() {
               <h3>Order Summary</h3>
 
               {hasOrder && current?.selections && (
-                <div style={{ marginBottom: 10, fontSize: 14, color: "#cfcfcf" }}>
+                <div
+                  style={{ marginBottom: 10, fontSize: 14, color: "#cfcfcf" }}
+                >
                   {current.selections.weight != null && (
                     <div>
                       <strong>Weight:</strong>{" "}
-                      {Number(current.selections.weight).toFixed(1).replace(/\.0$/, "")} ct
+                      {Number(current.selections.weight)
+                        .toFixed(1)
+                        .replace(/\.0$/, "")}{" "}
+                      ct
                     </div>
                   )}
                   {current.selections.grade && (
-                    <div><strong>Grade:</strong> {current.selections.grade}</div>
+                    <div>
+                      <strong>Grade:</strong> {current.selections.grade}
+                    </div>
                   )}
                   {current.selections.polish && (
-                    <div><strong>Polish:</strong> {current.selections.polish}</div>
+                    <div>
+                      <strong>Polish:</strong> {current.selections.polish}
+                    </div>
                   )}
                   {current.selections.symmetry && (
-                    <div><strong>Symmetry:</strong> {current.selections.symmetry}</div>
+                    <div>
+                      <strong>Symmetry:</strong> {current.selections.symmetry}
+                    </div>
                   )}
                   {current.estimatedFinishDate && (
                     <div>
                       <strong>Estimated Finish:</strong>{" "}
-                      {new Date(current.estimatedFinishDate).toLocaleDateString()}
+                      {new Date(
+                        current.estimatedFinishDate
+                      ).toLocaleDateString()}
                     </div>
                   )}
                 </div>
@@ -756,13 +1069,31 @@ export default function PaymentPage() {
 
               {/* custom-mode quick summary */}
               {!hasOrder && isCustomMode && custom?.selections && (
-                <div style={{ marginBottom: 10, fontSize: 14, color: "#cfcfcf" }}>
-                  <div><strong>Type:</strong> {custom.selections.type}</div>
-                  <div><strong>Shape:</strong> {custom.selections.shape}</div>
-                  <div><strong>Weight:</strong> {Number(custom.selections.weight).toFixed(1).replace(/\.0$/,'')} ct</div>
-                  <div><strong>Grade:</strong> {custom.selections.grade}</div>
-                  <div><strong>Polish:</strong> {custom.selections.polish}</div>
-                  <div><strong>Symmetry:</strong> {custom.selections.symmetry}</div>
+                <div
+                  style={{ marginBottom: 10, fontSize: 14, color: "#cfcfcf" }}
+                >
+                  <div>
+                    <strong>Type:</strong> {custom.selections.type}
+                  </div>
+                  <div>
+                    <strong>Shape:</strong> {custom.selections.shape}
+                  </div>
+                  <div>
+                    <strong>Weight:</strong>{" "}
+                    {Number(custom.selections.weight)
+                      .toFixed(1)
+                      .replace(/\.0$/, "")}{" "}
+                    ct
+                  </div>
+                  <div>
+                    <strong>Grade:</strong> {custom.selections.grade}
+                  </div>
+                  <div>
+                    <strong>Polish:</strong> {custom.selections.polish}
+                  </div>
+                  <div>
+                    <strong>Symmetry:</strong> {custom.selections.symmetry}
+                  </div>
                 </div>
               )}
 
@@ -794,7 +1125,12 @@ export default function PaymentPage() {
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
       />
 
-      <Modal open={modalOpen} title={modalTitle} message={modalMessage} onClose={closeModal} />
+      <Modal
+        open={modalOpen}
+        title={modalTitle}
+        message={modalMessage}
+        onClose={closeModal}
+      />
     </>
   );
 }
