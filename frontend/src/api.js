@@ -218,19 +218,22 @@ export const api = {
 
     get: (id) => request(`/api/orders/${id}`),
 
+    //Order track
+    // SELLER/ADMIN: list all custom orders
     listAll: (params = {}) => {
       const qs = new URLSearchParams(params).toString();
       return request(`/api/orders${qs ? `?${qs}` : ""}`);
     },
 
+    // SELLER/ADMIN: update production status
     updateStatus: (id, orderStatus) =>
       request(`/api/orders/${id}/order-status`, {
         method: "PATCH",
         body: JSON.stringify({ orderStatus }),
       }),
 
+    // SELLER/ADMIN: delete order
     remove: (id) => request(`/api/orders/${id}`, { method: "DELETE" }),
-
     // From inventory gem
     createFromGem: (gemId) =>
       request(`/api/orders/from-gem/${encodeURIComponent(gemId)}`, {
@@ -363,6 +366,8 @@ export const api = {
 
     remove: (id) => request(`/api/auctions/${id}`, { method: "DELETE" }),
   },
+  // === AUCTION END ===
+
 };
 
 // ---- GEMS ----

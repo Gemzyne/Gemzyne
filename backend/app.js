@@ -100,7 +100,7 @@ app.use("/api/wins", winnerRoutes);
 app.use(errorMiddleware);
 
 
-//app.use("/api/orders", require("./Routes/CustomOrderRoutes"));
+app.use("/api/orders", require("./Routes/CustomOrderRoutes"));
 app.use("/api/my-orders", require("./Routes/UserOrdersRoutes"));
 
 

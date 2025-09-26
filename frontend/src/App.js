@@ -28,7 +28,6 @@ import AdminFeedbackPage from "./pages/AdminFeedback/AdminFeedbackPage";
 import AdminFeedbackHub from "./pages/Admin/AdminFeedbackHub";
 
 
-
 // Public shop pages
 import GemInventory from "./pages/Inventory/InventoryPage";
 import GemDetail from "./pages/Inventory/GemDetail";
@@ -144,6 +143,11 @@ export default function App() {
 
 
       
+      <Route 
+      path="/my-orders" 
+      element={<UserOrders />} 
+      />
+
       {/* Admin */}
       <Route
         path="/admin-dashboard"
