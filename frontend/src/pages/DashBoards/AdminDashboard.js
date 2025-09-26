@@ -1,3 +1,4 @@
+// src/Pages/Admin/AdminDashboard.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Header from "../../Components/Header";
@@ -8,23 +9,21 @@ import "./AdminDashboard.css";
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  // Counters + tables
+  // --------- State ---------
   const [overview, setOverview] = useState({
     totalUsers: 0,
     totalSellers: 0,
-    totalOrders: 0,
     openComplaints: 0,
   });
   const [users, setUsers] = useState([]);
   const [complaints, setComplaints] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
-
-  // Metrics for charts (from /admin/metrics)
-  const [metrics, setMetrics] = useState(null);
+  const [metrics, setMetrics] = useState(null); // from /admin/metrics
 
   // Keep chart instances to destroy on rerender/unmount
   const chartsRef = useRef({});
 
+  // --------- Handlers ---------
   const handleViewUser = (id) => navigate(`/admin/users/${id}`);
 
   const handleDeleteUser = async (id) => {
@@ -48,14 +47,14 @@ export default function AdminDashboard() {
     }
   };
 
-  // Guard: only admins
+  // --------- Guards ---------
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem("user") || "null");
     if (!u) return navigate("/login", { replace: true });
     if (u.role !== "admin") return navigate("/mainhome", { replace: true });
   }, [navigate]);
 
-  // Particles background
+  // --------- Particles ---------
   useEffect(() => {
     const initParticles = () =>
       window.particlesJS?.("particles-js", {
@@ -95,7 +94,7 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  // Sticky header shadow on scroll
+  // --------- Sticky header shadow ---------
   useEffect(() => {
     const onScroll = () => {
       const h = document.getElementById("header");
@@ -107,9 +106,8 @@ export default function AdminDashboard() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // —— Helpers to normalize complaints coming from various controllers ——
+  // --------- Normalize complaints for the table preview ---------
   const normalizeComplaint = (c) => {
-    // Accept both Feedback-based complaints and classic Complaint model
     const id = c._id || c.id;
     const userName =
       c.userName ||
@@ -118,7 +116,6 @@ export default function AdminDashboard() {
       c.email ||
       "—";
 
-    // Prefer explicit subject/title; else build one from categories
     const subject =
       c.subject ||
       c.title ||
@@ -133,35 +130,33 @@ export default function AdminDashboard() {
       _id: id,
       userName,
       subject,
-      status, // "open" | "pending" | "resolved" | etc.
+      status,
       createdAt,
     };
   };
 
-  // Fetch overview + users + complaints + metrics
+  // --------- Fetch overview + users + complaints + metrics ---------
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
         const [overviewRes, usersRes, complaintsRes, metricsRes] =
           await Promise.all([
-            api.admin.getOverview(),
+            api.admin.getOverview(), // { totalUsers, totalSellers, openComplaints }
             api.admin.listUsers({ page: 1, limit: 20 }),
             api.admin.listComplaints
-              ? api.admin.listComplaints({ page: 1, limit: 50 }) // grab a few more to compute opens
+              ? api.admin.listComplaints()
               : Promise.resolve([]),
             api.admin.getMetrics(),
           ]);
 
         if (!mounted) return;
 
-        // Overview (safe fallback)
-        const ov = overviewRes?.overview || overviewRes || {};
+        // Overview comes flat from backend now
         const baseOverview = {
-          totalUsers: Number(ov.totalUsers) || 0,
-          totalSellers: Number(ov.totalSellers) || 0,
-          totalOrders: Number(ov.totalOrders) || 0,
-          openComplaints: Number(ov.openComplaints) || 0, // may be 0 if backend doesn’t send it
+          totalUsers: Number(overviewRes?.totalUsers) || 0,
+          totalSellers: Number(overviewRes?.totalSellers) || 0,
+          openComplaints: Number(overviewRes?.openComplaints) || 0,
         };
 
         // Users
@@ -178,27 +173,28 @@ export default function AdminDashboard() {
           : Array.isArray(complaintsRes)
           ? complaintsRes
           : [];
-
         const clist = clistRaw.map(normalizeComplaint).sort((a, b) => {
           const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
           const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
           return db - da;
         });
-
         setComplaints(clist);
 
-        // Recompute openComplaints from the list if possible
-        const openCount = clist.filter(
+        // Prefer the computed open count from metrics when present
+        const fallbackOpen = clist.filter(
           (c) =>
             !["resolved", "closed"].includes(String(c.status).toLowerCase())
         ).length;
 
         setOverview({
-          ...baseOverview,
-          // Prefer live computed figure if we have complaint data
-          openComplaints: clist.length
-            ? openCount
-            : baseOverview.openComplaints,
+          totalUsers: baseOverview.totalUsers,
+          totalSellers: baseOverview.totalSellers,
+          openComplaints:
+            (metricsRes?.complaintsOpenCount ?? null) != null
+              ? metricsRes.complaintsOpenCount
+              : clist.length
+              ? fallbackOpen
+              : baseOverview.openComplaints,
         });
 
         setMetrics(metricsRes || null);
@@ -213,7 +209,7 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  // Charts from backend metrics (unchanged)
+  // --------- Charts from backend metrics ---------
   useEffect(() => {
     if (!metrics) return;
 
@@ -230,7 +226,7 @@ export default function AdminDashboard() {
       await ensureChartJs();
       const Chart = window.Chart;
 
-      // Destroy any old instances
+      // Destroy old instances
       Object.values(chartsRef.current).forEach((c) => {
         try {
           c && c.destroy();
@@ -261,8 +257,12 @@ export default function AdminDashboard() {
         labels: ["active", "suspended"],
         values: [10, 1],
       };
-      
+      const comp = metrics.complaintsByStatus || {
+        labels: ["Pending", "Resolved", "Closed"],
+        values: [0, 0, 0],
+      };
 
+      // User Growth
       const ug = document.getElementById("userGrowthChart");
       if (ug) {
         const ctx = ug.getContext("2d");
@@ -300,6 +300,7 @@ export default function AdminDashboard() {
         });
       }
 
+      // Users by Role
       const roleEl = document.getElementById("roleChart");
       if (roleEl) {
         chartsRef.current.role = new Chart(roleEl.getContext("2d"), {
@@ -336,6 +337,7 @@ export default function AdminDashboard() {
         });
       }
 
+      // Users by Status
       const statusEl = document.getElementById("statusChart");
       if (statusEl) {
         const ctx = statusEl.getContext("2d");
@@ -371,6 +373,43 @@ export default function AdminDashboard() {
           },
         });
       }
+
+      // Complaints by Status
+      const compEl = document.getElementById("complaintsStatusChart");
+      if (compEl) {
+        chartsRef.current.comp = new Chart(compEl.getContext("2d"), {
+          type: "doughnut",
+          data: {
+            labels: comp.labels,
+            datasets: [
+              {
+                data: comp.values,
+                backgroundColor: [
+                  "rgba(212, 175, 55, 0.8)",
+                  "rgba(148, 121, 43, 0.8)",
+                  "rgba(212, 175, 55, 0.6)",
+                  "rgba(169, 140, 44, 0.8)",
+                  "rgba(212, 175, 55, 0.4)",
+                ],
+                borderColor: [
+                  "rgba(212,175,55,1)",
+                  "rgba(148,121,43,1)",
+                  "rgba(212,175,55,1)",
+                  "rgba(169,140,44,1)",
+                  "rgba(212,175,55,1)",
+                ],
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            cutout: "55%",
+            plugins: {
+              legend: { position: "bottom", labels: { color: "#f5f5f5" } },
+            },
+          },
+        });
+      }
     };
 
     draw();
@@ -385,7 +424,7 @@ export default function AdminDashboard() {
     };
   }, [metrics]);
 
-  // Show 4 most recent users/complaints
+  // --------- Recent rows (just show 4) ---------
   const usersRows = useMemo(
     () => (Array.isArray(users) ? users.slice(0, 4) : []),
     [users]
@@ -393,15 +432,10 @@ export default function AdminDashboard() {
 
   const complaintsRows = useMemo(() => {
     if (!Array.isArray(complaints)) return [];
-    return complaints
-      .sort((a, b) => {
-        const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return db - da;
-      })
-      .slice(0, 4);
+    return complaints.slice(0, 4);
   }, [complaints]);
 
+  // --------- Render ---------
   return (
     <>
       {/* Particles background */}
@@ -428,6 +462,7 @@ export default function AdminDashboard() {
                 <p>Total Users</p>
               </div>
             </div>
+
             <div className="stat-card">
               <div className="stat-icon">
                 <i className="fas fa-store" />
@@ -437,21 +472,14 @@ export default function AdminDashboard() {
                 <p>Total Sellers</p>
               </div>
             </div>
-            <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-shopping-bag" />
-              </div>
-              <div className="stat-info">
-                <h3>{overview.totalOrders}</h3>
-                <p>Total Orders</p>
-              </div>
-            </div>
+
+            {/* Removed the Total Orders card */}
+
             <div className="stat-card">
               <div className="stat-icon">
                 <i className="fas fa-exclamation-circle" />
               </div>
               <div className="stat-info">
-                {/* Always reflects latest fetched complaints */}
                 <h3>{overview.openComplaints}</h3>
                 <p>Open Complaints</p>
               </div>
@@ -601,14 +629,13 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* System Analytics (Traffic demo + Status) */}
+          {/* System Analytics */}
           <div className="dashboard-section">
-            <div className="section-header">
-              <h3 className="section-title">System Analytics</h3>
-              <button className="btn">Generate Report</button>
-            </div>
-
             <div className="chart-container">
+              <div className="chart-card">
+                <h3 className="chart-title">Complaints by Status</h3>
+                <canvas id="complaintsStatusChart" />
+              </div>
               <div className="chart-card">
                 <h3 className="chart-title">Users by Status</h3>
                 <canvas id="statusChart" />

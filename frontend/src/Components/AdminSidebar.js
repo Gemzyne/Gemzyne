@@ -47,11 +47,6 @@ export default function AdminSidebar() {
             </NavLink>
           </li>
           <li>
-            <NavLink to="/admin/analytics" className={({ isActive }) => (isActive ? "active" : "")}>
-              <i className="fas fa-chart-bar"></i> Analytics
-            </NavLink>
-          </li>
-          <li>
             <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? "active" : "")}>
               <i className="fas fa-cog"></i> Settings
             </NavLink>

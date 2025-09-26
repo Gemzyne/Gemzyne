@@ -1,6 +1,6 @@
 // backend/Controllers/AdminMetricsController.js
 const User = require("../Models/UserModel");
-// const Complaint = require("../Models/ComplaintModel"); // if you have it
+const Feedback = require("../Models/FeedbackModel");
 
 function monthsBack(n) {
   const d = new Date();
@@ -51,16 +51,30 @@ exports.getMetrics = async (req, res) => {
     const statuses = statusAgg.map((s) => s._id || "unknown");
     const statusCounts = statusAgg.map((s) => s.count);
 
-    // 4) Optional: complaints by status (if you have a collection)
-    // const compAgg = await Complaint.aggregate([
-    //   { $group: { _id: "$status", count: { $sum: 1 } } },
-    //   { $sort: { count: -1 } },
-    // ]);
+    //4) Complaints by status (Feedback with type="complaint")
+    const compAgg = await Feedback.aggregate([
+      { $match: { type: "complaint" } },
+      {
+        $group: {
+          _id: { $ifNull: ["$status", "Pending"] }, // default
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { count: -1 } },
+    ]);
+    // Normalize labels/values + a computed "open" count
+    const compLabels = compAgg.map((r) => String(r._id || "Pending"));
+    const compValues = compAgg.map((r) => r.count);
+    const openCount = compAgg
+      .filter((r) => !["resolved", "closed"].includes(String(r._id).toLowerCase()))
+      .reduce((a, b) => a + b.count, 0);
 
     res.json({
       usersByMonth: { labels, values },      // for the bar chart
       usersByRole: { labels: roles, values: roleCounts }, // doughnut
       usersByStatus: { labels: statuses, values: statusCounts }, // small bar/doughnut
+      complaintsByStatus: { labels: compLabels, values: compValues },
+     complaintsOpenCount: openCount,
     });
   } catch (e) {
     console.error("getMetrics", e);

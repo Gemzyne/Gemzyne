@@ -88,7 +88,7 @@ const PORT = process.env.PORT || 5000;
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes); // <-- add
 app.use('/api/metrics', require('./Routes/MetricsRoutes'));
-
+app.use("/api/dashboard", require("./Routes/UserDashboardRoutes"));
 
 //Auction
 // --- AUCTION: mount routes (all prefixed) ---
