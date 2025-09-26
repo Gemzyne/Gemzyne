@@ -22,6 +22,16 @@ body {
 /* ===== Page shell */
 .inventory-page { width: 100%; }
 
+/* after (correct) */
+.inventory-page .dashboard-sidebar {
+  position: fixed;                /* or sticky, if you prefer */
+  top: var(--header-h, 96px);     /* fallback to 96px if the var isn’t defined */
+  left: 0;
+  height: calc(100vh - var(--header-h, 96px));
+  z-index: 2;                     /* keep above background particles */
+}
+
+
 /* Left-align the content; keep space for fixed header */
 .inventory-container {
   /* move to left (no centering) */

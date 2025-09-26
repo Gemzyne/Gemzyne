@@ -21,6 +21,14 @@ import AboutUs from "./pages/AboutUs/AboutUs";
 import SellerOrder from "./pages/Order/SellerOrders";
 import UserOrders from "./pages/Order/UserOrders";
 
+import ReviewsPage from './pages/ReviewsPage/ReviewsPage';
+import AddFeedbackPage from "./pages/AddFeedbackPage/AddFeedbackPage";
+import MyFeedbackPage from "./pages/MyFeedbackPage/MyFeedbackPage"; 
+import AdminFeedbackPage from "./pages/AdminFeedback/AdminFeedbackPage";
+import AdminFeedbackHub from "./pages/Admin/AdminFeedbackHub";
+
+
+
 // Public shop pages
 import GemInventory from "./pages/Inventory/InventoryPage";
 import GemDetail from "./pages/Inventory/GemDetail";
@@ -51,6 +59,15 @@ const RequireRole = ({ role, children }) => {
   return children;
 };
 
+
+const RequireAnyRole = ({ roles = [], children }) => {
+  const raw = localStorage.getItem("user");
+  const user = raw ? JSON.parse(raw) : null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!roles.includes(user.role)) return <Navigate to="/mainhome" replace />;
+  return children;
+};
+
 export default function App() {
   return (
     <Routes>
@@ -59,7 +76,9 @@ export default function App() {
       <Route path="/mainhome" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/about" element={<AboutUs />} />
-
+       
+       <Route path="/reviews" element={<ReviewsPage />} />
+       
       {/* Public shop routes */}
       {/* <Route path="/collection" element={<GemInventory />} />*/}
       <Route path="/inventory" element={<GemInventory />} />
@@ -75,7 +94,6 @@ export default function App() {
           </RequireAuth>
         }
       />
-
       {/* User */}
       <Route
         path="/udashboard"
@@ -107,6 +125,25 @@ export default function App() {
       element={<UserOrders />} 
       />
 
+     <Route
+            path="/my-feedback"
+            element={
+               <RequireAuth>
+                 <MyFeedbackPage />
+               </RequireAuth>
+         }
+      />
+        <Route
+            path="/add-feedback"
+            element={
+               <RequireAuth>
+                 <AddFeedbackPage />
+               </RequireAuth>
+        }
+      />
+
+
+      
       {/* Admin */}
       <Route
         path="/admin-dashboard"
@@ -154,6 +191,17 @@ export default function App() {
           <RequireAuth>
             <RequireRole role="admin">
               <AdminUserCreatePage />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/admin/feedback-hub"
+        element={
+          <RequireAuth> 
+            <RequireRole role="admin">
+              <AdminFeedbackHub />
             </RequireRole>
           </RequireAuth>
         }
@@ -239,6 +287,20 @@ export default function App() {
           </RequireAuth>
         }
       />
+      
+      {/* Admin  and Seller */}
+
+       <Route
+        path="/admin/feedback"
+        element={
+        <RequireAuth>
+        <RequireAnyRole roles={"seller"}>
+        <AdminFeedbackPage />
+        </RequireAnyRole>
+        </RequireAuth>
+       }
+       />
+
 
       {/* === AUCTION: Public centre === */}
       <Route path="/auction" element={<AuctionCentre />} />
