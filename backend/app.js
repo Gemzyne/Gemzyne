@@ -23,6 +23,8 @@ const AdminMetricsRoutes = require("./Routes/AdminMetricsRoutes"); // <-- add
 const orderRoutes = require('./Routes/OrderRoutes');
 const errorMiddleware = require('./Middleware/CustomError');
 const paymentRoutes = require('./Routes/PaymentRoutes'); // <-- add
+const feedbackRoutes = require('./Routes/FeedbackRoutes');
+
 
 //Auction 
 // --- AUCTION: add below your other requires ---
@@ -55,6 +57,13 @@ app.get("/", (_req, res) => res.send("🚀 API up"));
 // mount
 app.use("/users", meRoutes);
 app.use("/auth", authRoutes);
+
+// feedback api
+app.use('/api/feedback', feedbackRoutes);
+
+
+
+//admin routes
 app.use("/admin/overview", adminOverviewRoutes);
 app.use("/admin/complaints", adminComplaintsRoutes);
 app.use("/admin/users", adminUsersRoutes);
@@ -90,6 +99,8 @@ app.use("/api/wins", winnerRoutes);
 
 // ✅ error handler last
 app.use(errorMiddleware);
+
+
 
 // --- Connect DB + Start Server
 mongoose

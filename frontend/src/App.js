@@ -19,6 +19,15 @@ import PaymentHistory from "./pages/Payment/PaymentHistory";
 import SellerPayments from "./pages/Payment/SellerPayments";
 import AboutUs from "./pages/AboutUs/AboutUs";
 
+import ReviewsPage from './pages/ReviewsPage/ReviewsPage';
+import AddFeedbackPage from "./pages/AddFeedbackPage/AddFeedbackPage";
+import MyFeedbackPage from "./pages/MyFeedbackPage/MyFeedbackPage"; 
+import CartPage from "./pages/CartPage/CartPage";
+import MyOrdersPage from "./pages/MyOrdersPage/MyOrdersPage";
+import SellerOrdersPage from "./pages/SellerOrdersPage/SellerOrdersPage";
+import AdminFeedbackPage from "./pages/AdminFeedback/AdminFeedbackPage";
+
+
 
 // Public shop pages
 import GemInventory from "./pages/Inventory/InventoryPage";
@@ -50,6 +59,15 @@ const RequireRole = ({ role, children }) => {
   return children;
 };
 
+
+const RequireAnyRole = ({ roles = [], children }) => {
+  const raw = localStorage.getItem("user");
+  const user = raw ? JSON.parse(raw) : null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!roles.includes(user.role)) return <Navigate to="/mainhome" replace />;
+  return children;
+};
+
 export default function App() {
   return (
     <Routes>
@@ -58,6 +76,36 @@ export default function App() {
       <Route path="/mainhome" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/about" element={<AboutUs />} />
+       
+       <Route path="/reviews" element={<ReviewsPage />} />
+       
+      
+
+      {/* Cart (public for now — make it authed later if you want) */}
+      <Route path="/cart" element={<CartPage />} />
+
+
+      {/* Orders */}
+      <Route
+        path="/my-orders"
+        element={
+      <RequireAuth>
+         <MyOrdersPage />
+        </RequireAuth>
+        }
+        />
+
+         <Route
+          path="/seller/orders"
+          element={
+         <RequireAuth>
+         <RequireRole role="seller">
+        <SellerOrdersPage />
+        </RequireRole>
+         </RequireAuth>
+        }
+        />
+
 
       {/* Public shop routes */}
      {/* <Route path="/collection" element={<GemInventory />} />*/}
@@ -102,6 +150,25 @@ export default function App() {
         }
       />
 
+     <Route
+            path="/my-feedback"
+            element={
+               <RequireAuth>
+                 <MyFeedbackPage />
+               </RequireAuth>
+         }
+      />
+        <Route
+            path="/add-feedback"
+            element={
+               <RequireAuth>
+                 <AddFeedbackPage />
+               </RequireAuth>
+        }
+      />
+
+
+      
       {/* Admin */}
       <Route
         path="/admin-dashboard"
@@ -222,6 +289,20 @@ export default function App() {
           </RequireAuth>
         }
       />
+      
+      {/* Admin  and Seller */}
+
+       <Route
+        path="/admin/feedback"
+        element={
+        <RequireAuth>
+        <RequireAnyRole roles={["admin", "seller"]}>
+        <AdminFeedbackPage />
+        </RequireAnyRole>
+        </RequireAuth>
+       }
+       />
+
 
       
       {/* === AUCTION: Public centre === */}
