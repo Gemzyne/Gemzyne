@@ -1,3 +1,4 @@
+// src/pages/AddFeedbackPage/AddFeedbackPage.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./AddFeedbackPage.css";
@@ -29,6 +30,8 @@ const AddFeedbackPage = () => {
   const [successDescription, setSuccessDescription] = useState(
     "Your review has been submitted successfully. It will be published after verification."
   );
+
+  const isComplaint = type === "complaint";
 
   // Prefill from logged-in user
   useEffect(() => {
@@ -149,7 +152,7 @@ const AddFeedbackPage = () => {
 
     if (categories.length === 0) return alert("Please select at least one category.");
     if (type === "review" && rating === 0) return alert("Please provide an overall rating.");
-    if (!feedbackText.trim()) return alert("Please enter your feedback.");
+    if (!feedbackText.trim()) return alert("Please enter your feedback/complaint.");
 
     const payload = {
       type,
@@ -175,9 +178,13 @@ const AddFeedbackPage = () => {
       } else {
         await apiRequest("/api/feedback", { method: "POST", body: JSON.stringify(payload) });
       }
+
+      // show ONLY the in-page success panel
       setSubmitted(true);
-      setTimeout(() => navigate("/my-feedback"), 600);
       window.scrollTo({ top: 0, behavior: "smooth" });
+
+      // Optional auto-redirect:
+      // setTimeout(() => navigate("/my-feedback"), 1200);
     } catch (err) {
       console.error(err);
       alert(err.message || "Failed to submit. Please try again.");
@@ -200,12 +207,12 @@ const AddFeedbackPage = () => {
       {/* Particles */}
       <div id="af-particles" />
 
-      {/* Shared site header (sticky handled by the component’s own CSS) */}
+      {/* Shared site header */}
       <Header />
 
       {/* Page Header */}
       <section className="af-page-header">
-        <h1>{isEdit ? "Edit Your Feedback" : "Share Your Feedback"}</h1>
+        <h1>{isEdit ? "Edit Your Feedback/Complaint" : "Share Your Feedback or Complaint"}</h1>
         <p>We value your opinion and are committed to improving our service</p>
       </section>
 
@@ -235,7 +242,7 @@ const AddFeedbackPage = () => {
         </button>
       </div>
 
-      {/* Form */}
+      {/* Form or Success */}
       <div className="af-form-wrap">
         {!submitted ? (
           <form className="af-form" id="feedbackFormReact" onSubmit={onSubmit}>
@@ -265,7 +272,7 @@ const AddFeedbackPage = () => {
               <p className="af-help">These details come from your account profile.</p>
             </div>
 
-            {/* Product & Category (side-by-side on wide) */}
+            {/* Product & Category */}
             <div className="af-row af-row--balanced">
               <div className="af-section">
                 <h3 className="af-section-title"><i className="fas fa-gem" />Product</h3>
@@ -327,16 +334,23 @@ const AddFeedbackPage = () => {
               </div>
             )}
 
-            {/* Feedback */}
+            {/* Feedback / Complaint */}
             <div className="af-section">
-              <h3 className="af-section-title"><i className="fas fa-edit" />Your Feedback</h3>
+              <h3 className="af-section-title">
+                <i className="fas fa-edit" />
+                {isComplaint ? "Your Complain" : "Your Feedback"}
+              </h3>
               <div className="af-group">
-                <label htmlFor="feedbackText">Your Feedback *</label>
+                <label htmlFor="feedbackText">
+                  {isComplaint ? "Your Complain *" : "Your Feedback *"}
+                </label>
                 <textarea
                   id="feedbackText"
-                  placeholder={type === "review"
-                    ? "Share your experience with this product..."
-                    : "Please describe your issue in detail..."}
+                  placeholder={
+                    isComplaint
+                      ? "Please describe your complaint in detail..."
+                      : "Share your experience with this product..."
+                  }
                   value={feedbackText}
                   onChange={(e)=>setFeedbackText(e.target.value)}
                   required
@@ -345,13 +359,19 @@ const AddFeedbackPage = () => {
             </div>
 
             <div className="af-submit">
+              <button type="button" className="af-cancel-btn" onClick={() => navigate(-1)}>
+                <i className="fas fa-arrow-left" />
+                Cancel
+              </button>
+
               <button type="submit" className="af-submit-btn">
                 <i className="fas fa-paper-plane" />
-                {isEdit ? "Update Feedback" : "Submit Feedback"}
+                {isComplaint ? "Submit Complain" : "Submit Feedback"}
               </button>
             </div>
           </form>
         ) : (
+          // ONLY the in-page success panel
           <div className="af-success">
             <i className="fas fa-check-circle" />
             <h3>{successTitle}</h3>

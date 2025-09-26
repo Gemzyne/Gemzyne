@@ -1,14 +1,15 @@
+// src/pages/MyFeedbackPage/MyFeedbackPage.jsx
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../../Components/Header";           // shared header (already sticky)
-import UserSidebar from "../../Components/UserSidebar"; // your separate user sidebar
+import Header from "../../Components/Header";
+import UserSidebar from "../../Components/UserSidebar";
 import { apiRequest } from "../../lib/api";
-import "./MyFeedbackPage.css";                          // CLEAN, scoped styles
+import "./MyFeedbackPage.css";
 
 export default function MyFeedbackPage() {
   const navigate = useNavigate();
 
-  // particles (scoped id so it can't collide)
+  // particles
   const particlesLoaded = useRef(false);
   useEffect(() => {
     const ensureParticles = () =>
@@ -60,7 +61,7 @@ export default function MyFeedbackPage() {
   const [activeTab, setActiveTab] = useState("reviews"); // reviews | complaints
   const [reviews, setReviews] = useState([]);
   const [complaints, setComplaints] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading,   setLoading] = useState(true);
   const [confirmId, setConfirmId] = useState(null);
 
   const loadFeedback = async () => {
@@ -82,19 +83,37 @@ export default function MyFeedbackPage() {
         gemDesc: f.productName || f.productId || "—",
       }));
 
-      const mappedComplaints = list.filter(f => f.type === "complaint").map(f => ({
-        id: f._id,
-        _raw: f,
-        initials: `${(f.firstName || "U")[0] || "U"}${(f.lastName || "")[0] || ""}`.toUpperCase(),
-        name: `${f.firstName || ""} ${f.lastName || ""}`.trim() || "User",
-        date: f.createdAt ? new Date(f.createdAt).toLocaleDateString() : "",
-        status: f.status || "Pending",
-        category: f.complaintCategory || (Array.isArray(f.categories) ? f.categories[0] : "") || "Complaint",
-        text: f.feedbackText || "",
-        gemImg: "",
-        gemDesc: f.productName || f.productId || f.orderId || "—",
-        adminReply: f.adminReply || null,
-      }));
+      const mappedComplaints = list.filter(f => f.type === "complaint").map(f => {
+        // Be tolerant to legacy keys
+        const replyObj = f.adminReply || f.reply || null;
+        const replyText =
+          (replyObj && (replyObj.text || replyObj.message)) ||
+          f.sellerReply ||
+          null;
+
+        const replyAt =
+          (replyObj && (replyObj.createdAt || replyObj.date || replyObj.at)) ||
+          f.repliedAt ||
+          null;
+
+        const replyBy =
+          (replyObj && (replyObj.byRole || replyObj.role)) ||
+          null;
+
+        return {
+          id: f._id,
+          _raw: f,
+          initials: `${(f.firstName || "U")[0] || "U"}${(f.lastName || "")[0] || ""}`.toUpperCase(),
+          name: `${f.firstName || ""} ${f.lastName || ""}`.trim() || "User",
+          date: f.createdAt ? new Date(f.createdAt).toLocaleDateString() : "",
+          status: f.status || "Pending",
+          category: f.complaintCategory || (Array.isArray(f.categories) ? f.categories[0] : "") || "Complaint",
+          text: f.feedbackText || "",
+          gemImg: "",
+          gemDesc: f.productName || f.productId || f.orderId || "—",
+          adminReply: replyText ? { text: replyText, at: replyAt, byRole: replyBy } : null,
+        };
+      });
 
       setReviews(mappedReviews);
       setComplaints(mappedComplaints);
@@ -123,29 +142,26 @@ export default function MyFeedbackPage() {
   return (
     <div className="mf-root">
       <div id="mf-particles" />
-
-      {/* Shared sticky header (no extra styles here) */}
       <Header />
 
       <div className="mf-shell">
-        {/* Fixed user sidebar placed under header */}
         <UserSidebar />
 
         <main className="mf-main">
-          {/* Page banner */}
           <section className="mf-page-header">
             <h1>My Feedback</h1>
             <p>Manage your reviews and complaints</p>
           </section>
 
-          {/* CTA */}
           <div className="mf-add">
             <button className="mf-btn" onClick={() => navigate("/add-feedback")}>
               <i className="fas fa-plus" /> Share Feedback
             </button>
+            <button className="mf-btn mf-btn--ghost" onClick={loadFeedback} style={{ marginLeft: 8 }}>
+              <i className="fas fa-sync-alt" /> Refresh
+            </button>
           </div>
 
-          {/* Tabs */}
           <div className="mf-tabs">
             <button
               className={`mf-tab ${activeTab === "reviews" ? "active" : ""}`}
@@ -270,14 +286,20 @@ export default function MyFeedbackPage() {
 
                       {/* status & category */}
                       <div className="mf-chips">
-                        <span className="mf-chip mf-chip--warn">{c.status}</span>
+                        <span className={`mf-chip ${String(c.status).toLowerCase() === "resolved" ? "mf-chip--ok" : "mf-chip--warn"}`}>
+                          {c.status || "Pending"}
+                        </span>
                         {c.category && <span className="mf-chip">{c.category}</span>}
                       </div>
 
                       {/* seller/admin reply */}
                       {c.adminReply?.text && (
                         <div className="mf-reply">
-                          <strong>Seller reply:</strong> {c.adminReply.text}
+                          <strong>
+                            {c.adminReply.byRole ? c.adminReply.byRole.charAt(0).toUpperCase() + c.adminReply.byRole.slice(1) : "Reply"}
+                            {c.adminReply.at ? ` • ${new Date(c.adminReply.at).toLocaleString()}` : ""}:
+                          </strong>{" "}
+                          <span>{c.adminReply.text}</span>
                         </div>
                       )}
 

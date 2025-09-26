@@ -23,6 +23,7 @@ import ReviewsPage from './pages/ReviewsPage/ReviewsPage';
 import AddFeedbackPage from "./pages/AddFeedbackPage/AddFeedbackPage";
 import MyFeedbackPage from "./pages/MyFeedbackPage/MyFeedbackPage"; 
 import AdminFeedbackPage from "./pages/AdminFeedback/AdminFeedbackPage";
+import AdminFeedbackHub from "./pages/Admin/AdminFeedbackHub";
 
 
 
@@ -188,6 +189,17 @@ export default function App() {
         }
       />
 
+      <Route
+        path="/admin/feedback-hub"
+        element={
+          <RequireAuth> 
+            <RequireRole role="admin">
+              <AdminFeedbackHub />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
       {/* Seller */}
       <Route
         path="/seller-dashboard"
@@ -263,7 +275,7 @@ export default function App() {
         path="/admin/feedback"
         element={
         <RequireAuth>
-        <RequireAnyRole roles={["admin", "seller"]}>
+        <RequireAnyRole roles={"seller"}>
         <AdminFeedbackPage />
         </RequireAnyRole>
         </RequireAuth>

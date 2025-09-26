@@ -107,6 +107,37 @@ export default function AdminDashboard() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // —— Helpers to normalize complaints coming from various controllers ——
+  const normalizeComplaint = (c) => {
+    // Accept both Feedback-based complaints and classic Complaint model
+    const id = c._id || c.id;
+    const userName =
+      c.userName ||
+      c.user?.fullName ||
+      [c.firstName, c.lastName].filter(Boolean).join(" ") ||
+      c.email ||
+      "—";
+
+    // Prefer explicit subject/title; else build one from categories
+    const subject =
+      c.subject ||
+      c.title ||
+      c.complaintCategory ||
+      (Array.isArray(c.categories) ? c.categories[0] : "") ||
+      "—";
+
+    const status = (c.status || "open").toLowerCase();
+    const createdAt = c.createdAt || c.date || c.created_on || null;
+
+    return {
+      _id: id,
+      userName,
+      subject,
+      status, // "open" | "pending" | "resolved" | etc.
+      createdAt,
+    };
+  };
+
   // Fetch overview + users + complaints + metrics
   useEffect(() => {
     let mounted = true;
@@ -117,21 +148,23 @@ export default function AdminDashboard() {
             api.admin.getOverview(),
             api.admin.listUsers({ page: 1, limit: 20 }),
             api.admin.listComplaints
-              ? api.admin.listComplaints({ page: 1, limit: 20 })
+              ? api.admin.listComplaints({ page: 1, limit: 50 }) // grab a few more to compute opens
               : Promise.resolve([]),
-            api.admin.getMetrics(), // <-- metrics for charts
+            api.admin.getMetrics(),
           ]);
 
         if (!mounted) return;
 
+        // Overview (safe fallback)
         const ov = overviewRes?.overview || overviewRes || {};
-        setOverview({
+        const baseOverview = {
           totalUsers: Number(ov.totalUsers) || 0,
           totalSellers: Number(ov.totalSellers) || 0,
           totalOrders: Number(ov.totalOrders) || 0,
-          openComplaints: Number(ov.openComplaints) || 0,
-        });
+          openComplaints: Number(ov.openComplaints) || 0, // may be 0 if backend doesn’t send it
+        };
 
+        // Users
         const ulist = Array.isArray(usersRes?.users)
           ? usersRes.users
           : Array.isArray(usersRes)
@@ -139,12 +172,34 @@ export default function AdminDashboard() {
           : [];
         setUsers(ulist);
 
-        const clist = Array.isArray(complaintsRes?.complaints)
+        // Complaints (normalize + sort desc)
+        const clistRaw = Array.isArray(complaintsRes?.complaints)
           ? complaintsRes.complaints
           : Array.isArray(complaintsRes)
           ? complaintsRes
           : [];
+
+        const clist = clistRaw.map(normalizeComplaint).sort((a, b) => {
+          const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return db - da;
+        });
+
         setComplaints(clist);
+
+        // Recompute openComplaints from the list if possible
+        const openCount = clist.filter(
+          (c) =>
+            !["resolved", "closed"].includes(String(c.status).toLowerCase())
+        ).length;
+
+        setOverview({
+          ...baseOverview,
+          // Prefer live computed figure if we have complaint data
+          openComplaints: clist.length
+            ? openCount
+            : baseOverview.openComplaints,
+        });
 
         setMetrics(metricsRes || null);
       } catch (e) {
@@ -158,7 +213,7 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  // Charts from backend metrics
+  // Charts from backend metrics (unchanged)
   useEffect(() => {
     if (!metrics) return;
 
@@ -183,7 +238,6 @@ export default function AdminDashboard() {
       });
       chartsRef.current = {};
 
-      // Pull data (with safe fallbacks)
       const byMonth = metrics.usersByMonth || {
         labels: [
           "Jan",
@@ -212,7 +266,6 @@ export default function AdminDashboard() {
         values: [35, 25, 20, 15, 5],
       };
 
-      // User Growth (bar)
       const ug = document.getElementById("userGrowthChart");
       if (ug) {
         const ctx = ug.getContext("2d");
@@ -250,22 +303,21 @@ export default function AdminDashboard() {
         });
       }
 
-      // Users by Role — seller gold palette
       const roleEl = document.getElementById("roleChart");
       if (roleEl) {
         chartsRef.current.role = new Chart(roleEl.getContext("2d"), {
           type: "pie",
           data: {
-            labels: roles.labels, // e.g. ["buyer","seller","admin"]
+            labels: roles.labels,
             datasets: [
               {
                 data: roles.values,
                 backgroundColor: [
-                  "rgba(212, 175, 55, 0.8)", // gold
-                  "rgba(148, 121, 43, 0.8)", // deep gold/brown
-                  "rgba(212, 175, 55, 0.6)", // light gold
-                  "rgba(169, 140, 44, 0.8)", // antique gold
-                  "rgba(212, 175, 55, 0.4)", // very light gold
+                  "rgba(212, 175, 55, 0.8)",
+                  "rgba(148, 121, 43, 0.8)",
+                  "rgba(212, 175, 55, 0.6)",
+                  "rgba(169, 140, 44, 0.8)",
+                  "rgba(212, 175, 55, 0.4)",
                 ],
                 borderColor: [
                   "rgba(212,175,55,1)",
@@ -287,7 +339,6 @@ export default function AdminDashboard() {
         });
       }
 
-      // Users by Status (bar)
       const statusEl = document.getElementById("statusChart");
       if (statusEl) {
         const ctx = statusEl.getContext("2d");
@@ -324,13 +375,12 @@ export default function AdminDashboard() {
         });
       }
 
-      // Traffic Sources — seller gold palette
       const ts = document.getElementById("trafficChart");
       if (ts) {
         chartsRef.current.ts = new Chart(ts.getContext("2d"), {
           type: "doughnut",
           data: {
-            labels: traffic.labels, // ["Direct","Organic Search","Social","Referral","Email"]
+            labels: traffic.labels,
             datasets: [
               {
                 data: traffic.values,
@@ -374,14 +424,22 @@ export default function AdminDashboard() {
     };
   }, [metrics]);
 
+  // Show 4 most recent users/complaints
   const usersRows = useMemo(
     () => (Array.isArray(users) ? users.slice(0, 4) : []),
     [users]
   );
-  const complaintsRows = useMemo(
-    () => (Array.isArray(complaints) ? complaints.slice(0, 4) : []),
-    [complaints]
-  );
+
+  const complaintsRows = useMemo(() => {
+    if (!Array.isArray(complaints)) return [];
+    return complaints
+      .sort((a, b) => {
+        const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return db - da;
+      })
+      .slice(0, 4);
+  }, [complaints]);
 
   return (
     <>
@@ -432,6 +490,7 @@ export default function AdminDashboard() {
                 <i className="fas fa-exclamation-circle" />
               </div>
               <div className="stat-info">
+                {/* Always reflects latest fetched complaints */}
                 <h3>{overview.openComplaints}</h3>
                 <p>Open Complaints</p>
               </div>
@@ -527,8 +586,8 @@ export default function AdminDashboard() {
           {/* Complaints (preview) */}
           <div className="dashboard-section">
             <div className="section-header">
-              <h3 className="section-title">Complaints</h3>
-              <Link to="/admin/complaints" className="view-all">
+              <h3 className="section-title">Recent Complaints</h3>
+              <Link to="/admin/feedback-hub" className="view-all">
                 View All
               </Link>
             </div>
@@ -548,9 +607,20 @@ export default function AdminDashboard() {
                   {complaintsRows.map((c) => (
                     <tr key={c._id}>
                       <td>#{c._id?.slice?.(-6)?.toUpperCase?.()}</td>
-                      <td>{c.userName || c.user?.fullName || "—"}</td>
-                      <td>{c.subject || "—"}</td>
-                      <td>{c.status || "open"}</td>
+                      <td>{c.userName}</td>
+                      <td>{c.subject}</td>
+                      <td>
+                        <span
+                          className={`status ${
+                            ["resolved", "closed"].includes(c.status)
+                              ? "status-active"
+                              : "status-inactive"
+                          }`}
+                        >
+                          {c.status?.charAt(0).toUpperCase() +
+                            c.status?.slice(1)}
+                        </span>
+                      </td>
                       <td>
                         {c.createdAt
                           ? new Date(c.createdAt).toLocaleDateString()
