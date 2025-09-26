@@ -6,8 +6,7 @@ import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
 import { useNavigate } from "react-router-dom";
 
-const PLACEHOLDER_IMG =
-  "https://images.unsplash.com/photo-1606760227093-899b6c7e5eeb?auto=format&fit=crop&w=800&q=80";
+
 
 function initialsFromName(first = "", last = "", email = "") {
   const a = (first || "").trim()[0];
@@ -143,8 +142,7 @@ const ReviewsPage = () => {
           stars: Number(f.rating) || 0,
           tags: (f.categories || []).map(capFirst),
           text: f.feedbackText || "",
-          gemImg: (f.images && f.images[0]) || PLACEHOLDER_IMG,
-          gemDesc: f.productName || f.productId || "Gemstone",
+     
           helpful: 0,
         }));
         if (mounted) setReviews(items);
@@ -241,10 +239,7 @@ const ReviewsPage = () => {
 
               <div className="review-content"><p>{r.text}</p></div>
 
-              <div className="review-gem">
-                <img src={r.gemImg} alt="Gem" />
-                <p>{r.gemDesc}</p>
-              </div>
+             
             </div>
           ))}
         </div>
