@@ -92,7 +92,6 @@ export const metrics = {
   category: (year) => request(`/api/metrics/seller/category?year=${year}`),
 };
 
-
 export const api = {
   // ===== AUTH =====
   register: (data) =>
@@ -362,7 +361,6 @@ export const api = {
 
     remove: (id) => request(`/api/auctions/${id}`, { method: "DELETE" }),
   },
-  // === AUCTION END ===
 };
 
 // ---- GEMS ----

@@ -1,3 +1,4 @@
+// src/pages/SellerAddGem/SellerInventory.js
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Header from "../../Components/Header";
 import { api } from "../../api";
@@ -73,7 +74,7 @@ const SellerInventory = () => {
     return () => { cancelled = true; };
   }, []);
 
-  // Fetch *my* gems (show all statuses to seller)
+   // Fetch *my* gems (show all statuses to seller)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -84,7 +85,7 @@ const SellerInventory = () => {
       } catch (e) {
         console.error(e);
         if (!cancelled) setItems([]);
-      } finally {
+    } finally {
         if (!cancelled) setLoading(false);
       }
     })();
@@ -167,20 +168,8 @@ const SellerInventory = () => {
 
         <main className="inventory-container" style={{ paddingTop: 0, margin: 0 }}>
           <div className="inventory-header">
-            <div className="header-text">
-              <h1>Gem Inventory Management</h1>
-              <p>Manage your precious gem collection with our intuitive inventory system.</p>
-            </div>
-
-            {/* Moved: Only the Add New Gem button sits to the right side */}
-            <button
-              className="btn add-gem-btn"
-              onClick={() => {
-                navigate("/seller/gems/new");
-              }}
-            >
-              <i className="fas fa-plus-circle"></i> Add New Gem
-            </button>
+            <h1>Gem Inventory Management</h1>
+            <p>Manage your precious gem collection with our intuitive inventory system.</p>
           </div>
 
           <div className="inventory-controls">
@@ -316,7 +305,18 @@ const SellerInventory = () => {
             </button>
           </div>
 
-          {/* Removed the old "Add New Gem to Inventory" container content (kept only the button, now in header) */}
+          <div className="add-item-section">
+            <h2>Add New Gem to Inventory</h2>
+            <p>Expand your collection by adding new precious gems to the inventory</p>
+            <button
+              className="btn"
+              onClick={() => {
+                navigate("/seller/gems/new");
+              }}
+            >
+              <i className="fas fa-plus-circle"></i> Add New Gem
+            </button>
+          </div>
         </main>
       </div>
 
