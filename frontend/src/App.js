@@ -22,9 +22,6 @@ import AboutUs from "./pages/AboutUs/AboutUs";
 import ReviewsPage from './pages/ReviewsPage/ReviewsPage';
 import AddFeedbackPage from "./pages/AddFeedbackPage/AddFeedbackPage";
 import MyFeedbackPage from "./pages/MyFeedbackPage/MyFeedbackPage"; 
-import CartPage from "./pages/CartPage/CartPage";
-import MyOrdersPage from "./pages/MyOrdersPage/MyOrdersPage";
-import SellerOrdersPage from "./pages/SellerOrdersPage/SellerOrdersPage";
 import AdminFeedbackPage from "./pages/AdminFeedback/AdminFeedbackPage";
 
 
@@ -79,34 +76,6 @@ export default function App() {
        
        <Route path="/reviews" element={<ReviewsPage />} />
        
-      
-
-      {/* Cart (public for now — make it authed later if you want) */}
-      <Route path="/cart" element={<CartPage />} />
-
-
-      {/* Orders */}
-      <Route
-        path="/my-orders"
-        element={
-      <RequireAuth>
-         <MyOrdersPage />
-        </RequireAuth>
-        }
-        />
-
-         <Route
-          path="/seller/orders"
-          element={
-         <RequireAuth>
-         <RequireRole role="seller">
-        <SellerOrdersPage />
-        </RequireRole>
-         </RequireAuth>
-        }
-        />
-
-
       {/* Public shop routes */}
      {/* <Route path="/collection" element={<GemInventory />} />*/}
       <Route path="/inventory" element={<GemInventory />} />
@@ -122,8 +91,6 @@ export default function App() {
           </RequireAuth>
         }
       />
-
-      
       {/* User */}
       <Route
         path="/udashboard"

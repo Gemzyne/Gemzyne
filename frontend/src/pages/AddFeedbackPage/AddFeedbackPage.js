@@ -1,9 +1,10 @@
-// src/pages/AddFeedbackPage/AddFeedbackPage.js
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./AddFeedbackPage.css";
 import { apiRequest } from "../../lib/api";
-import { useUser } from "../../context/UserContext"; // ⬅️ NEW
+import { useUser } from "../../context/UserContext";
+import Header from "../../Components/Header";
+import Footer from "../../Components/Footer";
 
 const AddFeedbackPage = () => {
   const navigate = useNavigate();
@@ -11,8 +12,7 @@ const AddFeedbackPage = () => {
   const isEdit = state?.mode === "edit";
   const editDoc = state?.doc || null;
 
-  // logged-in user (provided by your friend's user mgmt)
-  const { me } = useUser(); // { _id, fullName, email, phone, ... }
+  const { me } = useUser();
 
   // form state
   const [type, setType] = useState("review"); // "review" | "complaint"
@@ -30,19 +30,14 @@ const AddFeedbackPage = () => {
     "Your review has been submitted successfully. It will be published after verification."
   );
 
-  // ===== Prefill from logged-in user (no backend changes needed) =====
+  // Prefill from logged-in user
   useEffect(() => {
     if (!me) return;
-    // Try to split fullName into first/last (fallbacks included)
     let f = "", l = "";
     if (me.fullName && typeof me.fullName === "string") {
       const parts = me.fullName.trim().split(/\s+/);
-      if (parts.length === 1) {
-        f = parts[0];
-      } else if (parts.length > 1) {
-        f = parts[0];
-        l = parts.slice(1).join(" ");
-      }
+      if (parts.length === 1) f = parts[0];
+      else if (parts.length > 1) { f = parts[0]; l = parts.slice(1).join(" "); }
     }
     setFirstName((prev) => prev || f || "");
     setLastName((prev)  => prev || l || "");
@@ -50,7 +45,7 @@ const AddFeedbackPage = () => {
     setPhone((prev)     => prev || me.phone || "");
   }, [me]);
 
-  // particles
+  // Particles (unique container id)
   useEffect(() => {
     const ensureParticles = () =>
       new Promise((resolve) => {
@@ -63,21 +58,19 @@ const AddFeedbackPage = () => {
       });
     const destroyParticles = () => {
       if (window.pJSDom && window.pJSDom.length) {
-        window.pJSDom.forEach((p) => {
-          try { p?.pJS?.fn?.vendors?.destroypJS?.(); } catch {}
-        });
+        window.pJSDom.forEach((p) => { try { p?.pJS?.fn?.vendors?.destroypJS?.(); } catch {} });
         window.pJSDom = [];
       }
     };
     ensureParticles().then(() => {
       destroyParticles();
-      window.particlesJS("particles-js", {
+      window.particlesJS("af-particles", {
         particles: {
           number: { value: 80, density: { enable: true, value_area: 800 } },
           color: { value: "#d4af37" },
           shape: { type: "polygon", polygon: { nb_sides: 6 } },
-          opacity: { value: 0.3, random: true, anim: { enable: true, speed: 1, opacity_min: 0.1, sync: false } },
-          size: { value: 3, random: true, anim: { enable: true, speed: 3, size_min: 0.1, sync: false } },
+          opacity: { value: 0.3, random: true },
+          size: { value: 3, random: true },
           line_linked: { enable: true, distance: 150, color: "#d4af37", opacity: 0.2, width: 1 },
           move: { enable: true, speed: 2, random: true, out_mode: "out" }
         },
@@ -92,20 +85,6 @@ const AddFeedbackPage = () => {
     return () => destroyParticles();
   }, []);
 
-  // header scroll
-  useEffect(() => {
-    const header = document.getElementById("addfeedback-header");
-    const onScroll = () => {
-      if (!header) return;
-      if (window.scrollY > 100) header.classList.add("scrolled");
-      else header.classList.remove("scrolled");
-    };
-    window.addEventListener("scroll", onScroll);
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // categories UI
   const categoryOptions = useMemo(
     () => [
       { key: "quality",      icon: "fas fa-gem",            label: "Quality" },
@@ -129,9 +108,7 @@ const AddFeedbackPage = () => {
     setType(newType);
     if (newType === "review") {
       setSuccessTitle("Thank You for Your Review!");
-      setSuccessDescription(
-        "Your review has been submitted successfully. It will be published after verification."
-      );
+      setSuccessDescription("Your review has been submitted successfully. It will be published after verification.");
     } else {
       setSuccessTitle("Complaint Submitted Successfully!");
       setSuccessDescription(
@@ -152,7 +129,6 @@ const AddFeedbackPage = () => {
     setCategories(Array.isArray(editDoc.categories) ? editDoc.categories : []);
     setRating(editDoc.type === "review" ? editDoc.rating || 0 : 0);
     setFeedbackText(editDoc.feedbackText || "");
-
     if (editDoc.type === "review") {
       setSuccessTitle("Review Updated!");
       setSuccessDescription("Your review has been updated successfully.");
@@ -163,33 +139,21 @@ const AddFeedbackPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, editDoc]);
 
-  // submit
   const onSubmit = async (e) => {
     e.preventDefault();
 
-    // Use profile values if present; otherwise fall back to the form inputs
     const effectiveFirst = me?.fullName ? (me.fullName.split(/\s+/)[0] || firstName) : firstName;
     const effectiveLast  = me?.fullName ? (me.fullName.split(/\s+/).slice(1).join(" ") || lastName) : lastName;
     const effectiveEmail = me?.email || email;
     const effectivePhone = me?.phone ?? phone;
 
-    if (categories.length === 0) {
-      alert("Please select at least one category.");
-      return;
-    }
-    if (type === "review" && rating === 0) {
-      alert("Please provide an overall rating.");
-      return;
-    }
-    if (!feedbackText.trim()) {
-      alert("Please enter your feedback.");
-      return;
-    }
+    if (categories.length === 0) return alert("Please select at least one category.");
+    if (type === "review" && rating === 0) return alert("Please provide an overall rating.");
+    if (!feedbackText.trim()) return alert("Please enter your feedback.");
 
-    // Build payload as your controller expects
     const payload = {
-      type, // "review" | "complaint"
-      user: me?._id, // ⬅️ optional; backend will ignore if not in schema/controller
+      type,
+      user: me?._id,
       firstName: effectiveFirst,
       lastName: effectiveLast,
       email: effectiveEmail,
@@ -199,10 +163,7 @@ const AddFeedbackPage = () => {
       feedbackText,
       images: [],
       rating: type === "review" ? rating : undefined,
-      complaintCategory:
-        type === "complaint"
-          ? (editDoc?.complaintCategory || categories[0] || "other")
-          : undefined,
+      complaintCategory: type === "complaint" ? (editDoc?.complaintCategory || categories[0] || "other") : undefined,
       orderId: type === "complaint" ? editDoc?.orderId : undefined,
       orderDate: type === "complaint" ? editDoc?.orderDate : undefined,
       status: type === "complaint" ? editDoc?.status : undefined,
@@ -210,21 +171,12 @@ const AddFeedbackPage = () => {
 
     try {
       if (isEdit && editDoc?._id) {
-        await apiRequest(`/api/feedback/${editDoc._id}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
+        await apiRequest(`/api/feedback/${editDoc._id}`, { method: "PUT", body: JSON.stringify(payload) });
       } else {
-        await apiRequest("/api/feedback", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
+        await apiRequest("/api/feedback", { method: "POST", body: JSON.stringify(payload) });
       }
-
       setSubmitted(true);
-      setTimeout(() => {
-        navigate("/my-feedback");
-      }, 600);
+      setTimeout(() => navigate("/my-feedback"), 600);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       console.error(err);
@@ -239,40 +191,29 @@ const AddFeedbackPage = () => {
     setSuccessTitle("Thank You for Your Review!");
     setSuccessDescription("Your review has been submitted successfully. It will be published after verification.");
     setTimeout(() => {
-      const form = document.getElementById("feedbackFormReact");
-      if (form) form.scrollIntoView({ behavior: "smooth" });
+      document.getElementById("feedbackFormReact")?.scrollIntoView({ behavior: "smooth" });
     }, 50);
   };
 
   return (
     <div className="addfeedback-root">
-      <div id="particles-js" />
+      {/* Particles */}
+      <div id="af-particles" />
 
-      <header id="addfeedback-header">
-        <div className="logo">GemZyne</div>
-        <nav className="nav-links">
-          <Link to="/mainhome">Home</Link>
-          <Link to="/collection">Collection</Link>
-          <Link to="/auction">Auction</Link>
-          <Link to="/about">About</Link>
-          <Link to="/reviews">Review & Feedback</Link>
-        </nav>
-        <div className="header-actions">
-          <i className="fas fa-search" />
-          <i className="fas fa-user" />
-          <i className="fas fa-shopping-bag" />
-        </div>
-      </header>
+      {/* Shared site header (sticky handled by the component’s own CSS) */}
+      <Header />
 
-      <section className="page-header">
+      {/* Page Header */}
+      <section className="af-page-header">
         <h1>{isEdit ? "Edit Your Feedback" : "Share Your Feedback"}</h1>
         <p>We value your opinion and are committed to improving our service</p>
       </section>
 
-      <div className="feedback-type-selector">
+      {/* Type selector */}
+      <div className="af-type-selector">
         <button
           type="button"
-          className={`feedback-type-btn ${type === "review" ? "active" : ""}`}
+          className={`af-type-btn ${type === "review" ? "active" : ""}`}
           onClick={() => switchType("review")}
           disabled={isEdit}
           style={isEdit ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
@@ -283,7 +224,7 @@ const AddFeedbackPage = () => {
         </button>
         <button
           type="button"
-          className={`feedback-type-btn ${type === "complaint" ? "active" : ""}`}
+          className={`af-type-btn ${type === "complaint" ? "active" : ""}`}
           onClick={() => switchType("complaint")}
           disabled={isEdit}
           style={isEdit ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
@@ -294,98 +235,86 @@ const AddFeedbackPage = () => {
         </button>
       </div>
 
-      <div className="form-container">
+      {/* Form */}
+      <div className="af-form-wrap">
         {!submitted ? (
-          <form className="feedback-form" id="feedbackFormReact" onSubmit={onSubmit}>
+          <form className="af-form" id="feedbackFormReact" onSubmit={onSubmit}>
             {/* Personal (read-only from profile) */}
-            <div className="form-section">
-              <h3 className="form-section-title">
-                <i className="fas fa-user-circle"></i>
-                Personal Information
-              </h3>
-              <div className="form-row">
-                <div className="form-group">
+            <div className="af-section">
+              <h3 className="af-section-title"><i className="fas fa-user-circle" />Personal Information</h3>
+              <div className="af-row">
+                <div className="af-group">
                   <label htmlFor="firstName">First Name</label>
                   <input id="firstName" value={firstName} readOnly />
                 </div>
-                <div className="form-group">
+                <div className="af-group">
                   <label htmlFor="lastName">Last Name</label>
                   <input id="lastName" value={lastName} readOnly />
                 </div>
               </div>
-              <div className="form-row">
-                <div className="form-group">
+              <div className="af-row">
+                <div className="af-group">
                   <label htmlFor="email">Email Address</label>
                   <input id="email" type="email" value={email} readOnly />
                 </div>
-                <div className="form-group" id="phoneField">
+                <div className="af-group" id="phoneField">
                   <label htmlFor="phone">Phone Number</label>
                   <input id="phone" value={phone} readOnly />
                 </div>
               </div>
-              <p style={{ fontSize: 12, color: "#aaa", marginTop: 6 }}>
-                These details come from your account profile.
-              </p>
+              <p className="af-help">These details come from your account profile.</p>
             </div>
 
-            {/* Product */}
-            <div className="form-section">
-              <h3 className="form-section-title">
-                <i className="fas fa-gem"></i>
-                Product Information
-              </h3>
-              <div className="form-group">
-                <label htmlFor="product">Product Name (Optional)</label>
-                <input
-                  id="product"
-                  placeholder="Enter product name or description"
-                  value={product}
-                  onChange={(e)=>setProduct(e.target.value)}
-                />
+            {/* Product & Category (side-by-side on wide) */}
+            <div className="af-row af-row--balanced">
+              <div className="af-section">
+                <h3 className="af-section-title"><i className="fas fa-gem" />Product</h3>
+                <div className="af-group">
+                  <label htmlFor="product">Product Name (Optional)</label>
+                  <input
+                    id="product"
+                    placeholder="Enter product name or description"
+                    value={product}
+                    onChange={(e)=>setProduct(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Category */}
-            <div className="form-section">
-              <h3 className="form-section-title">
-                <i className="fas fa-tag"></i>
-                Category
-              </h3>
-              <div className="form-group">
-                <label>Select one or more categories *</label>
-                <div className="category-selector">
-                  {categoryOptions.map((opt) => {
-                    const selected = categories.includes(opt.key);
-                    return (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        className={`category-item ${selected ? "selected" : ""}`}
-                        onClick={() => toggleCategory(opt.key)}
-                      >
-                        <div className="category-icon"><i className={opt.icon} /></div>
-                        <div className="category-name">{opt.label}</div>
-                      </button>
-                    );
-                  })}
+              <div className="af-section">
+                <h3 className="af-section-title"><i className="fas fa-tag" />Category</h3>
+                <div className="af-group">
+                  <label>Select one or more categories *</label>
+                  <div className="af-cats">
+                    {categoryOptions.map((opt) => {
+                      const selected = categories.includes(opt.key);
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          className={`af-cat ${selected ? "selected" : ""}`}
+                          onClick={() => toggleCategory(opt.key)}
+                        >
+                          <div className="af-cat-ico"><i className={opt.icon} /></div>
+                          <div className="af-cat-name">{opt.label}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Rating (only for reviews) */}
             {type === "review" && (
-              <div className="form-section" id="ratingSection">
-                <h3 className="form-section-title">
-                  <i className="fas fa-star"></i>
-                  Your Rating
-                </h3>
-                <div className="form-group">
+              <div className="af-section" id="ratingSection">
+                <h3 className="af-section-title"><i className="fas fa-star" />Your Rating</h3>
+                <div className="af-group">
                   <label>Overall Rating *</label>
-                  <div className="star-rating">
+                  <div className="af-stars">
                     {[5, 4, 3, 2, 1].map((n) => (
                       <span
                         key={n}
-                        className={`star ${rating >= n ? "active" : ""}`}
+                        className={`af-star ${rating >= n ? "active" : ""}`}
                         onClick={() => setRating(n)}
                         role="button"
                         aria-label={`Rate ${n}`}
@@ -399,12 +328,9 @@ const AddFeedbackPage = () => {
             )}
 
             {/* Feedback */}
-            <div className="form-section">
-              <h3 className="form-section-title">
-                <i className="fas fa-edit"></i>
-                Your Feedback
-              </h3>
-              <div className="form-group">
+            <div className="af-section">
+              <h3 className="af-section-title"><i className="fas fa-edit" />Your Feedback</h3>
+              <div className="af-group">
                 <label htmlFor="feedbackText">Your Feedback *</label>
                 <textarea
                   id="feedbackText"
@@ -418,23 +344,23 @@ const AddFeedbackPage = () => {
               </div>
             </div>
 
-            <div className="form-submit">
-              <button type="submit" className="submit-btn">
+            <div className="af-submit">
+              <button type="submit" className="af-submit-btn">
                 <i className="fas fa-paper-plane" />
                 {isEdit ? "Update Feedback" : "Submit Feedback"}
               </button>
             </div>
           </form>
         ) : (
-          <div className="success-message">
+          <div className="af-success">
             <i className="fas fa-check-circle" />
             <h3>{successTitle}</h3>
             <p>{successDescription}</p>
-            <button className="btn" onClick={() => navigate("/my-feedback")}>
+            <button className="af-btn" onClick={() => navigate("/my-feedback")}>
               Go to My Feedback
             </button>
             {!isEdit && (
-              <button className="btn" style={{ marginLeft: 10 }} onClick={submitAnother}>
+              <button className="af-btn" style={{ marginLeft: 10 }} onClick={submitAnother}>
                 Submit Another Feedback
               </button>
             )}
@@ -442,34 +368,8 @@ const AddFeedbackPage = () => {
         )}
       </div>
 
-      {/* Footer */}
-      <footer>
-        <div className="footer-grid">
-          <div className="footer-col">
-            <h3>GemZyne</h3>
-            <p>Discover the world's most exceptional gemstones, curated for discerning collectors.</p>
-          </div>
-          <div className="footer-col">
-            <h3>Collections</h3>
-            <ul>
-              <li><a href="#!"><i className="fas fa-gem" /> Sapphires</a></li>
-              <li><a href="#!"><i className="fas fa-gem" /> Rubies</a></li>
-              <li><a href="#!"><i className="fas fa-gem" /> Emeralds</a></li>
-              <li><a href="#!"><i className="fas fa-gem" /> Diamonds</a></li>
-              <li><a href="#!"><i className="fas fa-gem" /> Rare Gems</a></li>
-            </ul>
-          </div>
-          <div className="footer-col">
-            <h3>Contact</h3>
-            <ul>
-              <li>Email: contact@gemzyne.com</li>
-              <li>Phone: +1 234 567 890</li>
-              <li>Address: 123 Gem Street, New York</li>
-            </ul>
-          </div>
-        </div>
-        <div className="footer-bottom">&copy; 2025 GemZyne. All rights reserved.</div>
-      </footer>
+      {/* Shared site footer */}
+      <Footer />
     </div>
   );
 };
