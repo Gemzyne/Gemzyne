@@ -174,7 +174,7 @@ export default function AdminUserCreatePage() {
                   onBlur={(e) => setFieldError("fullName", validateFullName(e.target.value))} // [VALIDATION]
                   aria-invalid={!!errors.fullName}
                   required
-                  placeholder="e.g., Tharushi Karunarathne"
+                  placeholder="Full Name"
                 />
                 {errors.fullName && <small className="error">{errors.fullName}</small>}
               </div>
