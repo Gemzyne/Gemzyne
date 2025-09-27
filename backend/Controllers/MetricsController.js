@@ -2,6 +2,7 @@
 const mongoose = require("mongoose");
 const Payment = require("../Models/PaymentModel");
 const Feedback = require("../Models/FeedbackModel");
+const CustomOrder = require("../Models/CustomOrderModel");
 
 // Helper: parse ints with fallback
 function toInt(v, dflt) {
@@ -57,6 +58,10 @@ exports.summary = async (req, res, next) => {
       : 0;
     const ratingCount = ratingAgg?.[0]?.count || 0;
 
+    // Count all orders created within the requested year
+    const ordersYearCount = await CustomOrder.countDocuments({
+      createdAt: { $gte: start, $lt: end },
+    });
     res.json({
       ok: true,
       totalRevenue,
@@ -67,6 +72,7 @@ exports.summary = async (req, res, next) => {
       avgRating,
       ratingCount,
       year,
+      ordersYearCount,
     });
   } catch (err) {
     next(err);
