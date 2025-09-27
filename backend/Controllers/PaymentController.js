@@ -1,10 +1,10 @@
-// backend/Controllers/PaymentController.js
 const Payment = require('../Models/PaymentModel');
 const CustomOrder = require('../Models/CustomOrderModel');
 const { encrypt } = require('../Utills/Crypto');
 const Winner = require('../Models/Winner');
 const Auction = require('../Models/Auction');
 const Gem = require('../Models/AddGems/Gem');
+const { computePricing, plus3Days } = require('../Utills/CustomPricing'); // ← added
 
 function getShipping(country) {
   if (!country) return 0;
@@ -161,11 +161,11 @@ exports.checkout = async (req, res, next) => {
     // If no Winner found, it's probably a regular custom order — skip safely.
     try {
       let w = await Winner.findOne({ auctionCode: order.orderNo, user: order.buyerId });
-    if (!w) {
-      // Fallback: find auction by its human code then winner by auction _id
-      const a = await Auction.findOne({ auctionId: order.orderNo }).select('_id');
-      if (a) w = await Winner.findOne({ auction: a._id, user: order.buyerId });
-    }
+      if (!w) {
+        // Fallback: find auction by its human code then winner by auction _id
+        const a = await Auction.findOne({ auctionId: order.orderNo }).select('_id');
+        if (a) w = await Winner.findOne({ auction: a._id, user: order.buyerId });
+      }
       if (w) {
         // reflect current payment status
         if (paymentBlock.status === 'paid') {
@@ -243,8 +243,8 @@ exports.checkoutFromGem = async (req, res, next) => {
     if (!gem) return res.status(404).json({ ok: false, error: 'GEM_NOT_FOUND' });
     const s = String(gem.status || '').toLowerCase().replace(/\s+/g,'_');
     if (['sold','out_of_stock','reserved'].includes(s)) {
-    return res.status(400).json({ ok: false, error: 'GEM_UNAVAILABLE' });
-}
+      return res.status(400).json({ ok: false, error: 'GEM_UNAVAILABLE' });
+    }
 
     // Build order data (use your mappings; fill required fields)
     const priceUSD = Number(gem.priceUSD ?? 0);
@@ -354,6 +354,112 @@ exports.checkoutFromGem = async (req, res, next) => {
   }
 };
 
+// --- NEW: pay-first checkout for CUSTOM selections (no pre-created order) ---
+exports.checkoutCustom = async (req, res, next) => {
+  try {
+    const buyerId = req.user?.id || req.user?._id;
+    if (!buyerId) return res.status(401).json({ ok: false, error: 'UNAUTHORIZED' });
+
+    // Accept JSON or multipart (stringified JSON)
+    const selectionsRaw = typeof req.body.selections === 'string'
+      ? JSON.parse(req.body.selections)
+      : (req.body.selections || {});
+    const { type, shape, weight, grade, polish, symmetry } = selectionsRaw;
+
+    // Validate selections
+    const missing = [type, shape, weight, grade, polish, symmetry]
+      .some(v => v === undefined || v === null || v === '');
+    if (missing) return res.status(400).json({ ok: false, error: 'MISSING_SELECTIONS' });
+
+    // Compute price on server
+    const pricing = computePricing({
+      type, shape, weight: Number(weight), grade, polish, symmetry
+    });
+
+    const customerRaw = parseMaybeJSON(req.body.customer) || {};
+    const paymentRaw  = parseMaybeJSON(req.body.payment)  || {};
+    const country     = (req.body.country || customerRaw.country || '').trim();
+
+    const shipping = getShipping(country);
+    const subtotal = Number(pricing?.subtotal || 0);
+    const total    = subtotal + shipping;
+    const method   = (paymentRaw.method || 'card').trim();
+    if (!['card','bank'].includes(method)) {
+      return res.status(400).json({ ok:false, error:'INVALID_PAYMENT_METHOD' });
+    }
+
+    // Build payment block
+    const paymentBlock = { method, status: method === 'card' ? 'paid' : 'pending' };
+    if (method === 'card') {
+      const remember  = !!paymentRaw.remember;
+      const cardName  = paymentRaw.card?.cardName || '';
+      const rawNumber = (paymentRaw.card?.cardNumber || '').replace(/\s/g,'');
+      if (remember && rawNumber) {
+        const last4 = rawNumber.slice(-4);
+        const { cipher, iv } = encrypt(rawNumber);
+        paymentBlock.card = { cardName, last4, cardCipher: cipher, cardIv: iv, provider: 'demo' };
+      }
+    } else if (method === 'bank') {
+      if (req.file) paymentBlock.bankSlipPath = req.file.path;
+    }
+
+    const customer = {
+      fullName: customerRaw.fullName || '',
+      email:    customerRaw.email || '',
+      phone:    customerRaw.phone || '',
+      country:  customerRaw.country || country || '',
+      address:  customerRaw.address || '',
+      city:     customerRaw.city || '',
+      zipCode:  customerRaw.zipCode || '',
+    };
+
+    // Create the order ONLY NOW (after payment intent)
+    const { nanoid } = require('nanoid');
+    const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
+    const orderNo = `CORD-${new Date().getFullYear()}-${nanoid(6).toUpperCase()}`;
+    const title = `${cap(type)} ${cap(shape)}`.trim();
+
+    const order = await CustomOrder.create({
+      orderNo,
+      title,
+      selections: { type, shape, weight, grade, polish, symmetry },
+      pricing,
+      currency: 'USD',
+      estimatedFinishDate: plus3Days(),
+      status: method === 'card' ? 'paid' : 'pending',
+      buyerId,
+      orderStatus: 'processing',
+    });
+
+    // Persist a Payment document
+    const paymentDoc = await Payment.findOneAndUpdate(
+      { orderId: order._id },
+      {
+        orderId: order._id,
+        orderNo: order.orderNo,
+        currency: order.currency || 'USD',
+        buyerId,
+        customer,
+        payment: paymentBlock,
+        amounts: { subtotal, shipping, total },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    return res.json({
+      ok: true,
+      paymentId: paymentDoc._id,
+      orderId: order._id,
+      orderNo: order.orderNo,
+      total: paymentDoc.amounts.total,
+      paymentStatus: paymentDoc.payment.status,
+      orderStatus: order.status,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 // ========= Listings & management ===========
 
@@ -418,7 +524,7 @@ exports.getPaymentById = async (req, res, next) => {
       .populate({ path: 'buyerId', select: 'fullName email phone' })
       .populate({ path: 'orderId', select: 'title pricing status estimatedFinishDate' });
 
-    if (!p) return res.status(404).json({ ok: false, message: 'Not found' });
+  if (!p) return res.status(404).json({ ok: false, message: 'Not found' });
 
     const isOwner = p.buyerId && p.buyerId._id?.toString() === req.user.id;
     const isStaff = ['seller', 'admin'].includes(req.user.role);
@@ -449,9 +555,8 @@ exports.markBankPaid = async (req, res, next) => {
     // === reserve gem now that bank is paid ===
     if (order) await markGemSoldForOrder(order);
 
-    // Sync Winner.purchaseStatus too ===
+    // Sync Winner.purchaseStatus (auction flow)
     try {
-      // For auction-originated orders, orderNo is the auctionCode (AUC-YYYY-###)
       const w = await Winner.findOne({ auctionCode: p.orderNo, user: p.buyerId });
       if (w) {
         w.purchaseStatus = 'paid';
@@ -502,21 +607,20 @@ exports.updateStatus = async (req, res, next) => {
       return res.status(400).json({ ok: false, message: 'Cancelled payments are final' });
     }
 
-    // helper: sync related docs (CustomOrder + Winner) based on status
     async function syncRelated(orderStatus) {
       // sync order
       const order = await CustomOrder.findByIdAndUpdate(p.orderId, { $set: { status: orderStatus } }, { new: true });
 
       // when order becomes paid -> mark SOLD
       if (orderStatus === 'paid' && order) {
-        await  markGemSoldForOrder(order); // 
+        await markGemSoldForOrder(order);
       }
       // when order is pending (bank slip waiting) -> mark RESERVED
       if (orderStatus === 'pending' && order) {
-      await markGemReservedForOrder(order);
-     }
+        await markGemReservedForOrder(order);
+      }
 
-      // sync winner (try by auctionCode == orderNo; fallback via Auction._id)
+      // sync winner (auction flow)
       try {
         let w = await Winner.findOne({ auctionCode: p.orderNo, user: p.buyerId });
         if (!w) {
@@ -541,7 +645,6 @@ exports.updateStatus = async (req, res, next) => {
       }
     }
 
-    // allowed transitions only from 'pending'
     if (nextStatus === 'paid') {
       p.payment.status = 'paid';
       await p.save();
@@ -556,7 +659,6 @@ exports.updateStatus = async (req, res, next) => {
       return res.json({ ok: true, payment: p });
     }
 
-    // pending -> pending (no-op but keep consistent)
     p.payment.status = 'pending';
     await p.save();
     await syncRelated('pending');
@@ -567,7 +669,6 @@ exports.updateStatus = async (req, res, next) => {
 };
 
 // DELETE /api/payments/:id/card  (buyer who owns it OR staff)
-// Removes the saved card block from a Payment document
 exports.deleteSavedCard = async (req, res, next) => {
   try {
     const p = await Payment.findById(req.params.id);
@@ -586,7 +687,6 @@ exports.deleteSavedCard = async (req, res, next) => {
       return res.status(400).json({ ok: false, message: 'No saved card on this payment' });
     }
 
-    // Remove the saved card details
     p.payment.card = undefined;
     await p.save();
 

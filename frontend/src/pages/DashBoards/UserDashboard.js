@@ -7,10 +7,24 @@ import UserSidebar from "../../Components/UserSidebar";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
+// money formatting helper
+const money = (n, ccy = "USD") => {
+  const amt = Number(n || 0);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: ccy,
+      maximumFractionDigits: amt % 1 === 0 ? 0 : 2,
+    }).format(amt);
+  } catch {
+    return `${ccy} ${amt.toFixed(2)}`;
+  }
+};
+
 const UserDashboard = () => {
   const navigate = useNavigate();
 
-  /* ================= Particles + sticky header (unchanged) ================= */
+  /* ============== Particles + sticky header (unchanged) ============== */
   useEffect(() => {
     const initParticles = () => {
       window.particlesJS &&
@@ -58,18 +72,119 @@ const UserDashboard = () => {
     if (!token) navigate("/login", { replace: true });
   }, [navigate]);
 
-  /* =================== Payment Methods: fetch from backend ================== */
+  /* ================= Dashboard (bids + reviews + orders) ================= */
+  const [summary, setSummary] = useState({
+    totals: { activeBids: 0, myReviews: 0, totalOrders: 0 },
+    recent: { reviews: [], orders: [] },
+  });
+  const [dashLoading, setDashLoading] = useState(true);
+  const [dashError, setDashError] = useState("");
+
+  // Fallback orders state if /api/dashboard/me doesn’t return orders
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState("");
+
+  const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString() : "");
+  const stars = (n) => {
+    const full = Math.floor(n);
+    const half = n - full >= 0.5 ? 1 : 0;
+    const empty = 5 - full - half;
+    return (
+      <>
+        {Array(full)
+          .fill(0)
+          .map((_, i) => (
+            <i key={`f${i}`} className="fas fa-star" />
+          ))}
+        {half ? <i className="fas fa-star-half-alt" /> : null}
+        {Array(empty)
+          .fill(0)
+          .map((_, i) => (
+            <i key={`e${i}`} className="far fa-star" />
+          ))}
+      </>
+    );
+  };
+
+  async function loadDashboard() {
+    setDashLoading(true);
+    setDashError("");
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token) return navigate("/login", { replace: true });
+
+      const res = await fetch(`${API_BASE}/api/dashboard/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+      });
+      if (res.status === 401) return navigate("/login", { replace: true });
+
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.message || "Failed to load dashboard");
+
+      const totals = {
+        activeBids: data?.totals?.activeBids ?? 0,
+        myReviews: data?.totals?.myReviews ?? 0,
+        totalOrders: data?.totals?.totalOrders ?? 0,
+      };
+      const recent = {
+        reviews: Array.isArray(data?.recent?.reviews) ? data.recent.reviews : [],
+        orders: Array.isArray(data?.recent?.orders) ? data.recent.orders : [],
+      };
+
+      setSummary({ totals, recent });
+
+      // If the backend didn't include orders, fall back to /api/orders/mine
+      if (!recent.orders.length || totals.totalOrders === 0) {
+        loadMyOrdersFallback();
+      }
+    } catch (e) {
+      setDashError(e.message || "Failed to load dashboard");
+    } finally {
+      setDashLoading(false);
+    }
+  }
+
+  async function loadMyOrdersFallback() {
+    setOrdersLoading(true);
+    setOrdersError("");
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token) return navigate("/login", { replace: true });
+
+      const res = await fetch(`${API_BASE}/api/orders/mine`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+      });
+      if (res.status === 401) return navigate("/login", { replace: true });
+
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.message || "Failed to load orders");
+
+      setOrders(Array.isArray(data.items) ? data.items : []);
+    } catch (e) {
+      setOrdersError(e.message || "Failed to load orders");
+      setOrders([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
+  /* =================== Payment Methods (existing) =================== */
   const [savedCards, setSavedCards] = useState([]);
   const [cardsLoading, setCardsLoading] = useState(true);
   const [cardsError, setCardsError] = useState("");
 
-  // === Confirm Delete modal state ===
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState(null); // { id, paymentId, cardName, last4 }
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [confirmError, setConfirmError] = useState("");
 
-  // client-only "removed" list so we don't touch backend
   const HIDDEN_KEY = "hiddenSavedCards";
   const [hidden, setHidden] = useState(() => {
     try {
@@ -85,7 +200,7 @@ const UserDashboard = () => {
   );
 
   const mask = (last4) => `•••• •••• •••• ${String(last4 || "").slice(-4)}`;
-  const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString() : "");
+  const fmtDate2 = (iso) => (iso ? new Date(iso).toLocaleDateString() : "");
 
   async function loadSavedCards() {
     setCardsLoading(true);
@@ -107,17 +222,11 @@ const UserDashboard = () => {
       const data = await res.json();
       if (!data.ok) throw new Error(data.message || "Failed to load");
 
-      // De-duplicate by encrypted PAN when available, else name|last4
       const acc = new Map();
       (data.items || []).forEach((p) => {
         const card = p?.payment?.card;
-        if (
-          p?.payment?.method === "card" &&
-          card &&
-          (card.last4 || card.cardCipher)
-        ) {
-          const id =
-            card.cardCipher || `${card.cardName || ""}|${card.last4 || ""}`;
+        if (p?.payment?.method === "card" && card && (card.last4 || card.cardCipher)) {
+          const id = card.cardCipher || `${card.cardName || ""}|${card.last4 || ""}`;
           if (!acc.has(id)) {
             acc.set(id, {
               id,
@@ -140,7 +249,7 @@ const UserDashboard = () => {
 
   useEffect(() => {
     loadSavedCards();
-  }, []); // load once
+  }, []);
 
   async function deleteSavedCardOnServer(paymentId) {
     const token = localStorage.getItem("accessToken");
@@ -160,7 +269,7 @@ const UserDashboard = () => {
     setConfirmOpen(true);
   }
   function closeDeleteConfirm() {
-    if (confirmBusy) return; // avoid closing while deleting
+    if (confirmBusy) return;
     setConfirmOpen(false);
     setConfirmTarget(null);
   }
@@ -171,7 +280,6 @@ const UserDashboard = () => {
     setConfirmError("");
     try {
       await deleteSavedCardOnServer(confirmTarget.paymentId);
-      // remove from UI
       setSavedCards((prev) => prev.filter((x) => x.id !== confirmTarget.id));
       closeDeleteConfirm();
     } catch (e) {
@@ -180,6 +288,35 @@ const UserDashboard = () => {
       setConfirmBusy(false);
     }
   }
+
+  /* =================== Derived UI data =================== */
+  const recentReviews = Array.isArray(summary?.recent?.reviews)
+    ? summary.recent.reviews
+    : [];
+
+  // Prefer orders from /api/dashboard/me; otherwise use fallback
+  const dashboardOrders = Array.isArray(summary?.recent?.orders)
+    ? summary.recent.orders
+    : [];
+  const fallbackRecentOrders = (orders || []).slice(0, 3);
+  const recentOrders =
+    dashboardOrders.length > 0 ? dashboardOrders : fallbackRecentOrders;
+
+  // Stat card: prefer totalOrders from dashboard; else fallback to orders.length
+  const totalOrders =
+    typeof summary?.totals?.totalOrders === "number" && summary.totals.totalOrders > 0
+      ? summary.totals.totalOrders
+      : orders.length;
+
+  const renderOrderBadge = (order) => {
+    const ps = String(order.paymentStatus || "").toLowerCase();
+    const os = String(order.orderStatus || "").toLowerCase();
+    if (ps === "paid") return <span className="status status-delivered">Paid</span>;
+    if (ps === "cancelled") return <span className="status status-pending">Cancelled</span>;
+    if (os === "shipped") return <span className="status status-processing">Shipped</span>;
+    if (os === "completed") return <span className="status status-delivered">Completed</span>;
+    return <span className="status status-processing">Processing</span>;
+  };
 
   return (
     <>
@@ -194,45 +331,63 @@ const UserDashboard = () => {
             <h2 className="dashboard-title">Dashboard</h2>
           </div>
 
-          {/* ====== Stats (unchanged) ====== */}
+          {dashLoading && <p>Loading…</p>}
+          {!dashLoading && dashError && (
+            <p className="error" style={{ color: "#e74c3c" }}>{dashError}</p>
+          )}
+
+          {/* ====== Stats ====== */}
           <div className="stats-grid">
+            {/* Total Orders (wired) */}
             <div className="stat-card">
               <div className="stat-icon">
                 <i className="fas fa-shopping-bag"></i>
               </div>
               <div className="stat-info">
-                <h3>5</h3>
+                <h3>
+                  {dashLoading ? "…" : totalOrders}
+                </h3>
                 <p>Total Orders</p>
               </div>
             </div>
+
+            {/* Active Bids */}
             <div className="stat-card">
               <div className="stat-icon">
                 <i className="fas fa-gavel"></i>
               </div>
               <div className="stat-info">
-                <h3>3</h3>
+                <h3>{dashLoading ? "…" : summary?.totals?.activeBids ?? 0}</h3>
                 <p>Active Bids</p>
               </div>
             </div>
+
+            {/* My Reviews */}
             <div className="stat-card">
               <div className="stat-icon">
                 <i className="fas fa-star"></i>
               </div>
               <div className="stat-info">
-                <h3>12</h3>
+                <h3>{dashLoading ? "…" : summary?.totals?.myReviews ?? 0}</h3>
                 <p>My Reviews</p>
               </div>
             </div>
           </div>
 
-          {/* ====== Recent Orders (unchanged demo data) ====== */}
+          {/* ====== Recent Orders (wired) ====== */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Recent Orders</h3>
-              <a href="#" className="view-all">
-                View All
-              </a>
+              <a href="/my-orders" className="view-all">View All</a>
             </div>
+
+            {(ordersLoading && dashboardOrders.length === 0) && (
+              <p>Loading your orders…</p>
+            )}
+            {ordersError && dashboardOrders.length === 0 && (
+              <p className="error" style={{ color: "#e74c3c" }}>{ordersError}</p>
+            )}
+
             <div className="table-responsive">
               <table className="orders-table">
                 <thead>
@@ -246,56 +401,46 @@ const UserDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td className="order-id">#GZ78945</td>
-                    <td>12 Oct 2023</td>
-                    <td>Royal Blue Sapphire</td>
-                    <td>$8,450</td>
-                    <td>
-                      <span className="status status-delivered">Delivered</span>
-                    </td>
-                    <td>
-                      <a href="#" className="view-all">
-                        View
-                      </a>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="order-id">#GZ78932</td>
-                    <td>08 Oct 2023</td>
-                    <td>Emerald Cut Diamond</td>
-                    <td>$15,200</td>
-                    <td>
-                      <span className="status status-processing">
-                        Processing
-                      </span>
-                    </td>
-                    <td>
-                      <a href="#" className="view-all">
-                        View
-                      </a>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="order-id">#GZ78891</td>
-                    <td>03 Oct 2023</td>
-                    <td>Tanzanite, 2.1ct</td>
-                    <td>$3,750</td>
-                    <td>
-                      <span className="status status-pending">Pending</span>
-                    </td>
-                    <td>
-                      <a href="#" className="view-all">
-                        View
-                      </a>
-                    </td>
-                  </tr>
+                  {(!recentOrders || recentOrders.length === 0) ? (
+                    <tr>
+                      <td colSpan={6} style={{ color: "#b0b0b0", textAlign: "center", padding: 16 }}>
+                        No orders yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    recentOrders.map((o) => (
+                      <tr key={o.id}>
+                        <td className="order-id">#{o.orderNo || o.id}</td>
+                        <td>{fmtDate(o.createdAt)}</td>
+                        <td>
+                          {o.title ||
+                            (o.selections?.type
+                              ? `${o.selections.type} ${o.selections.shape || ""}`.trim()
+                              : "Custom Order")}
+                        </td>
+                        <td>{money(o.amount, o.currency)}</td>
+                        <td>{renderOrderBadge(o)}</td>
+                        <td>
+                          <a
+                            className="view-all"
+                            href={`/orders/${o.id}`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigate(`/orders/${o.id}`);
+                            }}
+                          >
+                            View
+                          </a>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* ====== Payment Methods (NOW DYNAMIC) ====== */}
+          {/* ====== Payment Methods (dynamic) ====== */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Payment Methods</h3>
@@ -332,11 +477,10 @@ const UserDashboard = () => {
                       <div className="payment-details">
                         <div className="card-number">{mask(c.last4)}</div>
                         <div className="card-expiry">
-                          Saved on: {fmtDate(c.createdAt)}
+                          Saved on: {fmtDate2(c.createdAt)}
                         </div>
                       </div>
                       <div className="payment-actions">
-                        {/* No edit per your requirement */}
                         <button
                           className="payment-btn btn-remove"
                           onClick={() => openDeleteConfirm(c)}
@@ -362,52 +506,52 @@ const UserDashboard = () => {
             )}
           </div>
 
-          {/* ====== Recent Reviews (unchanged demo) ====== */}
+          {/* ====== Recent Reviews (wired) ====== */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Recent Reviews</h3>
-              <a href="#" className="view-all">
+              <a href="/my-feedback" className="view-all">
                 View All
               </a>
             </div>
-            <div className="reviews-list">
-              <div className="review-item">
-                <div className="review-header">
-                  <div className="review-gem">Royal Blue Sapphire</div>
-                  <div className="review-date">October 15, 2023</div>
-                </div>
-                <div className="review-rating">
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                </div>
-                <p className="review-text">
-                  Absolutely stunning sapphire! The color is even more vibrant
-                  in person…
-                </p>
+
+            {dashLoading && <p>Loading your reviews…</p>}
+            {!dashLoading && (
+              <div className="reviews-list">
+                {recentReviews.length === 0 ? (
+                  <div style={{ color: "#b0b0b0" }}>No reviews yet.</div>
+                ) : (
+                  recentReviews.map((r) => {
+                    const title =
+                      r.title ||
+                      r.productName ||
+                      r.gemName ||
+                      r.productId ||
+                      (r.orderId ? `Order #${r.orderId}` : "Item");
+
+                    const rating = Number(r.rating) || 0;
+                    const text =
+                      r.text || r.feedbackText || r.comment || "(no text)";
+                    const when = r.date || r.createdAt;
+
+                    return (
+                      <div className="review-item" key={r.id || r._id || title}>
+                        <div className="review-header">
+                          <div className="review-gem">{title}</div>
+                          <div className="review-date">{fmtDate(when)}</div>
+                        </div>
+                        <div className="review-rating">{stars(rating)}</div>
+                        <p className="review-text">{text}</p>
+                      </div>
+                    );
+                  })
+                )}
               </div>
-              <div className="review-item">
-                <div className="review-header">
-                  <div className="review-gem">Emerald Cut Diamond</div>
-                  <div className="review-date">October 10, 2023</div>
-                </div>
-                <div className="review-rating">
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star"></i>
-                  <i className="fas fa-star-half-alt"></i>
-                </div>
-                <p className="review-text">
-                  The diamond is exquisite with excellent clarity…
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         </main>
       </div>
+
       {confirmOpen && (
         <div
           className="confirm-overlay"
