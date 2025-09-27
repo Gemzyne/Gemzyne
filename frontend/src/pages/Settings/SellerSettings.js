@@ -7,6 +7,15 @@ import { api } from "../../api";
 import { useUser } from "../../context/UserContext";
 import "../DashBoards/SellerDashboard.css";
 
+/* ============================
+   [VALIDATION] helpers & regex
+   ============================ */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NAME_RE  = /^[A-Za-z]+(?:[ '\-][A-Za-z]+)*$/; // letters + optional space/'/-
+const PHONE_RE = /^\+?[0-9()\-.\s]{7,15}$/;         // optional +; 7–15 digits
+const OTP_RE   = /^\d{6}$/;                          // exactly 6 digits
+const PASSWORD_RE = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/; // ≥8 chars, 1 letter + 1 number
+
 export default function SellerSettings() {
   const navigate = useNavigate();
   const { me, setMe } = useUser();
@@ -16,6 +25,19 @@ export default function SellerSettings() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  // [VALIDATION] per-field errors
+  const [errors, setErrors] = useState({
+    profile_fullName: "",
+    profile_phone: "",
+    email_new: "",
+    email_code: "",
+    pw_current: "",
+    pw_new: "",
+    pw_confirm: "",
+  });
+  const setFieldError = (k, v) => setErrors((e) => ({ ...e, [k]: v })); // [VALIDATION]
+  const clearAlerts = () => { setErr(""); setSuccessMsg(""); };          // [VALIDATION]
 
   // profile form
   const [fullName, setFullName] = useState("");
@@ -97,8 +119,6 @@ export default function SellerSettings() {
   // ✅ Seed form ONCE from me when it first arrives (won't overwrite your typing)
   useEffect(() => {
     if (!me) return;
-
-    // Only seed if we haven't seeded this user yet
     if (seededUserId !== me._id) {
       setFullName(me.fullName || me.name || "");
       setPhone(me.phone || "");
@@ -134,14 +154,60 @@ export default function SellerSettings() {
     };
   }, [navigate, setMe]);
 
+  /* ============================
+     [VALIDATION] field validators
+     ============================ */
+  const validateFullName = (v) => {
+    const s = (v || "").trim();
+    if (!s) return "Full name is required.";
+    if (!NAME_RE.test(s)) return "Use letters only (spaces, apostrophes, hyphens allowed).";
+    return "";
+  };
+  const validatePhone = (v) => {
+    const s = (v || "").trim();
+    if (!s) return ""; // optional
+    if (!PHONE_RE.test(s)) return "Use intl. format, e.g., +94 77 123 4567.";
+    return "";
+  };
+  const validateEmail = (v) => {
+    const s = (v || "").trim();
+    if (!s) return "Email is required.";
+    if (!EMAIL_RE.test(s)) return "Enter a valid email address.";
+    return "";
+  };
+  const validateOtp = (v) => {
+    const s = (v || "").trim();
+    if (!s) return "Code is required.";
+    if (!OTP_RE.test(s)) return "Enter the 6-digit code (digits only).";
+    return "";
+  };
+  const validatePassword = (v, label = "Password") => {
+    if (!v) return `${label} is required.`;
+    if (!PASSWORD_RE.test(v)) return "Min 8 chars with at least 1 letter and 1 number.";
+    return "";
+  };
+  const validateConfirm = (pw, cf) => {
+    if (!cf) return "Please confirm your new password.";
+    if (pw !== cf) return "Passwords do not match.";
+    return "";
+  };
+
   // save profile
   const onSaveProfile = async (e) => {
     e.preventDefault();
     setErr("");
     setSuccessMsg("");
+
+    // [VALIDATION] run checks
+    const fullNameErr = validateFullName(fullName);
+    const phoneErr = validatePhone(phone);
+    setFieldError("profile_fullName", fullNameErr); // [VALIDATION]
+    setFieldError("profile_phone", phoneErr);       // [VALIDATION]
+    if (fullNameErr || phoneErr) return;            // [VALIDATION]
+
     setSavingProfile(true);
     try {
-      const res = await api.updateMe({ fullName, phone });
+      const res = await api.updateMe({ fullName: fullName.trim(), phone: phone.trim() }); // [VALIDATION] trim
       const user = res?.user || res;
       setMe(user); // updates context -> sidebar reflects immediately
 
@@ -152,8 +218,8 @@ export default function SellerSettings() {
         localStorage.setItem("user", JSON.stringify({ ...parsed, ...user }));
       }
       setSuccessMsg("Profile updated successfully");
-    } catch (e) {
-      setErr(e.message || "Failed to update profile");
+    } catch (e2) {
+      setErr(e2.message || "Failed to update profile");
     } finally {
       setSavingProfile(false);
     }
@@ -164,13 +230,19 @@ export default function SellerSettings() {
     e.preventDefault();
     setErr("");
     setSuccessMsg("");
+
+    // [VALIDATION] email format
+    const newEmailErr = validateEmail(newEmail);
+    setFieldError("email_new", newEmailErr);
+    if (newEmailErr) return;
+
     setSavingEmail(true);
     try {
-      await api.me.requestEmailChange({ newEmail });
+      await api.me.requestEmailChange({ newEmail: newEmail.trim() }); // [VALIDATION] trim
       setEmailRequested(true);
       setSuccessMsg("Verification code sent to your new email");
-    } catch (e) {
-      setErr(e.message || "Failed to request email change");
+    } catch (e2) {
+      setErr(e2.message || "Failed to request email change");
     } finally {
       setSavingEmail(false);
     }
@@ -181,9 +253,15 @@ export default function SellerSettings() {
     e.preventDefault();
     setErr("");
     setSuccessMsg("");
+
+    // [VALIDATION] 6-digit code
+    const codeErr = validateOtp(emailOtp);
+    setFieldError("email_code", codeErr);
+    if (codeErr) return;
+
     setSavingEmail(true);
     try {
-      const res = await api.me.confirmEmailChange({ code: emailOtp });
+      const res = await api.me.confirmEmailChange({ code: emailOtp.trim() }); // [VALIDATION] trim
       const user = res?.user || me;
       setMe(user);
       const cached = localStorage.getItem("user");
@@ -195,8 +273,8 @@ export default function SellerSettings() {
       setNewEmail("");
       setEmailOtp("");
       setSuccessMsg("Email updated successfully");
-    } catch (e) {
-      setErr(e.message || "Failed to confirm email change");
+    } catch (e2) {
+      setErr(e2.message || "Failed to confirm email change");
     } finally {
       setSavingEmail(false);
     }
@@ -208,10 +286,19 @@ export default function SellerSettings() {
     setErr("");
     setSuccessMsg("");
 
-    if (newPassword !== confirmPassword) {
-      setErr("New password and confirmation do not match");
-      return;
-    }
+    // [VALIDATION] run checks
+    const curErr = currentPassword ? "" : "Current password is required.";
+    const newErr = validatePassword(newPassword, "New password");
+    const cfErr  = validateConfirm(newPassword, confirmPassword);
+    const sameErr =
+      !curErr && !newErr && currentPassword === newPassword
+        ? "New password must be different from current password."
+        : "";
+
+    setFieldError("pw_current", curErr);               // [VALIDATION]
+    setFieldError("pw_new", sameErr || newErr);        // [VALIDATION]
+    setFieldError("pw_confirm", cfErr);                // [VALIDATION]
+    if (curErr || newErr || cfErr || sameErr) return;  // [VALIDATION]
 
     setSavingPassword(true);
     try {
@@ -220,8 +307,8 @@ export default function SellerSettings() {
       setNewPassword("");
       setConfirmPassword("");
       setSuccessMsg("Password changed successfully");
-    } catch (e) {
-      setErr(e.message || "Failed to change password");
+    } catch (e2) {
+      setErr(e2.message || "Failed to change password");
     } finally {
       setSavingPassword(false);
     }
@@ -272,7 +359,7 @@ export default function SellerSettings() {
             <div className="section-header">
               <h3 className="section-title">Profile</h3>
             </div>
-            <form onSubmit={onSaveProfile}>
+            <form onSubmit={onSaveProfile} /* noValidate */>
               <div className="form-group">
                 <label className="form-label">Full Name</label>
                 <input
@@ -280,18 +367,28 @@ export default function SellerSettings() {
                   className="form-input"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
+                  onBlur={(e) => setFieldError("profile_fullName", validateFullName(e.target.value))} // [VALIDATION]
+                  aria-invalid={!!errors.profile_fullName} // [VALIDATION]
                   disabled={savingProfile}
+                  placeholder="Full Name" // [VALIDATION] hint
                 />
+                {errors.profile_fullName && <small className="error">{errors.profile_fullName}</small>}{/* [VALIDATION] */}
               </div>
               <div className="form-group">
                 <label className="form-label">Phone</label>
                 <input
-                  type="text"
+                  type="tel"
                   className="form-input"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  onBlur={(e) => setFieldError("profile_phone", validatePhone(e.target.value))} // [VALIDATION]
+                  aria-invalid={!!errors.profile_phone} // [VALIDATION]
                   disabled={savingProfile}
+                  placeholder="+94 77 123 4567" // [VALIDATION] hint (no strict enforcement)
+                  inputMode="tel" // [VALIDATION]
+                  autoComplete="tel" // [VALIDATION]
                 />
+                {errors.profile_phone && <small className="error">{errors.profile_phone}</small>}{/* [VALIDATION] */}
               </div>
               <button className="btn" disabled={savingProfile}>
                 {savingProfile ? "Saving..." : "Save Changes"}
@@ -306,7 +403,7 @@ export default function SellerSettings() {
             </div>
 
             {!emailRequested ? (
-              <form onSubmit={onRequestEmailChange}>
+              <form onSubmit={onRequestEmailChange} /* noValidate */>
                 <div className="form-group">
                   <label className="form-label">New Email</label>
                   <input
@@ -314,15 +411,21 @@ export default function SellerSettings() {
                     className="form-input"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
+                    onBlur={(e) => setFieldError("email_new", validateEmail(e.target.value))} // [VALIDATION]
+                    aria-invalid={!!errors.email_new} // [VALIDATION]
                     disabled={savingEmail}
+                    placeholder="name@example.com" // [VALIDATION] hint
+                    inputMode="email" // [VALIDATION]
+                    autoComplete="email" // [VALIDATION]
                   />
+                  {errors.email_new && <small className="error">{errors.email_new}</small>}{/* [VALIDATION] */}
                 </div>
                 <button className="btn" disabled={savingEmail || !newEmail}>
                   {savingEmail ? "Sending..." : "Send Verification Code"}
                 </button>
               </form>
             ) : (
-              <form onSubmit={onConfirmEmailChange}>
+              <form onSubmit={onConfirmEmailChange} /* noValidate */>
                 <div className="form-group">
                   <label className="form-label">
                     Enter Code (sent to {newEmail})
@@ -334,9 +437,20 @@ export default function SellerSettings() {
                     className="form-input"
                     value={emailOtp}
                     onChange={(e) => setEmailOtp(e.target.value)}
+                    onBlur={(e) => setFieldError("email_code", validateOtp(e.target.value))} // [VALIDATION]
+                    aria-invalid={!!errors.email_code} // [VALIDATION]
                     disabled={savingEmail}
                     placeholder="6-digit code"
+                    maxLength={6} // [VALIDATION]
+                    inputMode="numeric" // [VALIDATION]
+                    pattern="^\d{6}$" // [VALIDATION]
+                    title="Enter the 6-digit code" // [VALIDATION]
+                    onKeyDown={(e) => {
+                      const ok = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab"];
+                      if (!ok.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault();
+                    }} // [VALIDATION]
                   />
+                  {errors.email_code && <small className="error">{errors.email_code}</small>}{/* [VALIDATION] */}
                 </div>
                 <button className="btn" disabled={savingEmail || !emailOtp}>
                   {savingEmail ? "Verifying..." : "Confirm Email Change"}
@@ -350,7 +464,7 @@ export default function SellerSettings() {
             <div className="section-header">
               <h3 className="section-title">Change Password</h3>
             </div>
-            <form onSubmit={onChangePassword}>
+            <form onSubmit={onChangePassword} /* noValidate */>
               <div className="form-group">
                 <label className="form-label">Current Password</label>
                 <input
@@ -358,8 +472,11 @@ export default function SellerSettings() {
                   className="form-input"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
+                  onBlur={(e) => setFieldError("pw_current", currentPassword ? "" : "Current password is required.")} // [VALIDATION]
+                  aria-invalid={!!errors.pw_current} // [VALIDATION]
                   disabled={savingPassword}
                 />
+                {errors.pw_current && <small className="error">{errors.pw_current}</small>}{/* [VALIDATION] */}
               </div>
               <div className="form-group">
                 <label className="form-label">New Password</label>
@@ -368,8 +485,19 @@ export default function SellerSettings() {
                   className="form-input"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
+                  onBlur={(e) =>
+                    setFieldError(
+                      "pw_new",
+                      currentPassword && newPassword === currentPassword
+                        ? "New password must be different from current password."
+                        : validatePassword(newPassword, "New password")
+                    )
+                  } // [VALIDATION]
+                  aria-invalid={!!errors.pw_new} // [VALIDATION]
                   disabled={savingPassword}
+                  placeholder="Minimum 8 characters (include a letter & a number)" // [VALIDATION] hint
                 />
+                {errors.pw_new && <small className="error">{errors.pw_new}</small>}{/* [VALIDATION] */}
               </div>
               <div className="form-group">
                 <label className="form-label">Confirm New Password</label>
@@ -378,8 +506,11 @@ export default function SellerSettings() {
                   className="form-input"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  onBlur={(e) => setFieldError("pw_confirm", validateConfirm(newPassword, confirmPassword))} // [VALIDATION]
+                  aria-invalid={!!errors.pw_confirm} // [VALIDATION]
                   disabled={savingPassword}
                 />
+                {errors.pw_confirm && <small className="error">{errors.pw_confirm}</small>}{/* [VALIDATION] */}
               </div>
               <button className="btn" disabled={savingPassword}>
                 {savingPassword ? "Updating..." : "Update Password"}

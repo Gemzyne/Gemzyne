@@ -26,6 +26,15 @@ body {
   margin-left: 280px;
 }
 
+
+/* inline field error helper */
+.error {
+  color: #ff6b6b;
+  font-size: 12px;
+  margin-top: 6px;
+  display: block;
+}
+
 .dashboard-header {
   display: flex;
   justify-content: space-between;

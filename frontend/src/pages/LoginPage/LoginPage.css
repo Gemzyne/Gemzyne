@@ -18,8 +18,6 @@ body {
   --panel-bg-mobile: rgba(15, 15, 15, 0.85);
 }
 
-
-
 /* ===== Layout ===== */
 .premium-auth-container {
   position: relative;
@@ -166,6 +164,13 @@ body {
   height: 3px;
   background: linear-gradient(to right, var(--gold), var(--gold-soft));
   border-radius: 3px;
+}
+
+.error {
+  color: #ff6b6b;
+  font-size: 12px;
+  margin-top: 6px;
+  display: block;
 }
 
 /* Alerts */

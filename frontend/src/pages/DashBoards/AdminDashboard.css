@@ -19,6 +19,13 @@ body {
   padding-top: 80px;
 }
 
+/* inline field error */
+.error {
+  color: #ff6b6b;
+  font-size: 12px;
+  margin-top: 6px;
+  display: block;
+}
 
 /* Main Content */
 .dashboard-content {
