@@ -144,6 +144,7 @@ export default function SellerDashboard() {
   const [revenue, setRevenue] = useState("—");
   const [revLoading, setRevLoading] = useState(true);
   const [avgRating, setAvgRating] = useState(null);
+  const [totalOrders, setTotalOrders] = useState("…");
 
   // Charts
   const revenueChartInstance = useRef(null);
@@ -248,9 +249,13 @@ export default function SellerDashboard() {
         setAvgRating(
           typeof s?.avgRating === "number" ? s.avgRating : null
         );
+        setTotalOrders(
+          Number.isFinite(s?.ordersYearCount) ? String(s.ordersYearCount) : "0"
+        );
         }
       } catch {
         if (alive) setRevenue("—");
+        setTotalOrders("0");
       } finally {
         if (alive) setRevLoading(false);
       }
@@ -585,8 +590,8 @@ export default function SellerDashboard() {
                 <i className="fas fa-shopping-bag" />
               </div>
               <div className="stat-info">
-                <h3>28</h3>
-                <p>Total Orders</p>
+                <h3>{totalOrders}</h3>
+                <p>Total Orders({year})</p>
               </div>
             </div>
             <div className="stat-card">

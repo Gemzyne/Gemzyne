@@ -26,6 +26,8 @@ import AdminFeedbackPage from "./pages/AdminFeedback/AdminFeedbackPage";
 import AdminFeedbackHub from "./pages/Admin/AdminFeedbackHub";
 
 
+import SellerOrder from "./pages/Order/SellerOrders";
+import UserOrders from "./pages/Order/UserOrders";
 
 // Public shop pages
 import GemInventory from "./pages/Inventory/InventoryPage";
@@ -78,10 +80,10 @@ export default function App() {
        <Route path="/reviews" element={<ReviewsPage />} />
        
       {/* Public shop routes */}
-     {/* <Route path="/collection" element={<GemInventory />} />*/}
+      {/* <Route path="/collection" element={<GemInventory />} />*/}
       <Route path="/inventory" element={<GemInventory />} />
       <Route path="/gems/:id" element={<GemDetail />} />
-      
+
       {/* Shop */}
       <Route path="/custom" element={<CustomPage />} />
       <Route
@@ -116,6 +118,11 @@ export default function App() {
             <PaymentHistory />
           </RequireAuth>
         }
+      />
+
+      <Route 
+      path="/my-orders" 
+      element={<UserOrders />} 
       />
 
      <Route
@@ -263,7 +270,19 @@ export default function App() {
         element={
           <RequireAuth>
             <RequireRole role="seller">
-              <SellerPayments/>
+              <SellerPayments />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      {/*Seller order*/}
+      <Route
+        path="/seller/orders"
+        element={
+          <RequireAuth>
+            <RequireRole role="seller">
+              <SellerOrder />
             </RequireRole>
           </RequireAuth>
         }
@@ -283,7 +302,6 @@ export default function App() {
        />
 
 
-      
       {/* === AUCTION: Public centre === */}
       <Route path="/auction" element={<AuctionCentre />} />
 

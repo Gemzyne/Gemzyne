@@ -1,7 +1,7 @@
 // src/pages/Inventory/InventoryPage.js
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../../api"; // keep as-is
+import { api } from "../../api"; 
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
 import "./InventoryPage.css";

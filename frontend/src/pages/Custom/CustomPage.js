@@ -1,98 +1,25 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "./CustomPage.css";
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
-import { api } from "../../api";
 
 const GEM_TYPES = [
-  {
-    key: "diamond",
-    name: "Diamond",
-    desc: "Brilliant and timeless",
-    price: 5000,
-    img: "https://images.unsplash.com/photo-1605100550745-c9f430e2cb0c?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    key: "sapphire",
-    name: "Sapphire",
-    desc: "Royal blue elegance",
-    price: 3200,
-    img: "https://images.unsplash.com/photo-1612774412778-8c6453559459?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    key: "ruby",
-    name: "Ruby",
-    desc: "Passionate red beauty",
-    price: 3800,
-    img: "https://images.unsplash.com/photo-1594644465939-4e805408e50e?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    key: "emerald",
-    name: "Emerald",
-    desc: "Vibrant green luxury",
-    price: 3500,
-    img: "https://images.unsplash.com/photo-1543294001-f7cd5d7fb516?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    key: "amethyst",
-    name: "Amethyst",
-    desc: "Regal purple charm",
-    price: 1200,
-    img: "https://images.unsplash.com/photo-1579546929662-711aa81148cf?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    key: "topaz",
-    name: "Topaz",
-    desc: "Golden warmth",
-    price: 950,
-    img: "https://images.unsplash.com/photo-1635805737707-575885ab0820?auto=format&fit=crop&w=500&q=60",
-  },
+  { key: "diamond",  name: "Diamond",  desc: "Brilliant and timeless",   price: 5000, img: "https://images.unsplash.com/photo-1605100550745-c9f430e2cb0c?auto=format&fit=crop&w=500&q=60" },
+  { key: "sapphire", name: "Sapphire", desc: "Royal blue elegance",       price: 3200, img: "https://images.unsplash.com/photo-1612774412778-8c6453559459?auto=format&fit=crop&w=500&q=60" },
+  { key: "ruby",     name: "Ruby",     desc: "Passionate red beauty",     price: 3800, img: "https://images.unsplash.com/photo-1594644465939-4e805408e50e?auto=format&fit=crop&w=500&q=60" },
+  { key: "emerald",  name: "Emerald",  desc: "Vibrant green luxury",      price: 3500, img: "https://images.unsplash.com/photo-1543294001-f7cd5d7fb516?auto=format&fit=crop&w=500&q=60" },
+  { key: "amethyst", name: "Amethyst", desc: "Regal purple charm",        price: 1200, img: "https://images.unsplash.com/photo-1579546929662-711aa81148cf?auto=format&fit=crop&w=500&q=60" },
+  { key: "topaz",    name: "Topaz",    desc: "Golden warmth",             price: 950,  img: "https://images.unsplash.com/photo-1635805737707-575885ab0820?auto=format&fit=crop&w=500&q=60" },
 ];
 
 const SHAPES = [
-  {
-    key: "round",
-    name: "Round",
-    desc: "Classic brilliance",
-    price: 0,
-    img: "https://images.unsplash.com/photo-1605100550745-c9f430e2cb0c?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    key: "princess",
-    name: "Princess",
-    desc: "Modern elegance",
-    price: 300,
-    img: "https://images.unsplash.com/photo-1612774412778-8c6453559459?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    key: "cushion",
-    name: "Cushion",
-    desc: "Vintage charm",
-    price: 250,
-    img: "https://images.unsplash.com/photo-1594644465939-4e805408e50e?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    key: "oval",
-    name: "Oval",
-    desc: "Elongated elegance",
-    price: 200,
-    img: "https://images.unsplash.com/photo-1543294001-f7cd5d7fb516?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    key: "pear",
-    name: "Pear",
-    desc: "Unique teardrop",
-    price: 350,
-    img: "https://images.unsplash.com/photo-1579546929662-711aa81148cf?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    key: "emerald",
-    name: "Emerald",
-    desc: "Step-cut sophistication",
-    price: 400,
-    img: "https://images.unsplash.com/photo-1635805737707-575885ab0820?auto=format&fit=crop&w=500&q=60",
-  },
+  { key: "round",    name: "Round",    desc: "Classic brilliance",      price: 0,   img: "https://images.unsplash.com/photo-1605100550745-c9f430e2cb0c?auto=format&fit=crop&w=500&q=60" },
+  { key: "princess", name: "Princess", desc: "Modern elegance",         price: 300, img: "https://images.unsplash.com/photo-1612774412778-8c6453559459?auto=format&fit=crop&w=500&q=60" },
+  { key: "cushion",  name: "Cushion",  desc: "Vintage charm",           price: 250, img: "https://images.unsplash.com/photo-1594644465939-4e805408e50e?auto=format&fit=crop&w=500&q=60" },
+  { key: "oval",     name: "Oval",     desc: "Elongated elegance",      price: 200, img: "https://images.unsplash.com/photo-1543294001-f7cd5d7fb516?auto=format&fit=crop&w=500&q=60" },
+  { key: "pear",     name: "Pear",     desc: "Unique teardrop",         price: 350, img: "https://images.unsplash.com/photo-1579546929662-711aa81148cf?auto=format&fit=crop&w=500&q=60" },
+  { key: "emerald",  name: "Emerald",  desc: "Step-cut sophistication", price: 400, img: "https://images.unsplash.com/photo-1635805737707-575885ab0820?auto=format&fit=crop&w=500&q=60" },
 ];
 
 const WEIGHTS = [0.5, 1.0, 1.5, 2.0, 3.0, 5.0];
@@ -107,7 +34,6 @@ function isLoggedIn() {
 
 export default function CustomPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [tab, setTab] = useState("type");
 
   const [type, setType] = useState(null);
@@ -149,12 +75,7 @@ export default function CustomPage() {
     [symmetry]
   );
   const totalPrice =
-    basePrice +
-    shapePrice +
-    weightPrice +
-    gradePrice +
-    polishPrice +
-    symmetryPrice;
+    basePrice + shapePrice + weightPrice + gradePrice + polishPrice + symmetryPrice;
 
   const estimatedDate = useMemo(() => {
     const d = new Date();
@@ -236,51 +157,8 @@ export default function CustomPage() {
     localStorage.removeItem("nextAfterLogin");
   }
 
-  async function createOrderAndGo() {
-    try {
-      const { order } = await api.orders.create({
-        type,
-        shape,
-        weight,
-        grade,
-        polish,
-        symmetry,
-      });
-
-      localStorage.setItem(
-        "pendingOrder",
-        JSON.stringify({
-          orderId: order._id,
-          orderNo: order.orderNo,
-          amount: order.pricing.subtotal,
-          currency: order.currency,
-        })
-      );
-
-      clearDraft();
-      navigate("/payment", {
-        state: {
-          orderId: order._id,
-          amount: order.pricing.subtotal,
-          currency: order.currency,
-        },
-      });
-    } catch (e) {
-      console.error(e);
-      alert(e?.message || "Network error creating order");
-    }
-  }
-
-  // resume flow after login
   useEffect(() => {
     restoreDraft();
-    const shouldProceed = searchParams.get("proceed") === "1";
-    if (shouldProceed && isLoggedIn()) {
-      if (localStorage.getItem("resumeCustomization")) {
-        createOrderAndGo();
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleProceed() {
@@ -288,13 +166,24 @@ export default function CustomPage() {
 
     if (!isLoggedIn()) {
       persistDraft();
-      const next = "/custom?proceed=1";
+      const next = "/payment?kind=custom";
       localStorage.setItem("nextAfterLogin", next);
       navigate(`/login?next=${encodeURIComponent(next)}`);
       return;
     }
 
-    createOrderAndGo();
+    // Store selections locally and go to Payment in "custom" mode
+    try {
+      localStorage.setItem(
+        "pendingCustom",
+        JSON.stringify({
+          selections: { type, shape, weight, grade, polish, symmetry },
+          ts: Date.now(),
+        })
+      );
+    } catch {}
+    clearDraft();
+    navigate("/payment?kind=custom");
   }
 
   return (
@@ -329,10 +218,7 @@ export default function CustomPage() {
             <div className="customization-content">
               {/* TYPE */}
               {tab === "type" && (
-                <section
-                  className="customization-section active"
-                  id="type-section"
-                >
+                <section className="customization-section active" id="type-section">
                   <h2>Select Gem Type</h2>
                   <p>
                     Choose the type of gemstone that speaks to you. Each has
@@ -342,11 +228,7 @@ export default function CustomPage() {
                     {GEM_TYPES.map((g) => (
                       <div
                         key={g.key}
-                        className={`option-card ${
-                          type === g.key ? "selected" : ""
-                        }`}
-                        data-type={g.key}
-                        data-price={g.price}
+                        className={`option-card ${type === g.key ? "selected" : ""}`}
                         onClick={() => setType(g.key)}
                       >
                         <div className="option-image">
@@ -358,10 +240,7 @@ export default function CustomPage() {
                       </div>
                     ))}
                   </div>
-                  <button
-                    className="submit-btn"
-                    onClick={() => setTab("shape")}
-                  >
+                  <button className="submit-btn" onClick={() => setTab("shape")}>
                     Next: Choose Shape
                   </button>
                 </section>
@@ -369,10 +248,7 @@ export default function CustomPage() {
 
               {/* SHAPE */}
               {tab === "shape" && (
-                <section
-                  className="customization-section active"
-                  id="shape-section"
-                >
+                <section className="customization-section active" id="shape-section">
                   <h2>Select Gem Shape</h2>
                   <p>
                     The cut of your gemstone affects its brilliance and
@@ -382,11 +258,7 @@ export default function CustomPage() {
                     {SHAPES.map((s) => (
                       <div
                         key={s.key}
-                        className={`option-card ${
-                          shape === s.key ? "selected" : ""
-                        }`}
-                        data-shape={s.key}
-                        data-price={s.price}
+                        className={`option-card ${shape === s.key ? "selected" : ""}`}
                         onClick={() => setShape(s.key)}
                       >
                         <div className="option-image">
@@ -401,16 +273,10 @@ export default function CustomPage() {
                     ))}
                   </div>
                   <div className="form-row">
-                    <button
-                      className="submit-btn"
-                      onClick={() => setTab("type")}
-                    >
+                    <button className="submit-btn" onClick={() => setTab("type")}>
                       Back
                     </button>
-                    <button
-                      className="submit-btn"
-                      onClick={() => setTab("specs")}
-                    >
+                    <button className="submit-btn" onClick={() => setTab("specs")}>
                       Next: Specifications
                     </button>
                   </div>
@@ -419,10 +285,7 @@ export default function CustomPage() {
 
               {/* SPECS */}
               {tab === "specs" && (
-                <section
-                  className="customization-section active"
-                  id="specs-section"
-                >
+                <section className="customization-section active" id="specs-section">
                   <h2>Specify Details</h2>
                   <p>
                     Fine-tune your gemstone with precise specifications to match
@@ -456,9 +319,7 @@ export default function CustomPage() {
                       <option value="" disabled>
                         Select grade
                       </option>
-                      <option value="premium">
-                        Premium (Flawless) +$1,500
-                      </option>
+                      <option value="premium">Premium (Flawless) +$1,500</option>
                       <option value="excellent">Excellent (VVS) +$800</option>
                       <option value="very-good">Very Good (VS) +$400</option>
                       <option value="good">Good (SI) No extra cost</option>
@@ -504,15 +365,11 @@ export default function CustomPage() {
                     <div className="preview-details">
                       <div className="preview-item">
                         <div className="preview-label">Type</div>
-                        <div className="preview-value">
-                          {type ? cap(type) : "—"}
-                        </div>
+                        <div className="preview-value">{type ? cap(type) : "—"}</div>
                       </div>
                       <div className="preview-item">
                         <div className="preview-label">Shape</div>
-                        <div className="preview-value">
-                          {shape ? cap(shape) : "—"}
-                        </div>
+                        <div className="preview-value">{shape ? cap(shape) : "—"}</div>
                       </div>
                       <div className="preview-item">
                         <div className="preview-label">Weight</div>
@@ -526,16 +383,10 @@ export default function CustomPage() {
                   </div>
 
                   <div className="form-row">
-                    <button
-                      className="submit-btn"
-                      onClick={() => setTab("shape")}
-                    >
+                    <button className="submit-btn" onClick={() => setTab("shape")}>
                       Back
                     </button>
-                    <button
-                      className="submit-btn"
-                      onClick={() => setTab("review")}
-                    >
+                    <button className="submit-btn" onClick={() => setTab("review")}>
                       Review Order
                     </button>
                   </div>
@@ -544,10 +395,7 @@ export default function CustomPage() {
 
               {/* REVIEW */}
               {tab === "review" && (
-                <section
-                  className="customization-section active"
-                  id="review-section"
-                >
+                <section className="customization-section active" id="review-section">
                   <h2>Review Your Order</h2>
                   <p>
                     Please review your custom gemstone specifications before
@@ -559,15 +407,11 @@ export default function CustomPage() {
                     <div className="preview-details">
                       <div className="preview-item">
                         <div className="preview-label">Type</div>
-                        <div className="preview-value">
-                          {type ? cap(type) : "—"}
-                        </div>
+                        <div className="preview-value">{type ? cap(type) : "—"}</div>
                       </div>
                       <div className="preview-item">
                         <div className="preview-label">Shape</div>
-                        <div className="preview-value">
-                          {shape ? cap(shape) : "—"}
-                        </div>
+                        <div className="preview-value">{shape ? cap(shape) : "—"}</div>
                       </div>
                       <div className="preview-item">
                         <div className="preview-label">Weight</div>
@@ -592,19 +436,13 @@ export default function CustomPage() {
                     </div>
                   </div>
 
-                  {/* ETA ONLY HERE */}
                   <div className="finishing-date">
-                    <div className="finishing-label">
-                      Estimated Finishing Date:
-                    </div>
+                    <div className="finishing-label">Estimated Finishing Date:</div>
                     <div className="finishing-value">{estimatedDate}</div>
                   </div>
 
                   <div className="form-row">
-                    <button
-                      className="submit-btn"
-                      onClick={() => setTab("specs")}
-                    >
+                    <button className="submit-btn" onClick={() => setTab("specs")}>
                       Back to Edit
                     </button>
                     <button
@@ -632,9 +470,7 @@ export default function CustomPage() {
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">Shape:</span>
-                  <span className="detail-value">
-                    {shape ? cap(shape) : "—"}
-                  </span>
+                  <span className="detail-value">{shape ? cap(shape) : "—"}</span>
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">Weight:</span>

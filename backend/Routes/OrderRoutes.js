@@ -1,4 +1,3 @@
-// backend/Routes/OrderRoutes.js
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -8,7 +7,7 @@ const fs = require('fs');
 const { requireAuth } = require('../Middleware/auth');
 
 const { createCustomOrder, getCustomOrder } = require('../Controllers/CustomOrderController');
-const { checkout, checkoutFromGem } = require('../Controllers/PaymentController');
+const { checkout, checkoutFromGem, checkoutCustom } = require('../Controllers/PaymentController');
 const ctrl = require('../Controllers/OrderController');
 
 // prepare uploads directory for bank slips
@@ -27,16 +26,19 @@ const upload = multer({ storage });
 // 🔒 protect all order endpoints
 router.use(requireAuth);
 
-// Create order from inventory gem
+// NEW: pay-first custom checkout (no pre-created order)
+router.post('/custom/checkout', upload.single('slip'), checkoutCustom);
+
+// Create order from inventory gem (reused by gem Buy Now flow if needed)
 router.post('/from-gem/:gemId', ctrl.createFromGem);
 
-// NEW: one-shot checkout directly from a gem (no pre-created order)
+// One-shot checkout directly from a gem (no pre-created order)
 router.post('/from-gem/:gemId/checkout', upload.single('slip'), checkoutFromGem);
 
-// Create custom order (from Customize page)
+// Legacy: create custom order (pre-create). We keep this route but the UI won’t call it now.
 router.post('/', createCustomOrder);
 
-// Read custom order (Payment page summary)
+// Read custom order (Payment page summary when an orderId exists)
 router.get('/:id', getCustomOrder);
 
 // Checkout: Card JSON or Bank (multipart with "slip")
