@@ -1,5 +1,5 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema(
   {
@@ -28,15 +28,25 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ['buyer', 'seller', 'admin'],
-      default: 'buyer',
+      enum: ["buyer", "seller", "admin"],
+      default: "buyer",
       required: true,
       index: true,
     },
 
     emailVerified: { type: Boolean, default: false },
 
-    status: { type: String, enum: ['active', 'suspended'], default: 'active', index: true },
+    status: {
+      type: String,
+      enum: ["active", "suspended"],
+      default: "active",
+      index: true,
+    },
+
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null },
+    deletionReason: { type: String, default: null },
+
   },
   { timestamps: true }
 );
@@ -56,4 +66,9 @@ userSchema.methods.toJSON = function () {
   return obj;
 };
 
-module.exports = mongoose.model('User', userSchema);
+// Convenience query helper to exclude deleted
+userSchema.query.notDeleted = function () {
+  return this.where({ isDeleted: false });
+};
+
+module.exports = mongoose.model("User", userSchema);

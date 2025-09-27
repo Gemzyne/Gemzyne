@@ -1,393 +1,543 @@
+/* Reset kept small to avoid surprises */
+* {
+  margin: 0;
+  padding: 0;
+}
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
-            color: #f5f5f5;
-            overflow-x: hidden;
-            line-height: 1.6;
-            min-height: 100vh;
-        }
-        
-        
-        /* Hero Section */
-        .hero {
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            position: relative;
-            overflow: hidden;
-            padding: 0 5%;
-        }
-        
-        .hero-content {
-            max-width: 600px;
-            z-index: 2;
-            position: relative;
-        }
-        
-        .hero h1 {
-            font-family: 'Playfair Display', serif;
-            font-size: 70px;
-            font-weight: 700;
-            line-height: 1.1;
-            margin-bottom: 20px;
-            background: linear-gradient(to right, #f5f5f5, #d4af37);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        
-        .hero p {
-            font-size: 18px;
-            margin-bottom: 30px;
-            color: #c0c0c0;
-            max-width: 500px;
-        }
-        
-        #gem-container {
-            position: absolute;
-            top: 50%;
-            right: 5%;
-            transform: translateY(-50%);
-            width: 50%;
-            height: 70%;
-            max-width: 600px;
-            z-index: 1;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-            background: rgba(20, 20, 20, 0.5);
-        }
-        
-        /* Featured Gems */
-        .featured-gems {
-            padding: 100px 5%;
-            background: #121212;
-            position: relative;
-            z-index: 2;
-        }
-        
-        .section-title {
-            text-align: center;
-            margin-bottom: 60px;
-        }
-        
-        .section-title h2 {
-            font-family: 'Playfair Display', serif;
-            font-size: 42px;
-            margin-bottom: 15px;
-            color: #f5f5f5;
-        }
-        
-        .section-title p {
-            color: #b0b0b0;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        
-        .gems-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 30px;
-        }
-        
-        .gem-card {
-            background: rgba(26, 26, 26, 0.7);
-            border-radius: 15px;
-            overflow: hidden;
-            transition: transform 0.4s, box-shadow 0.4s;
-            position: relative;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(212, 175, 55, 0.1);
-        }
-        
-        .gem-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
-            border-color: rgba(212, 175, 55, 0.3);
-        }
-        
-        .gem-image {
-            height: 250px;
-            background: rgba(10, 10, 10, 0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        
-        .gem-model {
-            width: 100%;
-            height: 100%;
-        }
-        
-        .gem-info {
-            padding: 25px;
-        }
-        
-        .gem-info h3 {
-            font-size: 22px;
-            margin-bottom: 10px;
-            color: #f5f5f5;
-        }
-        
-        .gem-price {
-            color: #d4af37;
-            font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 15px;
-        }
-        
-        .gem-specs {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 15px;
-            color: #b0b0b0;
-            font-size: 14px;
-        }
-        
-        .cta-btn {
-            display: inline-block;
-            padding: 10px 25px;
-            background: transparent;
-            border: 1px solid #d4af37;
-            border-radius: 30px;
-            color: #d4af37;
-            text-decoration: none;
-            font-weight: 500;
-            transition: 0.3s;
-        }
-        
-        .cta-btn:hover {
-            background: rgba(212, 175, 55, 0.1);
-        }
-        
-        /* Benefits Section */
-        .benefits {
-            padding: 100px 5%;
-            background: linear-gradient(to bottom, #0a0a0a 0%, #121212 100%);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .benefits::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: url('https://images.unsplash.com/photo-1533090368676-1fd25485db88?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2069&q=80') center/cover;
-            opacity: 0.05;
-            z-index: -1;
-        }
-        
-        .benefits-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 30px;
-        }
-        
-        .benefit-card {
-            text-align: center;
-            padding: 40px 25px;
-            background: rgba(26, 26, 26, 0.5);
-            border-radius: 15px;
-            transition: 0.4s;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(212, 175, 55, 0.1);
-        }
-        
-        .benefit-card:hover {
-            background: rgba(212, 175, 55, 0.05);
-            transform: translateY(-5px);
-            border-color: rgba(212, 175, 55, 0.3);
-        }
-        
-        .benefit-icon {
-            font-size: 50px;
-            color: #d4af37;
-            margin-bottom: 20px;
-            text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
-        }
-        
-        .benefit-card h3 {
-            font-size: 22px;
-            margin-bottom: 15px;
-            color: #f5f5f5;
-        }
-        
-        .benefit-card p {
-            color: #b0b0b0;
-        }
-        
-        /* Newsletter */
-        .newsletter {
-            padding: 100px 5%;
-            background: linear-gradient(135deg, rgba(26, 26, 26, 0.9), rgba(10, 10, 10, 0.95)), url('https://images.unsplash.com/photo-1519681393784-d120267933ba?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80');
-            background-size: cover;
-            background-position: center;
-            text-align: center;
-            position: relative;
-            z-index: 2;
-            border-radius: 20px;
-            margin: 0 5%;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-        }
-        
-        .newsletter h2 {
-            font-family: 'Playfair Display', serif;
-            font-size: 42px;
-            margin-bottom: 20px;
-            color: #f5f5f5;
-        }
-        
-        .newsletter p {
-            max-width: 600px;
-            margin: 0 auto 30px;
-            color: #c0c0c0;
-        }
-        
-        .newsletter-form {
-            display: flex;
-            max-width: 500px;
-            margin: 0 auto;
-        }
-        
-        .newsletter-form input {
-            flex: 1;
-            padding: 15px 20px;
-            border: none;
-            border-radius: 30px 0 0 30px;
-            background: rgba(255, 255, 255, 0.1);
-            color: #f5f5f5;
-            font-size: 16px;
-            backdrop-filter: blur(5px);
-        }
-        
-        .newsletter-form input::placeholder {
-            color: #b0b0b0;
-        }
-        
-        .newsletter-form input:focus {
-            outline: none;
-            background: rgba(255, 255, 255, 0.15);
-        }
-        
-        .newsletter-form button {
-            padding: 15px 30px;
-            background: linear-gradient(45deg, #d4af37, #f9f295);
-            border: none;
-            border-radius: 0 30px 30px 0;
-            color: #0a0a0a;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        
-        .newsletter-form button:hover {
-            background: linear-gradient(45deg, #c5a12d, #e9dc8a);
-        }
-        
-        
-        /* Particle Background */
-        #particles-js {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-        }
-        
-        /* Loading animation */
-        .loader {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 50px;
-            height: 50px;
-            border: 5px solid rgba(212, 175, 55, 0.2);
-            border-top: 5px solid #d4af37;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            z-index: 10;
-        }
+/* Scope page visuals to home only (same look, no leaks) */
+.home-container {
+  font-family: "Poppins", sans-serif;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  color: #f5f5f5;
+  overflow-x: hidden;
+  line-height: 1.6;
+  min-height: 100vh;
+}
 
-        @keyframes spin {
-            0% { transform: translate(-50%, -50%) rotate(0deg); }
-            100% { transform: translate(-50%, -50%) rotate(360deg); }
-        }
+/* Hero Section */
+.home-container .btn {
+  padding: 12px 28px;
+  background: linear-gradient(45deg, #d4af37, #f9f295);
+  border: none;
+  border-radius: 30px;
+  color: #0a0a0a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.4s;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
+}
+.home-container .btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(212, 175, 55, 0.4);
+}
 
-        .gem-loading {
-            position: relative;
-        }
-        
-        /* Responsive */
-        @media (max-width: 992px) {
-            .hero h1 {
-                font-size: 50px;
-            }
-            
-            #gem-container {
-                width: 45%;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .hero {
-                flex-direction: column;
-                text-align: center;
-                padding-top: 100px;
-            }
-            
-            .hero-content {
-                max-width: 100%;
-                margin-bottom: 50px;
-            }
-            
-            .hero p {
-                margin: 0 auto 30px;
-            }
-            
-            #gem-container {
-                position: relative;
-                top: auto;
-                right: auto;
-                transform: none;
-                width: 100%;
-                height: 400px;
-                max-width: 100%;
-                margin-top: 30px;
-            }
-            
-            .nav-links {
-                display: none;
-            }
-        }
-        
-        @media (max-width: 576px) {
-            .newsletter-form {
-                flex-direction: column;
-                gap: 15px;
-            }
-            
-            .newsletter-form input,
-            .newsletter-form button {
-                border-radius: 30px;
-            }
-            
-            .hero h1 {
-                font-size: 40px;
-            }
-        }
- 
+.home-container .hero {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  padding: 0 5%;
+}
+.home-container .hero-content {
+  max-width: 600px;
+  z-index: 2;
+  position: relative;
+}
+.home-container .hero h1 {
+  font-family: "Playfair Display", serif;
+  font-size: 70px;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: 20px;
+  background: linear-gradient(to right, #f5f5f5, #d4af37);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.home-container .hero p {
+  font-size: 18px;
+  margin-bottom: 30px;
+  color: #c0c0c0;
+  max-width: 500px;
+}
+
+.home-container #gem-container {
+  position: absolute;
+  top: 50%;
+  right: 5%;
+  transform: translateY(-50%);
+  width: 50%;
+  height: 70%;
+  max-width: 600px;
+  z-index: 1;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  background: rgba(20, 20, 20, 0.5);
+}
+
+/* Featured / Random Gems */
+.home-container .featured-gems {
+  padding: 100px 5%;
+  background: #121212;
+  position: relative;
+  z-index: 2;
+}
+
+.home-container .section-title {
+  text-align: center;
+  margin-bottom: 60px;
+}
+.home-container .section-title h2 {
+  font-family: "Playfair Display", serif;
+  font-size: 42px;
+  margin-bottom: 15px;
+  color: #f5f5f5;
+}
+.home-container .section-title p {
+  color: #b0b0b0;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* === Force 3 big cards on desktop === */
+.home-container .gems-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 34px;
+  align-items: stretch;
+}
+
+.home-container .gem-card {
+  background: rgba(26, 26, 26, 0.7);
+  border-radius: 18px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(212, 175, 55, 0.12);
+  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+}
+.home-container .gem-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+  border-color: rgba(212, 175, 55, 0.28);
+}
+
+.home-container .gem-image {
+  height: 360px;
+  background: #0a0a0a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.home-container .gem-model {
+  width: 100%;
+  height: 100%;
+}
+.home-container .gem-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.home-container .gem-info {
+  padding: 28px;
+}
+.home-container .gem-info h3 {
+  font-size: 26px;
+  margin-bottom: 12px;
+  color: #f5f5f5;
+}
+.home-container .gem-price {
+  color: #d4af37;
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.home-container .gem-specs {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  color: #b0b0b0;
+  font-size: 15px;
+}
+
+.home-container .cta-btn {
+  display: inline-block;
+  padding: 12px 26px;
+  background: transparent;
+  border: 1px solid #d4af37;
+  border-radius: 30px;
+  color: #d4af37;
+  text-decoration: none;
+  font-weight: 500;
+  transition: 0.25s;
+}
+.home-container .cta-btn:hover {
+  background: rgba(212, 175, 55, 0.1);
+}
+
+/* Benefits Section */
+.home-container .benefits {
+  padding: 100px 5%;
+  background: linear-gradient(to bottom, #0a0a0a 0%, #121212 100%);
+  position: relative;
+  overflow: hidden;
+}
+.home-container .benefits::before {
+  content: none;
+}
+
+.home-container .benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 30px;
+}
+.home-container .benefit-card {
+  text-align: center;
+  padding: 40px 25px;
+  background: rgba(26, 26, 26, 0.5);
+  border-radius: 15px;
+  transition: 0.4s;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(212, 175, 55, 0.1);
+}
+.home-container .benefit-card:hover {
+  background: rgba(212, 175, 55, 0.05);
+  transform: translateY(-5px);
+  border-color: rgba(212, 175, 55, 0.3);
+}
+.home-container .benefit-icon {
+  font-size: 50px;
+  color: #d4af37;
+  margin-bottom: 20px;
+  text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+}
+.home-container .benefit-card h3 {
+  font-size: 22px;
+  margin-bottom: 15px;
+  color: #f5f5f5;
+}
+.home-container .benefit-card p {
+  color: #b0b0b0;
+}
+
+/* Newsletter (with bg image kept) */
+.home-container .newsletter {
+  padding: 100px 5%;
+  background: linear-gradient(
+      135deg,
+      rgba(26, 26, 26, 0.85),
+      rgba(10, 10, 10, 0.92)
+    ),
+    url("https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1400&auto=format&fit=crop")
+      center/cover no-repeat;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+  border-radius: 20px;
+  margin: 0 5%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+.home-container .newsletter h2 {
+  font-family: "Playfair Display", serif;
+  font-size: 42px;
+  margin-bottom: 20px;
+  color: #f5f5f5;
+}
+.home-container .newsletter p {
+  max-width: 600px;
+  margin: 0 auto 30px;
+  color: #c0c0c0;
+}
+.home-container .newsletter-form {
+  display: flex;
+  max-width: 500px;
+  margin: 0 auto;
+}
+.home-container .newsletter-form input {
+  flex: 1;
+  padding: 15px 20px;
+  border: none;
+  border-radius: 30px 0 0 30px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f5f5f5;
+  font-size: 16px;
+  backdrop-filter: blur(5px);
+}
+.home-container .newsletter-form input::placeholder {
+  color: #b0b0b0;
+}
+.home-container .newsletter-form input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.15);
+}
+.home-container .newsletter-form button {
+  padding: 15px 30px;
+  background: linear-gradient(45deg, #d4af37, #f9f295);
+  border: none;
+  border-radius: 0 30px 30px 0;
+  color: #0a0a0a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+}
+.home-container .newsletter-form button:hover {
+  background: linear-gradient(45deg, #c5a12d, #e9dc8a);
+}
+
+/* Particle Background (home-only id) */
+#home-particles {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  z-index: 0;
+}
+
+/* Loading animation */
+.home-container .loader {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(212, 175, 55, 0.2);
+  border-top: 5px solid #d4af37;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  z-index: 10;
+}
+@keyframes spin {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+.home-container .gem-loading {
+  position: relative;
+}
+
+/* Premium hero actions */
+.home-container .hero-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.home-container .btn-primary {
+  background: linear-gradient(135deg, #d4af37 0%, #b38728 100%);
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 50px;
+  color: white;
+  font-weight: 500;
+  box-shadow: 0 10px 20px rgba(212, 175, 55, 0.3);
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+.home-container .btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 25px rgba(212, 175, 55, 0.4);
+}
+.home-container .btn-secondary {
+  background: transparent;
+  border: 1px solid #d4af37;
+  padding: 1rem 2rem;
+  border-radius: 50px;
+  color: #d4af37;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+.home-container .btn-secondary:hover {
+  background: rgba(212, 175, 55, 0.1);
+}
+
+/* Premium gem cards extras */
+.home-container .gem-image {
+  position: relative;
+  overflow: hidden;
+}
+.home-container .premium-badge {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: linear-gradient(135deg, #d4af37 0%, #b38728 100%);
+  color: white;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  z-index: 2;
+}
+.home-container .gem-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.home-container .gem-card:hover .gem-overlay {
+  opacity: 1;
+}
+.home-container .view-details-btn {
+  background: white;
+  color: #333;
+  padding: 10px 20px;
+  border-radius: 30px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Newsletter extras */
+.home-container .newsletter-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+.home-container .premium-input {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  padding: 15px 25px;
+  border-radius: 50px;
+  color: white;
+  width: 300px;
+  margin-right: 15px;
+}
+.home-container .premium-button {
+  background: linear-gradient(135deg, #d4af37 0%, #b38728 100%);
+  border: none;
+  padding: 15px 30px;
+  border-radius: 50px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.home-container .premium-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(212, 175, 55, 0.3);
+}
+
+/* Enhanced loader spinner */
+.home-container .loader-spinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(212, 175, 55, 0.3);
+  border-radius: 50%;
+  border-top-color: #d4af37;
+  animation: spin 1s ease-in-out infinite;
+  margin-bottom: 15px;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive */
+@media (max-width: 980px) {
+  .home-container .gems-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .home-container .gem-image {
+    height: 300px;
+  }
+}
+@media (max-width: 768px) {
+  .home-container .hero {
+    flex-direction: column;
+    text-align: center;
+    padding-top: 100px;
+  }
+  .home-container .hero-content {
+    max-width: 100%;
+    margin-bottom: 50px;
+  }
+  .home-container .hero p {
+    margin: 0 auto 30px;
+  }
+  .home-container #gem-container {
+    position: relative;
+    top: auto;
+    right: auto;
+    transform: none;
+    width: 100%;
+    height: 400px;
+    max-width: 100%;
+    margin-top: 30px;
+  }
+  .home-container .nav-links {
+    display: none;
+  }
+  .home-container .hero-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  .home-container .premium-input {
+    width: 100%;
+    margin-right: 0;
+    margin-bottom: 15px;
+  }
+  .home-container .newsletter-form {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+@media (max-width: 640px) {
+  .home-container .gems-grid {
+    grid-template-columns: 1fr;
+  }
+  .home-container .gem-image {
+    height: 260px;
+  }
+}
+@media (max-width: 576px) {
+  .home-container .newsletter-form {
+    flex-direction: column;
+    gap: 15px;
+  }
+  .home-container .newsletter-form input,
+  .home-container .newsletter-form button {
+    border-radius: 30px;
+  }
+  .home-container .hero h1 {
+    font-size: 40px;
+  }
+}
+
+/* Strong desktop layout overrides (scoped) */
+.home-container .featured-gems > .gems-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 36px !important;
+  width: 100% !important;
+}
+.home-container .featured-gems .gem-image {
+  height: 360px !important;
+}
+.home-container .featured-gems .gem-info h3 {
+  font-size: 28px !important;
+}
+.home-container .featured-gems .gem-price {
+  font-size: 24px !important;
+}
