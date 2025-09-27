@@ -88,6 +88,77 @@ export default function AuctionDashboard() {
   const [winner, setWinner] = useState(null);
   const [loadingWinner, setLoadingWinner] = useState(false);
 
+  useEffect(() => {
+    const config = {
+      particles: {
+        number: { value: 60, density: { enable: true, value_area: 800 } },
+        color: { value: "#d4af37" },
+        shape: { type: "circle" },
+        opacity: { value: 0.3, random: true },
+        size: { value: 3, random: true },
+        line_linked: {
+          enable: true,
+          distance: 150,
+          color: "#d4af37",
+          opacity: 0.1,
+          width: 1,
+        },
+        move: { enable: true, speed: 1 },
+      },
+      interactivity: {
+        detect_on: "canvas",
+        events: {
+          onhover: { enable: true, mode: "repulse" },
+          onclick: { enable: true, mode: "push" },
+          resize: true,
+        },
+      },
+      retina_detect: true,
+    };
+
+    const init = () => {
+      // destroy previous instances (SPA navigation)
+      if (window.pJSDom && window.pJSDom.length) {
+        window.pJSDom.forEach((p) => {
+          try {
+            p.pJS.fn.vendors.destroypJS();
+          } catch {}
+        });
+        window.pJSDom = [];
+      }
+      if (document.getElementById("particles-js") && window.particlesJS) {
+        window.particlesJS("particles-js", config);
+      }
+    };
+
+    const id = "particles-cdn";
+    if (window.particlesJS) {
+      init();
+    } else if (!document.getElementById(id)) {
+      const s = document.createElement("script");
+      s.id = id;
+      s.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
+      s.async = true;
+      s.onload = init;
+      document.body.appendChild(s);
+    } else {
+      document
+        .getElementById(id)
+        .addEventListener("load", init, { once: true });
+    }
+
+    return () => {
+      if (window.pJSDom && window.pJSDom.length) {
+        window.pJSDom.forEach((p) => {
+          try {
+            p.pJS.fn.vendors.destroypJS();
+          } catch {}
+        });
+        window.pJSDom = [];
+      }
+    };
+  }, []);
+
   // Load overview then hydrate winner statuses for history
   useEffect(() => {
     (async () => {
@@ -257,233 +328,240 @@ export default function AuctionDashboard() {
   }, [past, winStatusMap]);
 
   return (
-    <div className="sd-page">
-      <Header />
-      <main className="sd-container">
-        <h1 className="sd-title">Auction Center</h1>
+    <>
+      <div id="particles-js" />
+      <div className="sd-page">
+        <Header />
+        <main className="sd-container">
+          <h1 className="sd-title">Auction Center</h1>
 
-        {/* Top widgets. Total Income and Items Sold now reflect only paid items */}
-        <section className="sd-overview">
-          <Widget
-            icon="fa-coins"
-            label="Total Income"
-            value={fmtMoney(incomeOnlyPaid)}
-          />
-          <Widget
-            icon="fa-gavel"
-            label="Total Auctions"
-            value={totals.totalAuctions}
-          />
-          <Widget
-            icon="fa-hourglass-half"
-            label="Ongoing"
-            value={totals.ongoing}
-          />
-          <Widget icon="fa-gem" label="Items Sold" value={itemsSoldPaid} />
-        </section>
+          {/* Top widgets. Total Income and Items Sold now reflect only paid items */}
+          <section className="sd-overview">
+            <Widget
+              icon="fa-coins"
+              label="Total Income"
+              value={fmtMoney(incomeOnlyPaid)}
+            />
+            <Widget
+              icon="fa-gavel"
+              label="Total Auctions"
+              value={totals.totalAuctions}
+            />
+            <Widget
+              icon="fa-hourglass-half"
+              label="Ongoing"
+              value={totals.ongoing}
+            />
+            <Widget icon="fa-gem" label="Items Sold" value={itemsSoldPaid} />
+          </section>
 
-        <Section title="Live Auctions">
-          <div className="sd-grid">
-            {live.length === 0 ? (
-              <p className="sd-empty">No live auctions right now.</p>
-            ) : (
-              live.map((a) => (
-                <LiveCard key={a._id} a={a} onOpen={() => openLiveDrawer(a)} />
-              ))
-            )}
-          </div>
-        </Section>
+          <Section title="Live Auctions">
+            <div className="sd-grid">
+              {live.length === 0 ? (
+                <p className="sd-empty">No live auctions right now.</p>
+              ) : (
+                live.map((a) => (
+                  <LiveCard
+                    key={a._id}
+                    a={a}
+                    onOpen={() => openLiveDrawer(a)}
+                  />
+                ))
+              )}
+            </div>
+          </Section>
 
-        <Section title="Upcoming Auctions">
-          <div className="sd-grid">
-            {upcoming.length === 0 ? (
-              <p className="sd-empty">No upcoming auctions scheduled.</p>
-            ) : (
-              upcoming.map((a) => (
-                <UpcomingCard
-                  key={a._id}
-                  a={a}
-                  onOpen={() => openUpcomingDrawer(a)}
-                />
-              ))
-            )}
-          </div>
-        </Section>
+          <Section title="Upcoming Auctions">
+            <div className="sd-grid">
+              {upcoming.length === 0 ? (
+                <p className="sd-empty">No upcoming auctions scheduled.</p>
+              ) : (
+                upcoming.map((a) => (
+                  <UpcomingCard
+                    key={a._id}
+                    a={a}
+                    onOpen={() => openUpcomingDrawer(a)}
+                  />
+                ))
+              )}
+            </div>
+          </Section>
 
-        <Section title="All Auction History">
-          <div className="sd-table-wrap">
-            <table className="sd-table">
-              <thead>
-                <tr>
-                  <th>Gem</th>
-                  <th>Details</th>
-                  <th>Winner</th>
-                  <th>Won Price</th>
-                  <th>Ended At</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {past.length === 0 ? (
+          <Section title="All Auction History">
+            <div className="sd-table-wrap">
+              <table className="sd-table">
+                <thead>
                   <tr>
-                    <td colSpan={6} className="sd-empty">
-                      No history.
-                    </td>
+                    <th>Gem</th>
+                    <th>Details</th>
+                    <th>Winner</th>
+                    <th>Won Price</th>
+                    <th>Ended At</th>
+                    <th>Status</th>
                   </tr>
-                ) : (
-                  past.map((h) => {
-                    const win = winStatusMap[h._id] || {};
-                    const purchaseStatus = (
-                      win.purchaseStatus ||
-                      h.purchaseStatus ||
-                      h.winnerStatus ||
-                      ""
-                    ).toLowerCase();
-                    const hasPaid =
-                      purchaseStatus === "paid" ||
-                      !!win.paymentId ||
-                      !!h.paymentId;
+                </thead>
+                <tbody>
+                  {past.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="sd-empty">
+                        No history.
+                      </td>
+                    </tr>
+                  ) : (
+                    past.map((h) => {
+                      const win = winStatusMap[h._id] || {};
+                      const purchaseStatus = (
+                        win.purchaseStatus ||
+                        h.purchaseStatus ||
+                        h.winnerStatus ||
+                        ""
+                      ).toLowerCase();
+                      const hasPaid =
+                        purchaseStatus === "paid" ||
+                        !!win.paymentId ||
+                        !!h.paymentId;
 
-                    const deadlineMs = win.purchaseDeadline
-                      ? new Date(win.purchaseDeadline).getTime()
-                      : h.purchaseDeadline
-                      ? new Date(h.purchaseDeadline).getTime()
-                      : new Date(
-                          new Date(h.endTime).getTime() + 7 * 86400000
-                        ).getTime();
+                      const deadlineMs = win.purchaseDeadline
+                        ? new Date(win.purchaseDeadline).getTime()
+                        : h.purchaseDeadline
+                        ? new Date(h.purchaseDeadline).getTime()
+                        : new Date(
+                            new Date(h.endTime).getTime() + 7 * 86400000
+                          ).getTime();
 
-                    const now = Date.now();
-                    let label, cls;
+                      const now = Date.now();
+                      let label, cls;
 
-                    if (hasPaid) {
-                      label = "Paid";
-                      cls = "sd-badge-ok";
-                    } else if (purchaseStatus === "cancelled") {
-                      label = "Cancelled";
-                      cls = "sd-badge-bad";
-                    } else if (purchaseStatus === "expired") {
-                      label = "Expired";
-                      cls = "sd-badge-bad";
-                    } else {
-                      if (now > deadlineMs) {
-                        label = "Expired (7d window over)";
+                      if (hasPaid) {
+                        label = "Paid";
+                        cls = "sd-badge-ok";
+                      } else if (purchaseStatus === "cancelled") {
+                        label = "Cancelled";
+                        cls = "sd-badge-bad";
+                      } else if (purchaseStatus === "expired") {
+                        label = "Expired";
                         cls = "sd-badge-bad";
                       } else {
-                        label = "Awaiting Payment";
-                        cls = "sd-badge-warn";
+                        if (now > deadlineMs) {
+                          label = "Expired (7d window over)";
+                          cls = "sd-badge-bad";
+                        } else {
+                          label = "Awaiting Payment";
+                          cls = "sd-badge-warn";
+                        }
                       }
-                    }
 
-                    return (
-                      <tr key={h._id}>
-                        <td>{h.title}</td>
-                        <td>{h.type}</td>
-                        <td className="sd-winner">
-                          {h.winnerName || "-"}
-                          {h.winnerName && (
-                            <div style={{ marginTop: 6 }}>
-                              <button
-                                className="sd-btn-outline"
-                                onClick={() => openWinnerDetails(h._id)}
-                                type="button"
-                              >
-                                <i className="fa-solid fa-user" /> Details
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                        <td className="sd-price">
-                          {fmtMoney(
-                            h.finalPrice != null
-                              ? h.finalPrice
-                              : h.currentPrice || 0
-                          )}
-                        </td>
-                        <td>{fmtDateTime(h.endTime)}</td>
-                        <td>
-                          <span className={`sd-badge ${cls}`}>{label}</span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Section>
-      </main>
-
-      <button
-        className="sd-fab"
-        onClick={() => setCreateOpen(true)}
-        aria-label="Create auction"
-      >
-        <i className="fa-solid fa-plus" />
-      </button>
-
-      <CreateAuctionModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreate={afterCreate}
-      />
-
-      <SideDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        title={
-          drawerAuction
-            ? `${drawerAuction.title} — ${
-                drawerMode === "live" ? "Live Details" : "Upcoming Details"
-              }`
-            : "Details"
-        }
-        footer={
-          drawerMode === "upcoming" && drawerAuction ? (
-            <div className="sd-drawer-actions">
-              <button className="sd-btn-danger" onClick={deleteUpcoming}>
-                Delete
-              </button>
-              <button className="sd-btn" onClick={saveUpcomingEdit}>
-                Save Changes
-              </button>
+                      return (
+                        <tr key={h._id}>
+                          <td>{h.title}</td>
+                          <td>{h.type}</td>
+                          <td className="sd-winner">
+                            {h.winnerName || "-"}
+                            {h.winnerName && (
+                              <div style={{ marginTop: 6 }}>
+                                <button
+                                  className="sd-btn-outline"
+                                  onClick={() => openWinnerDetails(h._id)}
+                                  type="button"
+                                >
+                                  <i className="fa-solid fa-user" /> Details
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                          <td className="sd-price">
+                            {fmtMoney(
+                              h.finalPrice != null
+                                ? h.finalPrice
+                                : h.currentPrice || 0
+                            )}
+                          </td>
+                          <td>{fmtDateTime(h.endTime)}</td>
+                          <td>
+                            <span className={`sd-badge ${cls}`}>{label}</span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
-          ) : null
-        }
-      >
-        {!drawerAuction ? null : drawerMode === "live" ? (
-          <LiveDrawerContent a={drawerAuction} />
-        ) : (
-          <UpcomingDrawerContent
-            a={drawerAuction}
-            editForm={editForm}
-            setEditForm={setEditForm}
-          />
-        )}
-      </SideDrawer>
+          </Section>
+        </main>
 
-      <SideDrawer
-        open={winnerOpen}
-        onClose={() => {
-          setWinnerOpen(false);
-          setWinner(null);
-        }}
-        title={
-          winner?.auction?.title
-            ? `Winner • ${winner.auction.title}`
-            : "Winner Details"
-        }
-      >
-        {loadingWinner ? (
-          <p className="sd-muted">Loading winner...</p>
-        ) : !winner ? (
-          <p className="sd-empty">No winner information available.</p>
-        ) : (
-          <WinnerDetails w={winner} />
-        )}
-      </SideDrawer>
+        <button
+          className="sd-fab"
+          onClick={() => setCreateOpen(true)}
+          aria-label="Create auction"
+        >
+          <i className="fa-solid fa-plus" />
+        </button>
 
-      <Footer />
-    </div>
+        <CreateAuctionModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreate={afterCreate}
+        />
+
+        <SideDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          title={
+            drawerAuction
+              ? `${drawerAuction.title} — ${
+                  drawerMode === "live" ? "Live Details" : "Upcoming Details"
+                }`
+              : "Details"
+          }
+          footer={
+            drawerMode === "upcoming" && drawerAuction ? (
+              <div className="sd-drawer-actions">
+                <button className="sd-btn-danger" onClick={deleteUpcoming}>
+                  Delete
+                </button>
+                <button className="sd-btn" onClick={saveUpcomingEdit}>
+                  Save Changes
+                </button>
+              </div>
+            ) : null
+          }
+        >
+          {!drawerAuction ? null : drawerMode === "live" ? (
+            <LiveDrawerContent a={drawerAuction} />
+          ) : (
+            <UpcomingDrawerContent
+              a={drawerAuction}
+              editForm={editForm}
+              setEditForm={setEditForm}
+            />
+          )}
+        </SideDrawer>
+
+        <SideDrawer
+          open={winnerOpen}
+          onClose={() => {
+            setWinnerOpen(false);
+            setWinner(null);
+          }}
+          title={
+            winner?.auction?.title
+              ? `Winner • ${winner.auction.title}`
+              : "Winner Details"
+          }
+        >
+          {loadingWinner ? (
+            <p className="sd-muted">Loading winner...</p>
+          ) : !winner ? (
+            <p className="sd-empty">No winner information available.</p>
+          ) : (
+            <WinnerDetails w={winner} />
+          )}
+        </SideDrawer>
+
+        <Footer />
+      </div>
+    </>
   );
 }
 
