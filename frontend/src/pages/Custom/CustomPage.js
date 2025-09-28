@@ -17,9 +17,7 @@ import sapphireType from "../../Assets/CustomPics/Sapphire.jpg";
 import rubyType from "../../Assets/CustomPics/Ruby.jpg";
 import emeraldType from "../../Assets/CustomPics/Emerald.jpg";
 import amethystType from "../../Assets/CustomPics/Amethyst.jpg";
-//import topazType from "../../Assets/CustomPics/Topaz.jpg";
-
-import manika from "../../Assets/CustomPics/manika.jpg";
+import topazType from "../../Assets/CustomPics/Topaz.jpg";
 
 const GEM_TYPES = [
   { key: "diamond",  name: "Diamond",  desc: "Brilliant and timeless",   price: 5000, img:diamondType },
@@ -27,7 +25,7 @@ const GEM_TYPES = [
   { key: "ruby",     name: "Ruby",     desc: "Passionate red beauty",     price: 3800, img:rubyType  },
   { key: "emerald",  name: "Emerald",  desc: "Vibrant green luxury",      price: 3500, img:emeraldType  },
   { key: "amethyst", name: "Amethyst", desc: "Regal purple charm",        price: 1200, img:amethystType  },
-  { key: "topaz",    name: "Topaz",    desc: "Golden warmth",             price: 950,  img:manika  },
+  { key: "topaz",    name: "Topaz",    desc: "Golden warmth",             price: 950,  img:topazType  },
 ];
 
 const SHAPES = [
