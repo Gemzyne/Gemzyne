@@ -1,3 +1,4 @@
+//Admin Users Controller
 const User = require('../Models/UserModel');
 
 function safe(u) {
