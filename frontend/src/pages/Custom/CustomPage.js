@@ -4,22 +4,39 @@ import "./CustomPage.css";
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
 
+//Custom images for shapes
+import asscherShape from "../../Assets/CustomPics/Asscher.jpg";
+import heartShape from "../../Assets/CustomPics/Heart.jpg";
+import ovalShape from "../../Assets/CustomPics/Oval.jpg";
+import pearShape from "../../Assets/CustomPics/Pear.jpg";
+import radiantShape from "../../Assets/CustomPics/Radiant.jpg";
+import roundShape from "../../Assets/CustomPics/Round.jpg";
+
+import diamondType from "../../Assets/CustomPics/Diamond.jpg";
+import sapphireType from "../../Assets/CustomPics/Sapphire.jpg";
+import rubyType from "../../Assets/CustomPics/Ruby.jpg";
+import emeraldType from "../../Assets/CustomPics/Emerald.jpg";
+import amethystType from "../../Assets/CustomPics/Amethyst.jpg";
+//import topazType from "../../Assets/CustomPics/Topaz.jpg";
+
+import manika from "../../Assets/CustomPics/manika.jpg";
+
 const GEM_TYPES = [
-  { key: "diamond",  name: "Diamond",  desc: "Brilliant and timeless",   price: 5000, img: "https://images.unsplash.com/photo-1605100550745-c9f430e2cb0c?auto=format&fit=crop&w=500&q=60" },
-  { key: "sapphire", name: "Sapphire", desc: "Royal blue elegance",       price: 3200, img: "https://images.unsplash.com/photo-1612774412778-8c6453559459?auto=format&fit=crop&w=500&q=60" },
-  { key: "ruby",     name: "Ruby",     desc: "Passionate red beauty",     price: 3800, img: "https://images.unsplash.com/photo-1594644465939-4e805408e50e?auto=format&fit=crop&w=500&q=60" },
-  { key: "emerald",  name: "Emerald",  desc: "Vibrant green luxury",      price: 3500, img: "https://images.unsplash.com/photo-1543294001-f7cd5d7fb516?auto=format&fit=crop&w=500&q=60" },
-  { key: "amethyst", name: "Amethyst", desc: "Regal purple charm",        price: 1200, img: "https://images.unsplash.com/photo-1579546929662-711aa81148cf?auto=format&fit=crop&w=500&q=60" },
-  { key: "topaz",    name: "Topaz",    desc: "Golden warmth",             price: 950,  img: "https://images.unsplash.com/photo-1635805737707-575885ab0820?auto=format&fit=crop&w=500&q=60" },
+  { key: "diamond",  name: "Diamond",  desc: "Brilliant and timeless",   price: 5000, img:diamondType },
+  { key: "sapphire", name: "Sapphire", desc: "Royal blue elegance",       price: 3200, img:sapphireType  },
+  { key: "ruby",     name: "Ruby",     desc: "Passionate red beauty",     price: 3800, img:rubyType  },
+  { key: "emerald",  name: "Emerald",  desc: "Vibrant green luxury",      price: 3500, img:emeraldType  },
+  { key: "amethyst", name: "Amethyst", desc: "Regal purple charm",        price: 1200, img:amethystType  },
+  { key: "topaz",    name: "Topaz",    desc: "Golden warmth",             price: 950,  img:manika  },
 ];
 
 const SHAPES = [
-  { key: "round",    name: "Round",    desc: "Classic brilliance",      price: 0,   img: "https://images.unsplash.com/photo-1605100550745-c9f430e2cb0c?auto=format&fit=crop&w=500&q=60" },
-  { key: "princess", name: "Princess", desc: "Modern elegance",         price: 300, img: "https://images.unsplash.com/photo-1612774412778-8c6453559459?auto=format&fit=crop&w=500&q=60" },
-  { key: "cushion",  name: "Cushion",  desc: "Vintage charm",           price: 250, img: "https://images.unsplash.com/photo-1594644465939-4e805408e50e?auto=format&fit=crop&w=500&q=60" },
-  { key: "oval",     name: "Oval",     desc: "Elongated elegance",      price: 200, img: "https://images.unsplash.com/photo-1543294001-f7cd5d7fb516?auto=format&fit=crop&w=500&q=60" },
-  { key: "pear",     name: "Pear",     desc: "Unique teardrop",         price: 350, img: "https://images.unsplash.com/photo-1579546929662-711aa81148cf?auto=format&fit=crop&w=500&q=60" },
-  { key: "emerald",  name: "Emerald",  desc: "Step-cut sophistication", price: 400, img: "https://images.unsplash.com/photo-1635805737707-575885ab0820?auto=format&fit=crop&w=500&q=60" },
+  { key: "round",    name: "Round",    desc: "Classic brilliance",      price: 0,   img:roundShape  },
+  { key: "asscher", name: "Asscher", desc: "Step-cut elegance",         price: 300, img:asscherShape  },
+  { key: "heart",  name: "Heart",  desc: "Romantic silhouette",           price: 250, img:heartShape  },
+  { key: "oval",     name: "Oval",     desc: "Elongated elegance",      price: 200, img:ovalShape  },
+  { key: "pear",     name: "Pear",     desc: "Unique teardrop",         price: 350, img:pearShape  },
+  { key: "radiant",  name: "Radiant",  desc: "Octagonal brilliance", price: 400, img:radiantShape  },
 ];
 
 const WEIGHTS = [0.5, 1.0, 1.5, 2.0, 3.0, 5.0];
