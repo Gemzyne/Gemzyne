@@ -73,7 +73,7 @@ const Header = () => {
         Auction
       </Link>
       <Link to="/about">About</Link>
-      <Link to="/review">Review & Feedback</Link>
+      <Link to="/reviews">Review & Feedback</Link>
     </nav>
 
     <div className="header-actions">
@@ -85,10 +85,6 @@ const Header = () => {
 
       {/* winner notifications bell — ONLY for buyers*/}
       {isBuyer && <WinNotifications />}
-
-      <Link to="/cart">
-        <i className="fas fa-shopping-bag"></i>
-      </Link>
     </div>
   </header>
 );
