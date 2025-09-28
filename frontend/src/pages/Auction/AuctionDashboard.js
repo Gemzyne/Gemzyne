@@ -526,8 +526,69 @@ export default function AuctionDashboard() {
          <WinnerDetails w={winner} />}
       </SideDrawer>
 
-      <Footer />
-    </div>
+        <CreateAuctionModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreate={afterCreate}
+        />
+
+        <SideDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          title={
+            drawerAuction
+              ? `${drawerAuction.title} — ${
+                  drawerMode === "live" ? "Live Details" : "Upcoming Details"
+                }`
+              : "Details"
+          }
+          footer={
+            drawerMode === "upcoming" && drawerAuction ? (
+              <div className="sd-drawer-actions">
+                <button className="sd-btn-danger" onClick={deleteUpcoming}>
+                  Delete
+                </button>
+                <button className="sd-btn" onClick={saveUpcomingEdit}>
+                  Save Changes
+                </button>
+              </div>
+            ) : null
+          }
+        >
+          {!drawerAuction ? null : drawerMode === "live" ? (
+            <LiveDrawerContent a={drawerAuction} />
+          ) : (
+            <UpcomingDrawerContent
+              a={drawerAuction}
+              editForm={editForm}
+              setEditForm={setEditForm}
+            />
+          )}
+        </SideDrawer>
+
+        <SideDrawer
+          open={winnerOpen}
+          onClose={() => {
+            setWinnerOpen(false);
+            setWinner(null);
+          }}
+          title={
+            winner?.auction?.title
+              ? `Winner • ${winner.auction.title}`
+              : "Winner Details"
+          }
+        >
+          {loadingWinner ? (
+            <p className="sd-muted">Loading winner...</p>
+          ) : !winner ? (
+            <p className="sd-empty">No winner information available.</p>
+          ) : (
+            <WinnerDetails w={winner} />
+          )}
+        </SideDrawer>
+
+        <Footer />
+      </div>
   );
 }
 
