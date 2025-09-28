@@ -73,7 +73,7 @@ const Header = () => {
         Auction
       </Link>
       <Link to="/about">About</Link>
-      <Link to="/review">Review & Feedback</Link>
+      <Link to="/reviews">Review & Feedback</Link>
     </nav>
 
     <div className="header-actions">
