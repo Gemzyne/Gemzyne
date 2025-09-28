@@ -2,7 +2,7 @@
 import React from "react";
 import "./HeaderFooter.css";
 import { Link, useNavigate } from "react-router-dom";
-import WinNotifications from "./WinNotifications"; //for auction winner notification
+import WinNotifications from "./Notifications"; //for auction winner notification
 
 const Header = () => {
   const navigate = useNavigate();
