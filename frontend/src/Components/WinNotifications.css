@@ -1,175 +1,68 @@
-/* GemZyne Winner Notifications — SCOPED STYLES ONLY
-   File: src/Components/WinNotifications.css
-   All selectors are prefixed with .gz-wn- to avoid leakage. */
+/* container */
+.gz-wn-wrap { position: relative; }
 
-.gz-wn-wrap {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-}
-
-/* Bell */
+/* bell */
 .gz-wn-bell {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    position: relative;
-    padding: 6px;
-    line-height: 0;
-    color: #f5f5f5;
-    opacity: 0.9;
-    transition: opacity 160ms ease, transform 120ms ease;
+  position: relative;
+  border: none;
+  background: transparent;
+  color: var(--wn-fg, #f5f5f5);
+  font-size: 18px;
+  cursor: pointer;
 }
-
-.gz-wn-bell:hover {
-    opacity: 1;
-    transform: translateY(-1px);
-}
-
-.gz-wn-bell i {
-    font-size: 18px;
-}
-
-/* Badge */
 .gz-wn-badge {
-    position: absolute;
-    top: 0;
-    right: 0;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 999px;
-    background: linear-gradient(135deg, #d4af37, #f9f295);
-    color: #111;
-    font-size: 10px;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 0 2px #000;
+  position: absolute; top: -6px; right: -6px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 8px;
+  background: var(--wn-badge, #e11d48); /* pink/red */
+  color: #fff; font-size: 11px; line-height: 16px; text-align: center;
 }
 
-/* Dropdown panel */
+/* dropdown */
 .gz-wn-menu {
-    position: absolute;
-    right: 0;
-    top: 110%;
-    width: 340px;
-    background: #111214;
-    color: #f5f5f5;
-    border: 1px solid #262626;
-    border-radius: 12px;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
-    overflow: hidden;
-    z-index: 1000;
+  position: absolute; right: 0; margin-top: 10px; width: 360px;
+  background: var(--wn-bg, rgba(20,20,20,0.96));
+  border: 1px solid var(--wn-border, rgba(212,175,55,0.12));
+  border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  z-index: 9999; overflow: hidden;
 }
-
-/* Header */
 .gz-wn-head {
-    padding: 12px 14px;
-    font-weight: 700;
-    border-bottom: 1px solid #262626;
-    background: rgba(255, 255, 255, 0.02);
+  padding: 10px 12px; font-weight: 600; letter-spacing: .2px;
+  color: var(--wn-fg, #f5f5f5); border-bottom: 1px solid var(--wn-border, rgba(212,175,55,0.12));
+}
+.gz-wn-list { max-height: 360px; overflow-y: auto; }
+.gz-wn-loading, .gz-wn-empty {
+  padding: 16px 14px; color: #bdbdbd; font-size: 14px;
 }
 
-/* List area */
-.gz-wn-list {
-    max-height: 340px;
-    overflow-y: auto;
-}
-
-.gz-wn-empty,
-.gz-wn-loading {
-    padding: 12px 14px;
-    font-size: 14px;
-    color: #bdbdbd;
-}
-
-/* Item */
+/* items */
 .gz-wn-item {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: transparent;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    padding: 12px 14px;
-    border-bottom: 1px solid #262626;
-    transition: background 140ms ease;
+  width: 100%; text-align: left; border: 0; background: transparent;
+  cursor: pointer; padding: 10px 12px; transition: background .15s ease;
 }
+.gz-wn-item:hover { background: rgba(255,255,255,0.04); }
+.gz-wn-row { display: flex; gap: 10px; align-items: flex-start; }
+.gz-wn-ico { font-size: 16px; margin-top: 2px; }
 
-.gz-wn-item:hover {
-    background: rgba(255, 255, 255, 0.04);
-}
+/* variants */
+.gz-wn-item.win .gz-wn-ico { color: var(--wn-gold, #d4af37); }   /* trophy */
+.gz-wn-item.pay .gz-wn-ico { color: var(--wn-green, #22c55e); }  /* payment success */
 
-.gz-wn-row {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-}
-
-.gz-wn-ico {
-    margin-top: 2px;
-    color: #d4af37;
-}
-
-.gz-wn-title {
-    font-weight: 700;
-    font-size: 14px;
-}
-
-.gz-wn-meta {
-    font-size: 12px;
-    color: #bdbdbd;
-    margin-top: 2px;
-}
+.gz-wn-title { font-size: 14px; color: #f5f5f5; font-weight: 600; line-height: 1.2; }
+.gz-wn-meta  { font-size: 12px; color: #bdbdbd; margin-top: 2px; }
 
 .gz-wn-new {
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: #22c55e;
-    margin-top: 6px;
+  width: 8px; height: 8px; background: var(--wn-new, #22c55e);
+  border-radius: 999px; margin-left: 6px; margin-top: 6px; flex: 0 0 auto;
 }
 
-/* Footer */
+/* footer */
 .gz-wn-foot {
-    padding: 8px;
-    display: flex;
-    justify-content: flex-end;
-    border-top: 1px solid #262626;
-    background: rgba(255, 255, 255, 0.02);
+  padding: 8px; display: flex; justify-content: flex-end;
+  border-top: 1px solid var(--wn-border, rgba(212,175,55,0.12));
 }
-
-.gz-wn-viewall {
-    background: linear-gradient(135deg, #d4af37, #f9f295);
-    color: #0b0b0b;
-    font-weight: 700;
-    border: none;
-    border-radius: 8px;
-    padding: 7px 12px;
-    cursor: pointer;
-    transition: transform 120ms ease, filter 140ms ease;
+.gz-wn-clear {
+  padding: 6px 12px; border-radius: 8px; border: 1px solid #404040;
+  background: #181818; color: #f5f5f5; cursor: pointer; font-weight: 500;
 }
-
-.gz-wn-viewall:hover {
-    filter: brightness(1.02);
-    transform: translateY(-1px);
-}
-
-/* Scrollbar (webkit) — scoped to list */
-.gz-wn-list::-webkit-scrollbar {
-    width: 10px;
-}
-
-.gz-wn-list::-webkit-scrollbar-thumb {
-    background: #1f1f1f;
-    border: 2px solid transparent;
-    background-clip: padding-box;
-    border-radius: 10px;
-}
-
-.gz-wn-list::-webkit-scrollbar-track {
-    background: #0d0d0d;
-}
+.gz-wn-clear:disabled { opacity: .5; cursor: not-allowed; }
