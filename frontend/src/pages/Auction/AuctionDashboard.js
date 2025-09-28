@@ -1,10 +1,14 @@
-// Seller dashboard (create, view, edit & history)
-//
-// Total Income and Items Sold:
-// - incomeOnlyPaid sums prices for rows that are actually paid.
-// - itemsSoldPaid counts how many rows are actually paid.
-// Paid detection uses winner status map first (purchaseStatus === "paid" or paymentId present)
-// and falls back to fields on the history row if needed.
+// src/pages/DashBoards/AuctionDashboard.jsx
+// ------------------------------------------------------------------
+// Seller Dashboard (responsive)
+// - Live / Upcoming / History
+// - Income & Items Sold count only PAID
+// - Inline validation: price>0, image<=5MB, start>now, end>start
+// - Toasts (success/info/error)
+// - Popup modals (errors + confirm)
+// - Particles background
+// - Short, scoped comments; prior functions preserved
+// ------------------------------------------------------------------
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Header from "../../Components/Header";
@@ -12,32 +16,22 @@ import Footer from "../../Components/Footer";
 import "./AuctionDashboard.css";
 import { request } from "../../api";
 
-// Helper to make full image URLs from backend /uploads
+/* ================= Helpers ================ */
+
+// asset resolver
 const BACKEND = process.env.REACT_APP_API_URL || "http://localhost:5000";
 const asset = (p) => {
   if (!p) return "";
-  if (
-    p.startsWith("http://") ||
-    p.startsWith("https://") ||
-    p.startsWith("data:")
-  )
-    return p;
+  if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) return p;
   return `${BACKEND}${p.startsWith("/") ? "" : "/"}${p}`;
 };
 
-// Format helpers
-const fmtMoney = (n) =>
-  "$" + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+// format
+const fmtMoney = (n) => "$" + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
 const fmtDateTime = (iso) =>
-  new Date(iso).toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  new Date(iso).toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
-// Simple countdown hook
+/* ============== Countdown ============== */
 function useCountdown(targetISO) {
   const target = new Date(targetISO).getTime();
   const [now, setNow] = useState(() => Date.now());
@@ -53,7 +47,6 @@ function useCountdown(targetISO) {
   const seconds = Math.floor((total % 60000) / 1000);
   return { total, days, hours, minutes, seconds };
 }
-
 function TimeBox({ v, lbl }) {
   return (
     <div className="sd-timebox">
@@ -63,8 +56,131 @@ function TimeBox({ v, lbl }) {
   );
 }
 
+/* ============== Particles ============== */
+// lightweight canvas particles for background
+function ParticlesBg() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d", { alpha: true });
+    let w = (canvas.width = canvas.offsetWidth);
+    let h = (canvas.height = canvas.offsetHeight);
+    const DPR = window.devicePixelRatio || 1;
+    canvas.width = w * DPR; canvas.height = h * DPR; ctx.scale(DPR, DPR);
+
+    const resize = () => {
+      w = canvas.offsetWidth; h = canvas.offsetHeight;
+      canvas.width = w * DPR; canvas.height = h * DPR; ctx.scale(DPR, DPR);
+    };
+    const PARTS = Math.min(120, Math.round((w * h) / 16000));
+    const parts = Array.from({ length: PARTS }).map(() => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      r: Math.random() * 1.8 + 0.4,
+    }));
+    let raf;
+    const tick = () => {
+      ctx.clearRect(0, 0, w, h);
+      ctx.globalAlpha = 0.9;
+      parts.forEach((p, i) => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < -10) p.x = w + 10; else if (p.x > w + 10) p.x = -10;
+        if (p.y < -10) p.y = h + 10; else if (p.y > h + 10) p.y = -10;
+
+        ctx.beginPath();
+        ctx.fillStyle = i % 5 === 0 ? "rgba(249,242,149,.45)" : "rgba(212,175,55,.30)";
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      // faint links
+      for (let i = 0; i < parts.length; i++) {
+        for (let j = i + 1; j < parts.length; j++) {
+          const a = parts[i], b = parts[j];
+          const dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy;
+          if (d2 < 120 * 120) {
+            ctx.strokeStyle = "rgba(212,175,55,.06)";
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          }
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    window.addEventListener("resize", resize);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
+  }, []);
+  return <canvas ref={ref} className="sd-particles" aria-hidden="true" />;
+}
+
+/* ============== Toasts & Popups ============== */
+
+// toast store
+function useToasts() {
+  const [toasts, setToasts] = useState([]);
+  const push = (text, kind = "info", ms = 2500) => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((t) => [...t, { id, text, kind }]);
+    if (ms) setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), ms);
+  };
+  const remove = (id) => setToasts((t) => t.filter((x) => x.id !== id));
+  return { toasts, push, remove };
+}
+
+// toast rack
+function ToastRack({ toasts, remove }) {
+  return (
+    <div className="sd-toast-rack" aria-live="polite" aria-atomic="true">
+      {toasts.map((t) => (
+        <div key={t.id} className={`sd-toast sd-toast--${t.kind}`}>
+          <span>{t.text}</span>
+          <button className="sd-toast__x" onClick={() => remove(t.id)} aria-label="Dismiss">×</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// popup
+function PopModal({ open, title = "Notice", message, onClose, actions }) {
+  if (!open) return null;
+  return (
+    <>
+      <div className="sd-pop-overlay" onClick={onClose} />
+      <div className="sd-pop" role="dialog" aria-modal="true">
+        <div className="sd-pop-head">
+          <h3>{title}</h3>
+          <button className="sd-icon-btn" onClick={onClose} aria-label="Close">×</button>
+        </div>
+        <div className="sd-pop-body">{message}</div>
+        <div className="sd-pop-foot">
+          {actions?.length ? (
+            actions.map((a, i) => (
+              <button
+                key={i}
+                className={a.kind === "danger" ? "sd-btn-danger" : a.kind === "secondary" ? "sd-btn-secondary" : "sd-btn"}
+                onClick={a.onClick}
+                type="button"
+              >
+                {a.label}
+              </button>
+            ))
+          ) : (
+            <button className="sd-btn" onClick={onClose} type="button">OK</button>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ============== Page ============== */
+
 export default function AuctionDashboard() {
-  // Main overview from backend
+  // overview data
   const [overview, setOverview] = useState({
     totals: { income: 0, totalAuctions: 0, ongoing: 0, sold: 0 },
     live: [],
@@ -73,22 +189,37 @@ export default function AuctionDashboard() {
     history: [],
   });
 
-  // auctionId -> { purchaseStatus, paymentId, purchaseDeadline }
+  // win status cache
   const [winStatusMap, setWinStatusMap] = useState({});
 
-  // Drawer and modal states
+  // drawers / modals
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState("live");
   const [drawerAuction, setDrawerAuction] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editForm, setEditForm] = useState(null);
 
-  // Winner details drawer
+  // winner drawer
   const [winnerOpen, setWinnerOpen] = useState(false);
   const [winner, setWinner] = useState(null);
   const [loadingWinner, setLoadingWinner] = useState(false);
 
-  // Load overview then hydrate winner statuses for history
+  // toasts + popup
+  const { toasts, push, remove } = useToasts();
+  const [popup, setPopup] = useState({ open: false, title: "", message: "", actions: [] });
+  const openPopup = (title, message, actions) => setPopup({ open: true, title, message, actions: actions || [] });
+  const closePopup = () => setPopup((p) => ({ ...p, open: false }));
+
+  // confirm popup (promise)
+  const confirmAsync = (title, message, confirmLabel = "Yes", cancelLabel = "No") =>
+    new Promise((resolve) => {
+      openPopup(title, message, [
+        { label: cancelLabel, kind: "secondary", onClick: () => { closePopup(); resolve(false); } },
+        { label: confirmLabel, kind: "danger", onClick: () => { closePopup(); resolve(true); } },
+      ]);
+    });
+
+  /* ----- load overview + hydrate winner statuses ----- */
   useEffect(() => {
     (async () => {
       try {
@@ -98,11 +229,13 @@ export default function AuctionDashboard() {
       } catch {
         setOverview((o) => ({ ...o, live: [], upcoming: [], history: [] }));
         setWinStatusMap({});
+        push("Failed to load seller overview.", "error");
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Prefill edit form when opening upcoming drawer
+  /* ----- prefill edit form when opening upcoming drawer ----- */
   useEffect(() => {
     if (drawerOpen && drawerMode === "upcoming" && drawerAuction) {
       setEditForm({
@@ -118,32 +251,24 @@ export default function AuctionDashboard() {
     }
   }, [drawerOpen, drawerMode, drawerAuction]);
 
+  // aliases
   const totals = overview.totals;
   const live = overview.live;
   const upcoming = overview.upcoming;
   const past = overview.history;
 
-  const openLiveDrawer = (a) => {
-    setDrawerMode("live");
-    setDrawerAuction(a);
-    setDrawerOpen(true);
-  };
-  const openUpcomingDrawer = (a) => {
-    setDrawerMode("upcoming");
-    setDrawerAuction(a);
-    setDrawerOpen(true);
-  };
+  // open drawers
+  const openLiveDrawer = (a) => { setDrawerMode("live"); setDrawerAuction(a); setDrawerOpen(true); };
+  const openUpcomingDrawer = (a) => { setDrawerMode("upcoming"); setDrawerAuction(a); setDrawerOpen(true); };
 
-  // Fetch winner status for each auction in history
+  /* ----- hydrate win statuses for history rows ----- */
   async function hydrateWinnerStatuses(items) {
     if (!items?.length) {
       setWinStatusMap({});
       return;
     }
     const ids = Array.from(new Set(items.map((h) => h._id)));
-    const results = await Promise.allSettled(
-      ids.map((id) => request(`/api/wins/auction/${id}`))
-    );
+    const results = await Promise.allSettled(ids.map((id) => request(`/api/wins/auction/${id}`)));
     const map = {};
     results.forEach((r, idx) => {
       const auctionId = ids[idx];
@@ -159,43 +284,60 @@ export default function AuctionDashboard() {
     setWinStatusMap(map);
   }
 
+  /* ----- save edits for an upcoming auction ----- */
   async function saveUpcomingEdit() {
-    const id = drawerAuction?._id;
-    await request(`/api/auctions/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        title: editForm.title,
-        type: editForm.type,
-        description: editForm.description,
-        basePrice: Number(editForm.basePrice),
-        startTime: editForm.startTime,
-        endTime: editForm.endTime,
-      }),
-    });
-    const data = await request("/api/auctions/seller/overview");
-    setOverview(data);
-    await hydrateWinnerStatuses(data?.history || []);
-    alert("Upcoming auction updated successfully!");
+    try {
+      const id = drawerAuction?._id;
+      await request(`/api/auctions/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title: editForm.title,
+          type: editForm.type,
+          description: editForm.description,
+          basePrice: Number(editForm.basePrice),
+          startTime: editForm.startTime,
+          endTime: editForm.endTime,
+        }),
+      });
+      const data = await request("/api/auctions/seller/overview");
+      setOverview(data);
+      await hydrateWinnerStatuses(data?.history || []);
+      push("Upcoming auction updated.", "success");
+    } catch (e) {
+      openPopup("Update Failed", e?.message || "Could not update this auction.");
+    }
   }
 
+  /* ----- delete an upcoming auction (confirm) ----- */
   async function deleteUpcoming() {
-    if (!window.confirm("Delete this upcoming auction?")) return;
-    const id = drawerAuction?._id;
-    await request(`/api/auctions/${id}`, { method: "DELETE" });
-    const data = await request("/api/auctions/seller/overview");
-    setOverview(data);
-    await hydrateWinnerStatuses(data?.history || []);
-    setDrawerOpen(false);
-    alert("Auction deleted successfully.");
+    const ok = await confirmAsync("Delete Auction", "Are you sure you want to delete this upcoming auction?");
+    if (!ok) return;
+    try {
+      const id = drawerAuction?._id;
+      await request(`/api/auctions/${id}`, { method: "DELETE" });
+      const data = await request("/api/auctions/seller/overview");
+      setOverview(data);
+      await hydrateWinnerStatuses(data?.history || []);
+      setDrawerOpen(false);
+      push("Auction deleted.", "success");
+    } catch (e) {
+      openPopup("Delete Failed", e?.message || "Could not delete this auction.");
+    }
   }
 
+  /* ----- refresh after create ----- */
   async function afterCreate() {
-    const data = await request("/api/auctions/seller/overview");
-    setOverview(data);
-    await hydrateWinnerStatuses(data?.history || []);
+    try {
+      const data = await request("/api/auctions/seller/overview");
+      setOverview(data);
+      await hydrateWinnerStatuses(data?.history || []);
+      push("Auction created.", "success"); // Successful pop message
+    } catch {
+      push("Failed to refresh after creation.", "error");
+    }
   }
 
-  // Winner details drawer open + sync back to map
+  /* ----- winner details drawer ----- */
   async function openWinnerDetails(auctionId) {
     try {
       setLoadingWinner(true);
@@ -212,101 +354,67 @@ export default function AuctionDashboard() {
       }));
     } catch (e) {
       setWinner(null);
+      openPopup("Load Failed", "Could not load winner details.");
     } finally {
       setLoadingWinner(false);
     }
   }
 
-  // Compute income from only PAID items
+  /* ----- income and sold (paid-only) ----- */
   const incomeOnlyPaid = useMemo(() => {
     if (!past?.length) return 0;
     return past.reduce((sum, h) => {
       const win = winStatusMap[h._id] || {};
-      const purchaseStatus = (
-        win.purchaseStatus ||
-        h.purchaseStatus ||
-        h.winnerStatus ||
-        ""
-      ).toLowerCase();
-      const hasPaid =
-        purchaseStatus === "paid" || !!win.paymentId || !!h.paymentId;
+      const purchaseStatus = (win.purchaseStatus || h.purchaseStatus || h.winnerStatus || "").toLowerCase();
+      const hasPaid = purchaseStatus === "paid" || !!win.paymentId || !!h.paymentId;
       if (!hasPaid) return sum;
-      const amount =
-        h.finalPrice != null
-          ? Number(h.finalPrice)
-          : Number(h.currentPrice || 0);
+      const amount = h.finalPrice != null ? Number(h.finalPrice) : Number(h.currentPrice || 0);
       return sum + (isNaN(amount) ? 0 : amount);
     }, 0);
   }, [past, winStatusMap]);
 
-  // NEW: count Items Sold as only PAID items
   const itemsSoldPaid = useMemo(() => {
     if (!past?.length) return 0;
     return past.reduce((count, h) => {
       const win = winStatusMap[h._id] || {};
-      const purchaseStatus = (
-        win.purchaseStatus ||
-        h.purchaseStatus ||
-        h.winnerStatus ||
-        ""
-      ).toLowerCase();
-      const hasPaid =
-        purchaseStatus === "paid" || !!win.paymentId || !!h.paymentId;
+      const purchaseStatus = (win.purchaseStatus || h.purchaseStatus || h.winnerStatus || "").toLowerCase();
+      const hasPaid = purchaseStatus === "paid" || !!win.paymentId || !!h.paymentId;
       return count + (hasPaid ? 1 : 0);
     }, 0);
   }, [past, winStatusMap]);
 
+  /* ================= Render ================ */
+
   return (
     <div className="sd-page">
+      <ParticlesBg />
       <Header />
       <main className="sd-container">
+        {/* popups messages*/}
+        <ToastRack toasts={toasts} remove={remove} />
+        <PopModal open={popup.open} title={popup.title} message={popup.message} actions={popup.actions} onClose={closePopup} />
+      <div className="page-body">
         <h1 className="sd-title">Auction Center</h1>
 
-        {/* Top widgets. Total Income and Items Sold now reflect only paid items */}
+        {/* top widgets (paid only) */}
         <section className="sd-overview">
-          <Widget
-            icon="fa-coins"
-            label="Total Income"
-            value={fmtMoney(incomeOnlyPaid)}
-          />
-          <Widget
-            icon="fa-gavel"
-            label="Total Auctions"
-            value={totals.totalAuctions}
-          />
-          <Widget
-            icon="fa-hourglass-half"
-            label="Ongoing"
-            value={totals.ongoing}
-          />
+          <Widget icon="fa-coins" label="Total Income" value={fmtMoney(incomeOnlyPaid)} />
+          <Widget icon="fa-gavel" label="Total Auctions" value={totals.totalAuctions} />
+          <Widget icon="fa-hourglass-half" label="Ongoing" value={totals.ongoing} />
           <Widget icon="fa-gem" label="Items Sold" value={itemsSoldPaid} />
         </section>
 
         <Section title="Live Auctions">
           <div className="sd-grid">
-            {live.length === 0 ? (
-              <p className="sd-empty">No live auctions right now.</p>
-            ) : (
-              live.map((a) => (
-                <LiveCard key={a._id} a={a} onOpen={() => openLiveDrawer(a)} />
-              ))
-            )}
+            {live.length === 0 ? <p className="sd-empty">No live auctions right now.</p> :
+              live.map((a) => <LiveCard key={a._id} a={a} onOpen={() => openLiveDrawer(a)} />)}
           </div>
         </Section>
 
         <Section title="Upcoming Auctions">
           <div className="sd-grid">
-            {upcoming.length === 0 ? (
-              <p className="sd-empty">No upcoming auctions scheduled.</p>
-            ) : (
-              upcoming.map((a) => (
-                <UpcomingCard
-                  key={a._id}
-                  a={a}
-                  onOpen={() => openUpcomingDrawer(a)}
-                />
-              ))
-            )}
+            {upcoming.length === 0 ? <p className="sd-empty">No upcoming auctions scheduled.</p> :
+              upcoming.map((a) => <UpcomingCard key={a._id} a={a} onOpen={() => openUpcomingDrawer(a)} />)}
           </div>
         </Section>
 
@@ -325,53 +433,27 @@ export default function AuctionDashboard() {
               </thead>
               <tbody>
                 {past.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="sd-empty">
-                      No history.
-                    </td>
-                  </tr>
+                  <tr><td colSpan={6} className="sd-empty">No history.</td></tr>
                 ) : (
                   past.map((h) => {
                     const win = winStatusMap[h._id] || {};
-                    const purchaseStatus = (
-                      win.purchaseStatus ||
-                      h.purchaseStatus ||
-                      h.winnerStatus ||
-                      ""
-                    ).toLowerCase();
-                    const hasPaid =
-                      purchaseStatus === "paid" ||
-                      !!win.paymentId ||
-                      !!h.paymentId;
+                    const purchaseStatus = (win.purchaseStatus || h.purchaseStatus || h.winnerStatus || "").toLowerCase();
+                    const hasPaid = purchaseStatus === "paid" || !!win.paymentId || !!h.paymentId;
 
                     const deadlineMs = win.purchaseDeadline
                       ? new Date(win.purchaseDeadline).getTime()
                       : h.purchaseDeadline
                       ? new Date(h.purchaseDeadline).getTime()
-                      : new Date(
-                          new Date(h.endTime).getTime() + 7 * 86400000
-                        ).getTime();
+                      : new Date(new Date(h.endTime).getTime() + 7 * 86400000).getTime();
 
                     const now = Date.now();
                     let label, cls;
-
-                    if (hasPaid) {
-                      label = "Paid";
-                      cls = "sd-badge-ok";
-                    } else if (purchaseStatus === "cancelled") {
-                      label = "Cancelled";
-                      cls = "sd-badge-bad";
-                    } else if (purchaseStatus === "expired") {
-                      label = "Expired";
-                      cls = "sd-badge-bad";
-                    } else {
-                      if (now > deadlineMs) {
-                        label = "Expired (7d window over)";
-                        cls = "sd-badge-bad";
-                      } else {
-                        label = "Awaiting Payment";
-                        cls = "sd-badge-warn";
-                      }
+                    if (hasPaid) { label = "Paid"; cls = "sd-badge-ok"; }
+                    else if (purchaseStatus === "cancelled") { label = "Cancelled"; cls = "sd-badge-bad"; }
+                    else if (purchaseStatus === "expired") { label = "Expired"; cls = "sd-badge-bad"; }
+                    else {
+                      if (now > deadlineMs) { label = "Expired (7d window over)"; cls = "sd-badge-bad"; }
+                      else { label = "Awaiting Payment"; cls = "sd-badge-warn"; }
                     }
 
                     return (
@@ -382,27 +464,15 @@ export default function AuctionDashboard() {
                           {h.winnerName || "-"}
                           {h.winnerName && (
                             <div style={{ marginTop: 6 }}>
-                              <button
-                                className="sd-btn-outline"
-                                onClick={() => openWinnerDetails(h._id)}
-                                type="button"
-                              >
+                              <button className="sd-btn-outline" onClick={() => openWinnerDetails(h._id)} type="button">
                                 <i className="fa-solid fa-user" /> Details
                               </button>
                             </div>
                           )}
                         </td>
-                        <td className="sd-price">
-                          {fmtMoney(
-                            h.finalPrice != null
-                              ? h.finalPrice
-                              : h.currentPrice || 0
-                          )}
-                        </td>
+                        <td className="sd-price">{fmtMoney(h.finalPrice != null ? h.finalPrice : h.currentPrice || 0)}</td>
                         <td>{fmtDateTime(h.endTime)}</td>
-                        <td>
-                          <span className={`sd-badge ${cls}`}>{label}</span>
-                        </td>
+                        <td><span className={`sd-badge ${cls}`}>{label}</span></td>
                       </tr>
                     );
                   })
@@ -411,81 +481,118 @@ export default function AuctionDashboard() {
             </table>
           </div>
         </Section>
+      </div>  
       </main>
 
-      <button
-        className="sd-fab"
-        onClick={() => setCreateOpen(true)}
-        aria-label="Create auction"
-      >
+      {/* create FAB */}
+      <button className="sd-fab" onClick={() => setCreateOpen(true)} aria-label="Create auction">
         <i className="fa-solid fa-plus" />
       </button>
 
+      {/* create modal */}
       <CreateAuctionModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreate={afterCreate}
+        push={push}
+        openPopup={openPopup}
       />
 
+      {/* side drawers */}
       <SideDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        title={
-          drawerAuction
-            ? `${drawerAuction.title} — ${
-                drawerMode === "live" ? "Live Details" : "Upcoming Details"
-              }`
-            : "Details"
-        }
+        title={drawerAuction ? `${drawerAuction.title} — ${drawerMode === "live" ? "Live Details" : "Upcoming Details"}` : "Details"}
         footer={
           drawerMode === "upcoming" && drawerAuction ? (
             <div className="sd-drawer-actions">
-              <button className="sd-btn-danger" onClick={deleteUpcoming}>
-                Delete
-              </button>
-              <button className="sd-btn" onClick={saveUpcomingEdit}>
-                Save Changes
-              </button>
+              <button className="sd-btn-danger" onClick={deleteUpcoming}>Delete</button>
+              <button className="sd-btn" onClick={saveUpcomingEdit}>Save Changes</button>
             </div>
           ) : null
         }
       >
-        {!drawerAuction ? null : drawerMode === "live" ? (
-          <LiveDrawerContent a={drawerAuction} />
-        ) : (
-          <UpcomingDrawerContent
-            a={drawerAuction}
-            editForm={editForm}
-            setEditForm={setEditForm}
-          />
-        )}
+        {!drawerAuction ? null : drawerMode === "live" ? <LiveDrawerContent a={drawerAuction} /> :
+          <UpcomingDrawerContent a={drawerAuction} editForm={editForm} setEditForm={setEditForm} />}
       </SideDrawer>
 
       <SideDrawer
         open={winnerOpen}
-        onClose={() => {
-          setWinnerOpen(false);
-          setWinner(null);
-        }}
-        title={
-          winner?.auction?.title
-            ? `Winner • ${winner.auction.title}`
-            : "Winner Details"
-        }
+        onClose={() => { setWinnerOpen(false); setWinner(null); }}
+        title={winner?.auction?.title ? `Winner • ${winner.auction.title}` : "Winner Details"}
       >
-        {loadingWinner ? (
-          <p className="sd-muted">Loading winner...</p>
-        ) : !winner ? (
-          <p className="sd-empty">No winner information available.</p>
-        ) : (
-          <WinnerDetails w={winner} />
-        )}
+        {loadingWinner ? <p className="sd-muted">Loading winner...</p> :
+         !winner ? <p className="sd-empty">No winner information available.</p> :
+         <WinnerDetails w={winner} />}
       </SideDrawer>
 
-      <Footer />
-    </div>
+        <CreateAuctionModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreate={afterCreate}
+        />
+
+        <SideDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          title={
+            drawerAuction
+              ? `${drawerAuction.title} — ${
+                  drawerMode === "live" ? "Live Details" : "Upcoming Details"
+                }`
+              : "Details"
+          }
+          footer={
+            drawerMode === "upcoming" && drawerAuction ? (
+              <div className="sd-drawer-actions">
+                <button className="sd-btn-danger" onClick={deleteUpcoming}>
+                  Delete
+                </button>
+                <button className="sd-btn" onClick={saveUpcomingEdit}>
+                  Save Changes
+                </button>
+              </div>
+            ) : null
+          }
+        >
+          {!drawerAuction ? null : drawerMode === "live" ? (
+            <LiveDrawerContent a={drawerAuction} />
+          ) : (
+            <UpcomingDrawerContent
+              a={drawerAuction}
+              editForm={editForm}
+              setEditForm={setEditForm}
+            />
+          )}
+        </SideDrawer>
+
+        <SideDrawer
+          open={winnerOpen}
+          onClose={() => {
+            setWinnerOpen(false);
+            setWinner(null);
+          }}
+          title={
+            winner?.auction?.title
+              ? `Winner • ${winner.auction.title}`
+              : "Winner Details"
+          }
+        >
+          {loadingWinner ? (
+            <p className="sd-muted">Loading winner...</p>
+          ) : !winner ? (
+            <p className="sd-empty">No winner information available.</p>
+          ) : (
+            <WinnerDetails w={winner} />
+          )}
+        </SideDrawer>
+
+        <Footer />
+      </div>
   );
 }
+
+/* ================= Small UI pieces ================ */
 
 function Section({ title, children }) {
   return (
@@ -514,13 +621,8 @@ function LiveCard({ a, onOpen }) {
   const ended = total <= 0;
   return (
     <div className="sd-card">
-      <div className="sd-badge sd-badge-live">
-        LIVE • {a.bidsCount || 0} BIDS
-      </div>
       <div className="sd-countdown">
-        {ended ? (
-          <span className="sd-muted">Auction ended</span>
-        ) : (
+        {ended ? <span className="sd-muted">Auction ended</span> : (
           <>
             <TimeBox v={days} lbl="Days" />
             <TimeBox v={hours} lbl="Hours" />
@@ -531,18 +633,10 @@ function LiveCard({ a, onOpen }) {
       </div>
       <img className="sd-image" src={asset(a.imageUrl)} alt={a.title} />
       <h3 className="sd-card-title">{a.title}</h3>
-      <p className="sd-card-sub">
-        <i className="fa-solid fa-gem" /> {a.type}
-      </p>
-      <p className="sd-desc">{a.description}</p>
+      <p className="sd-card-sub"><i className="fa-solid fa-gem" /> {a.type}</p>
       <div className="sd-price">Current: {fmtMoney(a.currentPrice)}</div>
-      <p className="sd-line">
-        <strong>Start:</strong> {fmtDateTime(a.startTime)}
-      </p>
-      <p className="sd-line">
-        <strong>Ends:</strong> {fmtDateTime(a.endTime)}
-      </p>
-
+      <p className="sd-line"><strong>Start:</strong> {fmtDateTime(a.startTime)}</p>
+      <p className="sd-line"><strong>Ends:</strong> {fmtDateTime(a.endTime)}</p>
       <div className="sd-actions">
         <button className="sd-btn-outline sd-btn-wide" onClick={onOpen}>
           <i className="fa-solid fa-eye" /> View Details
@@ -557,17 +651,11 @@ function UpcomingCard({ a, onOpen }) {
   const started = total <= 0;
   return (
     <div className="sd-card">
-      <div
-        className={`sd-badge ${
-          started ? "sd-badge-live" : "sd-badge-upcoming"
-        }`}
-      >
+      <div className={`sd-badge ${started ? "sd-badge-live" : "sd-badge-upcoming"}`}>
         {started ? "STARTED" : "UPCOMING"}
       </div>
       <div className="sd-countdown">
-        {started ? (
-          <span className="sd-muted">Auction started</span>
-        ) : (
+        {started ? <span className="sd-muted">Auction started</span> : (
           <>
             <TimeBox v={days} lbl="Days" />
             <TimeBox v={hours} lbl="Hours" />
@@ -578,17 +666,11 @@ function UpcomingCard({ a, onOpen }) {
       </div>
       <img className="sd-image" src={asset(a.imageUrl)} alt={a.title} />
       <h3 className="sd-card-title">{a.title}</h3>
-      <p className="sd-card-sub">
-        <i className="fa-solid fa-gem" /> {a.type}
-      </p>
+      <p className="sd-card-sub"><i className="fa-solid fa-gem" /> {a.type}</p>
       <p className="sd-desc">{a.description}</p>
       <div className="sd-price">Base: {fmtMoney(a.basePrice)}</div>
-      <p className="sd-line">
-        <strong>Start:</strong> {fmtDateTime(a.startTime)}
-      </p>
-      <p className="sd-line">
-        <strong>End:</strong> {fmtDateTime(a.endTime)}
-      </p>
+      <p className="sd-line"><strong>Start:</strong> {fmtDateTime(a.startTime)}</p>
+      <p className="sd-line"><strong>End:</strong> {fmtDateTime(a.endTime)}</p>
       <div className="sd-actions">
         <button className="sd-btn-outline sd-btn-wide" onClick={onOpen}>
           <i className="fa-solid fa-pen-to-square" /> Details / Edit
@@ -601,20 +683,11 @@ function UpcomingCard({ a, onOpen }) {
 function SideDrawer({ open, title, onClose, children, footer }) {
   return (
     <>
-      <div
-        className={`sd-drawer-overlay ${open ? "open" : ""}`}
-        onClick={onClose}
-      />
+      <div className={`sd-drawer-overlay ${open ? "open" : ""}`} onClick={onClose} />
       <aside className={`sd-drawer ${open ? "open" : ""}`} aria-hidden={!open}>
         <div className="sd-drawer-header">
           <h3>{title}</h3>
-          <button
-            className="sd-icon-btn"
-            onClick={onClose}
-            aria-label="Close drawer"
-          >
-            <i className="fa-solid fa-xmark" />
-          </button>
+          <button className="sd-icon-btn" onClick={onClose} aria-label="Close drawer">×</button>
         </div>
         <div className="sd-drawer-body">{children}</div>
         {footer && <div className="sd-drawer-footer">{footer}</div>}
@@ -628,24 +701,12 @@ function LiveDrawerContent({ a }) {
     <div className="sd-live-panel">
       <img className="sd-drawer-img" src={asset(a.imageUrl)} alt={a.title} />
       <div className="sd-drawer-grid">
-        <div>
-          <span className="sd-label">Gem:</span> {a.title}
-        </div>
-        <div>
-          <span className="sd-label">Type:</span> {a.type}
-        </div>
-        <div>
-          <span className="sd-label">Start:</span> {fmtDateTime(a.startTime)}
-        </div>
-        <div>
-          <span className="sd-label">Ends:</span> {fmtDateTime(a.endTime)}
-        </div>
-        <div>
-          <span className="sd-label">Base:</span> {fmtMoney(a.basePrice)}
-        </div>
-        <div>
-          <span className="sd-label">Current:</span> {fmtMoney(a.currentPrice)}
-        </div>
+        <div><span className="sd-label">Gem:</span> {a.title}</div>
+        <div><span className="sd-label">Type:</span> {a.type}</div>
+        <div><span className="sd-label">Start:</span> {fmtDateTime(a.startTime)}</div>
+        <div><span className="sd-label">Ends:</span> {fmtDateTime(a.endTime)}</div>
+        <div><span className="sd-label">Base:</span> {fmtMoney(a.basePrice)}</div>
+        <div><span className="sd-label">Current:</span> {fmtMoney(a.currentPrice)}</div>
       </div>
       <p className="sd-drawer-desc">{a.description}</p>
       <h4 className="sd-subtitle">Top Bids (live)</h4>
@@ -662,17 +723,11 @@ function UpcomingDrawerContent({ a, editForm, setEditForm }) {
       <div className="sd-form-grid">
         <div className="sd-form-group sd-col-full">
           <label className="sd-required">Gem Name</label>
-          <input
-            value={editForm.title}
-            onChange={(e) => set("title", e.target.value)}
-          />
+          <input value={editForm.title} onChange={(e) => set("title", e.target.value)} />
         </div>
         <div className="sd-form-group">
           <label className="sd-required">Gem Type</label>
-          <select
-            value={editForm.type}
-            onChange={(e) => set("type", e.target.value)}
-          >
+          <select value={editForm.type} onChange={(e) => set("type", e.target.value)}>
             <option value="sapphire">Sapphire</option>
             <option value="ruby">Ruby</option>
             <option value="emerald">Emerald</option>
@@ -682,35 +737,19 @@ function UpcomingDrawerContent({ a, editForm, setEditForm }) {
         </div>
         <div className="sd-form-group">
           <label className="sd-required">Base Price</label>
-          <input
-            type="number"
-            min="1"
-            value={editForm.basePrice}
-            onChange={(e) => set("basePrice", e.target.value)}
-          />
+          <input type="number" min="1" value={editForm.basePrice} onChange={(e) => set("basePrice", e.target.value)} />
         </div>
         <div className="sd-form-group sd-col-full">
           <label>Description</label>
-          <textarea
-            value={editForm.description}
-            onChange={(e) => set("description", e.target.value)}
-          />
+          <textarea value={editForm.description} onChange={(e) => set("description", e.target.value)} />
         </div>
         <div className="sd-form-group">
           <label className="sd-required">Start Time</label>
-          <input
-            type="datetime-local"
-            value={editForm.startTime}
-            onChange={(e) => set("startTime", e.target.value)}
-          />
+          <input type="datetime-local" value={editForm.startTime} onChange={(e) => set("startTime", e.target.value)} />
         </div>
         <div className="sd-form-group">
           <label className="sd-required">End Time</label>
-          <input
-            type="datetime-local"
-            value={editForm.endTime}
-            onChange={(e) => set("endTime", e.target.value)}
-          />
+          <input type="datetime-local" value={editForm.endTime} onChange={(e) => set("endTime", e.target.value)} />
         </div>
       </div>
     </div>
@@ -726,39 +765,16 @@ function WinnerDetails({ w }) {
   const pstatus = w?.purchaseStatus || "pending";
   return (
     <div className="sd-live-panel">
-      <img
-        className="sd-drawer-img"
-        src={asset(w?.auction?.imageUrl || "")}
-        alt={w?.auction?.title}
-      />
+      <img className="sd-drawer-img" src={asset(w?.auction?.imageUrl || "")} alt={w?.auction?.title} />
       <div className="sd-drawer-grid">
-        <div>
-          <span className="sd-label">Gem:</span> {w?.auction?.title}
-        </div>
-        <div>
-          <span className="sd-label">Type:</span> {w?.auction?.type}
-        </div>
-        <div>
-          <span className="sd-label">Winner:</span> {buyerName}
-        </div>
-        <div>
-          <span className="sd-label">Email:</span> {buyerEmail}
-        </div>
-        <div>
-          <span className="sd-label">Final Price:</span> {fmtMoney(amount)}
-        </div>
-        <div>
-          <span className="sd-label">Ended:</span>{" "}
-          {ended ? fmtDateTime(ended) : "-"}
-        </div>
-        <div>
-          <span className="sd-label">Purchase Status:</span>{" "}
-          {pstatus[0].toUpperCase() + pstatus.slice(1)}
-        </div>
-        <div>
-          <span className="sd-label">Purchase Deadline:</span>{" "}
-          {deadline ? fmtDateTime(deadline) : "-"}
-        </div>
+        <div><span className="sd-label">Gem:</span> {w?.auction?.title}</div>
+        <div><span className="sd-label">Type:</span> {w?.auction?.type}</div>
+        <div><span className="sd-label">Winner:</span> {buyerName}</div>
+        <div><span className="sd-label">Email:</span> {buyerEmail}</div>
+        <div><span className="sd-label">Final Price:</span> {fmtMoney(amount)}</div>
+        <div><span className="sd-label">Ended:</span> {ended ? fmtDateTime(ended) : "-"}</div>
+        <div><span className="sd-label">Purchase Status:</span> {pstatus[0].toUpperCase() + pstatus.slice(1)}</div>
+        <div><span className="sd-label">Purchase Deadline:</span> {deadline ? fmtDateTime(deadline) : "-"}</div>
       </div>
       {w?.auction?.description && (
         <>
@@ -770,7 +786,9 @@ function WinnerDetails({ w }) {
   );
 }
 
-function CreateAuctionModal({ open, onClose, onCreate }) {
+/* ============== Create Modal ============== */
+
+function CreateAuctionModal({ open, onClose, onCreate, push, openPopup }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name: "",
@@ -782,8 +800,10 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
     startTime: "",
     endTime: "",
   });
+  const [warn, setWarn] = useState({}); // inline warnings map
   const fileRef = useRef(null);
 
+  // reset on close
   useEffect(() => {
     if (!open) {
       setStep(1);
@@ -797,79 +817,107 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
         startTime: "",
         endTime: "",
       });
+      setWarn({});
       if (fileRef.current) fileRef.current.value = "";
     }
   }, [open]);
 
-  const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const setField = (k, v) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    // live-validate fields
+    requestAnimationFrame(validateAll);
+  };
 
-  const validStep1 =
-    form.name.trim() &&
-    form.type &&
-    form.description.trim() &&
-    (form.file || form.imageDataUrl);
+  // validations
+  const validateAll = () => {
+    const w = {};
+    const price = Number(form.basePrice);
+    const now = new Date();
+    const start = form.startTime ? new Date(form.startTime) : null;
+    const end = form.endTime ? new Date(form.endTime) : null;
+
+    if (!form.name.trim()) w.name = "Gem name is required.";
+    if (!form.type) w.type = "Please select gem type.";
+    if (!form.description.trim()) w.description = "Description is required.";
+    if (!form.file && !form.imageDataUrl) w.image = "Please add a gem image.";
+
+    if (!(price > 0)) w.basePrice = "Starting price must be greater than 0.";
+
+    if (!start) w.startTime = "Start time is required.";
+    else if (start <= now) w.startTime = "Start time must be after the current time.";
+
+    if (!end) w.endTime = "End time is required.";
+    else if (start && end <= start) w.endTime = "End time must be after the start time.";
+
+    setWarn(w);
+    return w;
+  };
+
+  // basic validation flags for stepper navigation
+  const validStep1 = form.name.trim() && form.type && form.description.trim() && (form.file || form.imageDataUrl);
   const validStep2 = Number(form.basePrice) > 0;
-  const validStep3 =
-    form.startTime &&
-    form.endTime &&
-    new Date(form.startTime) < new Date(form.endTime);
+  const validStep3 = form.startTime && form.endTime && new Date(form.startTime) > new Date() && new Date(form.endTime) > new Date(form.startTime);
 
+  // file handling with messages (and size check)
   const handleFile = (file) => {
     if (!file) return;
     if (!/^image\//.test(file.type)) {
-      alert("Only image files are allowed.");
+      openPopup("Invalid File", "Only image files are allowed.");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be under 5MB.");
+      setWarn((w) => ({ ...w, image: "Image must be under 5MB." }));
+      openPopup("File Too Large", "Image must be under 5MB.");
       return;
     }
     const reader = new FileReader();
     reader.onload = (e) =>
-      setForm((f) => ({
-        ...f,
-        imageDataUrl: String(e.target?.result || ""),
-        file,
-      }));
+      setForm((f) => ({ ...f, imageDataUrl: String(e.target?.result || ""), file }));
     reader.readAsDataURL(file);
+    setWarn((w) => {
+      const { image, ...rest } = w;
+      return rest;
+    });
   };
 
+  // submit create
   async function submit(e) {
     e.preventDefault();
-    const fd = new FormData();
-    fd.append("title", form.name.trim());
-    fd.append("type", form.type);
-    fd.append("description", form.description.trim());
-    fd.append("basePrice", String(form.basePrice));
-    fd.append("startTime", form.startTime);
-    fd.append("endTime", form.endTime);
-    if (form.file) fd.append("image", form.file);
-    else if (form.imageDataUrl) fd.append("imageUrl", form.imageDataUrl);
+    const w = validateAll();
+    if (Object.keys(w).length) {
+      openPopup("Check Form", "Please fix the highlighted fields before submitting.");
+      return;
+    }
+    try {
+      const fd = new FormData();
+      fd.append("title", form.name.trim());
+      fd.append("type", form.type);
+      fd.append("description", form.description.trim());
+      fd.append("basePrice", String(form.basePrice));
+      fd.append("startTime", form.startTime);
+      fd.append("endTime", form.endTime);
+      if (form.file) fd.append("image", form.file);
+      else if (form.imageDataUrl) fd.append("imageUrl", form.imageDataUrl);
 
-    await request("/api/auctions", { method: "POST", body: fd });
-    alert("Auction created successfully!");
-    onCreate?.();
-    onClose();
+      await request("/api/auctions", { method: "POST", body: fd });
+      push("Auction created successfully.", "success"); // success toast
+      onCreate?.(); // refresh
+      onClose();
+    } catch (err) {
+      openPopup("Create Failed", err?.message || "Could not create the auction.");
+    }
   }
 
   return (
     <>
-      <div
-        className={`sd-modal-overlay ${open ? "open" : ""}`}
-        onClick={onClose}
-      />
-      <div
-        className={`sd-modal ${open ? "open" : ""}`}
-        role="dialog"
-        aria-modal="true"
-      >
+      <div className={`sd-modal-overlay ${open ? "open" : ""}`} onClick={onClose} />
+      <div className={`sd-modal ${open ? "open" : ""}`} role="dialog" aria-modal="true">
         <div className="sd-modal-header">
           <h2>Create New Auction</h2>
-          <button className="sd-icon-btn" onClick={onClose}>
-            <i className="fa-solid fa-xmark" />
-          </button>
+          <button className="sd-icon-btn" onClick={onClose} aria-label="Close">×</button>
         </div>
 
+        {/* stepper */}
         <div className="sd-steps">
           {["Gem Details", "Pricing", "Schedule", "Review"].map((label, i) => {
             const n = i + 1;
@@ -883,28 +931,31 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
           })}
         </div>
 
+        {/* body */}
         <form className="sd-modal-body" onSubmit={submit}>
           {step === 1 && (
             <div className="sd-form-grid">
               <div className="sd-secure sd-col-full">
                 <i className="fa-solid fa-shield-halved" />
-                <span>
-                  {" "}
-                  Your information is protected by bank-level encryption.
-                </span>
+                <span> Your information is protected by bank-level encryption.</span>
               </div>
+
               <div className="sd-form-group sd-col-full">
                 <label className="sd-required">Gem Name</label>
                 <input
+                  className={warn.name ? "sd-input-error" : ""}
                   value={form.name}
                   onChange={(e) => setField("name", e.target.value)}
                   placeholder="e.g., Royal Blue Sapphire"
                   required
                 />
+                {warn.name && <small className="sd-field-warn">{warn.name}</small>}
               </div>
+
               <div className="sd-form-group">
                 <label className="sd-required">Gem Type</label>
                 <select
+                  className={warn.type ? "sd-input-error" : ""}
                   value={form.type}
                   onChange={(e) => setField("type", e.target.value)}
                   required
@@ -916,49 +967,43 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
                   <option value="diamond">Diamond</option>
                   <option value="other">Other</option>
                 </select>
+                {warn.type && <small className="sd-field-warn">{warn.type}</small>}
               </div>
+
               <div className="sd-form-group sd-col-full">
                 <label className="sd-required">Gem Description</label>
                 <textarea
+                  className={warn.description ? "sd-input-error" : ""}
                   value={form.description}
                   onChange={(e) => setField("description", e.target.value)}
                   placeholder="Describe the gem..."
                   required
                 />
+                {warn.description && <small className="sd-field-warn">{warn.description}</small>}
               </div>
+
               <div className="sd-form-group sd-col-full">
                 <label className="sd-required">Gem Image</label>
+
                 {!form.imageDataUrl && (
                   <div
-                    className="sd-upload"
+                    className={`sd-upload ${warn.image ? "sd-upload-error" : ""}`}
                     onClick={() => fileRef.current?.click()}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      handleFile(e.dataTransfer.files?.[0]);
-                    }}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => { e.preventDefault(); handleFile(e.dataTransfer.files?.[0]); }}
                   >
                     <i className="fa-solid fa-cloud-arrow-up sd-upload-icon" />
-                    <p className="sd-upload-text">
-                      Drag and drop your image here or <span>browse</span>
-                    </p>
+                    <p className="sd-upload-text">Drag and drop your image here or <span>browse</span></p>
                     <p className="sd-upload-hint">JPG or PNG up to 5MB</p>
+                    {warn.image && <small className="sd-field-warn">{warn.image}</small>}
                   </div>
                 )}
+
                 {form.imageDataUrl && (
-                  <div className="sd-image-preview">
+                  <div className={`sd-image-preview ${warn.image ? "sd-upload-error" : ""}`}>
                     <img src={form.imageDataUrl} alt="Gem preview" />
                     <div className="sd-image-actions">
-                      <button
-                        type="button"
-                        className="sd-btn-secondary"
-                        onClick={() => fileRef.current?.click()}
-                      >
-                        Change
-                      </button>
+                      <button type="button" className="sd-btn-secondary" onClick={() => fileRef.current?.click()}>Change</button>
                       <button
                         type="button"
                         className="sd-btn-danger"
@@ -971,8 +1016,10 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
                         Remove
                       </button>
                     </div>
+                    {warn.image && <small className="sd-field-warn">{warn.image}</small>}
                   </div>
                 )}
+
                 <input
                   ref={fileRef}
                   type="file"
@@ -981,22 +1028,10 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
                   style={{ display: "none" }}
                 />
               </div>
+
               <div className="sd-form-nav sd-col-full">
-                <button
-                  type="button"
-                  className="sd-btn-secondary"
-                  onClick={onClose}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="sd-btn"
-                  onClick={() => setStep(2)}
-                  disabled={!validStep1}
-                >
-                  Next
-                </button>
+                <button type="button" className="sd-btn-secondary" onClick={onClose}>Cancel</button>
+                <button type="button" className="sd-btn" onClick={() => { validateAll(); validStep1 && setStep(2); }} disabled={!validStep1}>Next</button>
               </div>
             </div>
           )}
@@ -1007,6 +1042,7 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
                 <label className="sd-required">Starting Price (USD)</label>
                 <div className="sd-price-wrap">
                   <input
+                    className={warn.basePrice ? "sd-input-error" : ""}
                     type="number"
                     min="1"
                     value={form.basePrice}
@@ -1015,27 +1051,12 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
                     required
                   />
                 </div>
-                <small className="sd-hint">
-                  This becomes the initial current price when the auction
-                  starts.
-                </small>
+                {warn.basePrice && <small className="sd-field-warn">{warn.basePrice}</small>}
+                <small className="sd-hint">This becomes the initial current price when the auction starts.</small>
               </div>
               <div className="sd-form-nav sd-col-full">
-                <button
-                  type="button"
-                  className="sd-btn-secondary"
-                  onClick={() => setStep(1)}
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="sd-btn"
-                  onClick={() => setStep(3)}
-                  disabled={!validStep2}
-                >
-                  Next
-                </button>
+                <button type="button" className="sd-btn-secondary" onClick={() => setStep(1)}>Back</button>
+                <button type="button" className="sd-btn" onClick={() => { validateAll(); validStep2 && setStep(3); }} disabled={!validStep2}>Next</button>
               </div>
             </div>
           )}
@@ -1045,37 +1066,30 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
               <div className="sd-form-group">
                 <label className="sd-required">Start Time</label>
                 <input
+                  className={warn.startTime ? "sd-input-error" : ""}
                   type="datetime-local"
                   value={form.startTime}
                   onChange={(e) => setField("startTime", e.target.value)}
                   required
                 />
+                {/* start time must be after now */}
+                {warn.startTime && <small className="sd-field-warn">{warn.startTime}</small>}
               </div>
               <div className="sd-form-group">
                 <label className="sd-required">End Time</label>
                 <input
+                  className={warn.endTime ? "sd-input-error" : ""}
                   type="datetime-local"
                   value={form.endTime}
                   onChange={(e) => setField("endTime", e.target.value)}
                   required
                 />
+                {/* end time must be after start time */}
+                {warn.endTime && <small className="sd-field-warn">{warn.endTime}</small>}
               </div>
               <div className="sd-form-nav sd-col-full">
-                <button
-                  type="button"
-                  className="sd-btn-secondary"
-                  onClick={() => setStep(2)}
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="sd-btn"
-                  onClick={() => setStep(4)}
-                  disabled={!validStep3}
-                >
-                  Next
-                </button>
+                <button type="button" className="sd-btn-secondary" onClick={() => setStep(2)}>Back</button>
+                <button type="button" className="sd-btn" onClick={() => { validateAll(); validStep3 && setStep(4); }} disabled={!validStep3}>Next</button>
               </div>
             </div>
           )}
@@ -1085,48 +1099,18 @@ function CreateAuctionModal({ open, onClose, onCreate }) {
               <div className="sd-review sd-col-full">
                 <h4>Auction Summary</h4>
                 <div className="sd-review-grid">
-                  <div>
-                    <span className="sd-review-label">Gem:</span> {form.name}
-                  </div>
-                  <div>
-                    <span className="sd-review-label">Type:</span>{" "}
-                    {form.type || "-"}
-                  </div>
-                  <div>
-                    <span className="sd-review-label">Start Price:</span>{" "}
-                    {fmtMoney(form.basePrice || 0)}
-                  </div>
-                  <div>
-                    <span className="sd-review-label">Start:</span>{" "}
-                    {form.startTime ? fmtDateTime(form.startTime) : "-"}
-                  </div>
-                  <div>
-                    <span className="sd-review-label">End:</span>{" "}
-                    {form.endTime ? fmtDateTime(form.endTime) : "-"}
-                  </div>
+                  <div><span className="sd-review-label">Gem:</span> {form.name}</div>
+                  <div><span className="sd-review-label">Type:</span> {form.type || "-"}</div>
+                  <div><span className="sd-review-label">Start Price:</span> {fmtMoney(form.basePrice || 0)}</div>
+                  <div><span className="sd-review-label">Start:</span> {form.startTime ? fmtDateTime(form.startTime) : "-"}</div>
+                  <div><span className="sd-review-label">End:</span> {form.endTime ? fmtDateTime(form.endTime) : "-"}</div>
                 </div>
-                {form.description && (
-                  <p className="sd-review-desc">{form.description}</p>
-                )}
-                {form.imageDataUrl && (
-                  <img
-                    className="sd-review-img"
-                    src={form.imageDataUrl}
-                    alt="Gem"
-                  />
-                )}
+                {form.description && <p className="sd-review-desc">{form.description}</p>}
+                {form.imageDataUrl && <img className="sd-review-img" src={form.imageDataUrl} alt="Gem" />}
               </div>
               <div className="sd-form-nav sd-col-full">
-                <button
-                  type="button"
-                  className="sd-btn-secondary"
-                  onClick={() => setStep(3)}
-                >
-                  Back
-                </button>
-                <button type="submit" className="sd-btn">
-                  Create Auction
-                </button>
+                <button type="button" className="sd-btn-secondary" onClick={() => setStep(3)}>Back</button>
+                <button type="submit" className="sd-btn">Create Auction</button>
               </div>
             </div>
           )}

@@ -315,46 +315,74 @@ export default function SellerPayments() {
   const [downloading, setDownloading] = useState(false);
 
   // load particles once
-  useEffect(() => {
-    const id = "particles-cdn";
-    if (!document.getElementById(id)) {
-      const s = document.createElement("script");
-      s.id = id;
-      s.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
-      s.async = true;
-      s.onload = () => {
-        if (window.particlesJS) {
-          window.particlesJS("particles-js", {
-            particles: {
-              number: { value: 60, density: { enable: true, value_area: 800 } },
-              color: { value: "#d4af37" },
-              shape: { type: "circle" },
-              opacity: { value: 0.3, random: true },
-              size: { value: 3, random: true },
-              line_linked: {
-                enable: true,
-                distance: 150,
-                color: "#d4af37",
-                opacity: 0.1,
-                width: 1,
-              },
-              move: { enable: true, speed: 1 },
-            },
-            interactivity: {
-              detect_on: "canvas",
-              events: {
-                onhover: { enable: true, mode: "repulse" },
-                onclick: { enable: true, mode: "push" },
-                resize: true,
-              },
-            },
-            retina_detect: true,
-          });
-        }
-      };
-      document.body.appendChild(s);
+ useEffect(() => {
+  const config = {
+    particles: {
+      number: { value: 60, density: { enable: true, value_area: 800 } },
+      color: { value: "#d4af37" },
+      shape: { type: "circle" },
+      opacity: { value: 0.3, random: true },
+      size: { value: 3, random: true },
+      line_linked: {
+        enable: true,
+        distance: 150,
+        color: "#d4af37",
+        opacity: 0.1,
+        width: 1,
+      },
+      move: { enable: true, speed: 1 },
+    },
+    interactivity: {
+      detect_on: "canvas",
+      events: {
+        onhover: { enable: true, mode: "repulse" },
+        onclick: { enable: true, mode: "push" },
+        resize: true,
+      },
+    },
+    retina_detect: true,
+  };
+
+  const init = () => {
+    // destroy any previous instance targeting this container
+    if (window.pJSDom && window.pJSDom.length) {
+      window.pJSDom.forEach(p => {
+        try { p.pJS.fn.vendors.destroypJS(); } catch {}
+      });
+      window.pJSDom = [];
     }
-  }, []);
+    // ensure the container exists before init
+    if (document.getElementById("particles-js") && window.particlesJS) {
+      window.particlesJS("particles-js", config);
+    }
+  };
+
+  const scriptId = "particles-cdn";
+  if (window.particlesJS) {
+    // script already on the page -> just init
+    init();
+  } else if (!document.getElementById(scriptId)) {
+    const s = document.createElement("script");
+    s.id = scriptId;
+    s.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
+    s.async = true;
+    s.onload = init;
+    document.body.appendChild(s);
+  } else {
+    // script tag exists but library not ready yet -> wait for load
+    document.getElementById(scriptId).addEventListener("load", init, { once: true });
+  }
+
+  // cleanup on unmount
+  return () => {
+    if (window.pJSDom && window.pJSDom.length) {
+      window.pJSDom.forEach(p => {
+        try { p.pJS.fn.vendors.destroypJS(); } catch {}
+      });
+      window.pJSDom = [];
+    }
+  };
+}, []);
 
   // fetch payments (seller endpoint)
   const fetchPayments = async (orderNoFilter = "") => {
@@ -475,7 +503,7 @@ export default function SellerPayments() {
       <div id="particles-js" />
 
       <div className="dashboard-container seller-payments">
-        + <SellerSidebar />
+         <SellerSidebar />
         <main className="dashboard-content">
           <div className="dashboard-header">
             <h2 className="dashboard-title">Seller Payments</h2>
