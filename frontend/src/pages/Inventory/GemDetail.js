@@ -151,15 +151,6 @@ export default function GemDetail() {
     return true;
   };
 
-  const addToCart = () => {
-    if (!requireLogin()) return;
-    if (!gem) return;
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    if (!cart.find((i) => i._id === gem._id)) cart.push({ ...gem, qty: 1 });
-    localStorage.setItem("cart", JSON.stringify(cart));
-    alert("Added to cart");
-  };
-
     const instantBuy = () => {
     if (!requireLogin() || !gem) return;
     // Go to payment with gemId; order will be created after payment
