@@ -9,6 +9,13 @@ const { requireAuth, requireRoles } = require("../../Middleware/auth");
 router.get("/", ctrl.listGems);
 router.get("/random", ctrl.publicRandom); // <-- must be before "/:id"
 
+// NEW: staff-only single view for edit screen (no hiding)
+router.get('/admin/:id',
+  requireAuth,
+  requireRoles('seller', 'admin'),
+  ctrl.getGemByIdAdmin
+);
+
 // Seller/Admin
 router.get("/mine/list", requireAuth, requireRoles("seller", "admin"), ctrl.listMine);
 
