@@ -4,12 +4,12 @@
 // - Particles background
 // - Overview widgets (Total Income & Items Sold use ONLY paid items)
 // - Filters (search/type/status)
-// - Charts (status doughnut + weekly/monthly revenue with summary)
+// - Charts (weekly/monthly revenue with summary)  ← status chart removed
 // - Live / Upcoming / Ended sections
 // - Drawer (details + recent bidders; edit in "upcoming" mode)
 // - Create Auction modal (4 steps)
 // - History table shows Paid / Pending / Expired / Cancelled
-// - NEW: Live bid counts auto-refresh for ongoing auctions
+// - Live bid counts auto-refresh for ongoing auctions
 // ----------------------------------------------------------------------------
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -246,10 +246,7 @@ export default function SellerAuctionControlDashboard() {
     setWinStatusMap(map);
   }
 
-  // ---------- NEW: Live bids count hydration ----------
-  // This tries multiple API shapes:
-  // 1) /api/bids/auction/:id/count -> { count }
-  // 2) /api/bids/auction/:id?limit=1&sort=desc -> look for total/count or fallback to items length
+  // ---------- Live bids count hydration ----------
   async function fetchBidCountForAuction(id) {
     // Try the dedicated count endpoint first
     try {
@@ -265,15 +262,12 @@ export default function SellerAuctionControlDashboard() {
       if (typeof res?.total === "number") return res.total;
       if (typeof res?.count === "number") return res.count;
       if (Array.isArray(res?.items)) {
-        // If backend doesn't include total, we only know we got <=1 item.
-        // This is a fallback best-effort: 0 or 1.
-        return res.items.length;
+        return res.items.length; // <=1 fallback knowledge
       }
     } catch {
       // ignore
     }
 
-    // As a last resort, return 0 (unknown)
     return 0;
   }
 
@@ -408,15 +402,8 @@ export default function SellerAuctionControlDashboard() {
   /* ========== Charts (paid items only for revenue) ========== */
 
   const [revenueMode, setRevenueMode] = useState("weekly"); // weekly or monthly
-  const chartRefs = { status: useRef(null), revenue: useRef(null) };
+  const chartRefs = { revenue: useRef(null) };
   const chartObjs = useRef({});
-
-  const statusCounts = useMemo(() => {
-    const live = liveFiltered.length;
-    const up = upcomingFiltered.length;
-    const ended = historyFiltered.length;
-    return { live, up, ended };
-  }, [liveFiltered, upcomingFiltered, historyFiltered]);
 
   const paidHistory = useMemo(
     () => (overview.history || []).filter((h) => isPaid(h)),
@@ -499,24 +486,6 @@ export default function SellerAuctionControlDashboard() {
       Object.values(chartObjs.current).forEach((c) => c?.destroy?.());
       chartObjs.current = {};
 
-      if (chartRefs.status.current) {
-        chartObjs.current.status = new Chart(chartRefs.status.current.getContext("2d"), {
-          type: "doughnut",
-          data: {
-            labels: ["Live", "Upcoming", "Ended"],
-            datasets: [
-              {
-                data: [statusCounts.live, statusCounts.up, statusCounts.ended],
-                backgroundColor: ["rgba(46, 204, 113, .8)", "rgba(52, 152, 219, .8)", "rgba(231, 76, 60, .8)"],
-                borderColor: ["rgba(46, 204, 113, 1)", "rgba(52, 152, 219, 1)", "rgba(231, 76, 60, 1)"],
-                borderWidth: 1,
-              },
-            ],
-          },
-          options: { plugins: { legend: { position: "bottom", labels: { color: "#f5f5f5" } } } },
-        });
-      }
-
       if (chartRefs.revenue.current) {
         const src = revenueMode === "weekly" ? weeklyRevenue : monthlyRevenue;
         chartObjs.current.revenue = new Chart(chartRefs.revenue.current.getContext("2d"), {
@@ -550,7 +519,7 @@ export default function SellerAuctionControlDashboard() {
       Object.values(chartObjs.current).forEach((c) => c?.destroy?.());
       chartObjs.current = {};
     };
-  }, [statusCounts, weeklyRevenue, monthlyRevenue, revenueMode]);
+  }, [weeklyRevenue, monthlyRevenue, revenueMode]);
 
   /* ========== Widgets (paid items only for income and sold) ========== */
 
@@ -635,13 +604,8 @@ export default function SellerAuctionControlDashboard() {
             <Widget icon="fa-gem" label="Items Sold" value={itemsSoldPaid} />
           </section>
 
-          {/* Charts */}
+          {/* Charts — only Revenue now */}
           <div className="sac-charts">
-            <div className="sac-chart-card">
-              <h3 className="sac-chart-title">Auctions by Status</h3>
-              <canvas ref={chartRefs.status} />
-            </div>
-
             <div className="sac-chart-card">
               <div className="sac-chart-head">
                 <h3 className="sac-chart-title">Revenue</h3>
