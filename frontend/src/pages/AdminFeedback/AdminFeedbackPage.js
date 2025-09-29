@@ -23,6 +23,30 @@ const fmtDate = (iso) => {
 };
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
+function buildEmailTemplate(f) {
+  const cat = f.complaintCategory || "your complaint";
+  const name =
+    [f.firstName, f.lastName].filter(Boolean).join(" ") || f.email || "Customer";
+  const ref =
+    f.orderId ? ` (Order #${f.orderId})` : f.productName || f.productId ? ` (${f.productName || f.productId})` : "";
+  return (
+`Hi ${name},
+
+We’re writing regarding your ${cat}${ref}. 
+We’ve reviewed your case and here’s our current update:
+
+• Summary: 
+• Next steps: 
+• Expected timeline: 
+
+If you have any additional details or questions, just reply to this email.
+
+Best regards,
+GemZyne Support`
+  );
+}
+
+
 export default function AdminFeedbackPage() {
   // UI state
   const [view, setView] = useState("reviews"); // "reviews" | "complaints"
@@ -38,6 +62,11 @@ export default function AdminFeedbackPage() {
   // inline reply state
   const [replyOpenId, setReplyOpenId] = useState(null);
   const [replyText, setReplyText] = useState("");
+
+  /** Email compose state **/
+const [emailOpenId, setEmailOpenId] = useState(null);
+const [emailSubject, setEmailSubject] = useState("");
+const [emailBody, setEmailBody] = useState("");
 
   // Particles
   const particlesLoaded = useRef(false);
@@ -194,6 +223,27 @@ export default function AdminFeedbackPage() {
       alert(e.message || "Failed to send reply");
     }
   };
+
+  // send email
+  const sendEmailToComplaint = async (id) => {
+  try {
+    await apiRequest(`/api/feedback/${id}/email`, {
+      method: "POST",
+      body: JSON.stringify({
+        subject: emailSubject,
+        message: emailBody,
+      }),
+    });
+    // Optional: quick UX reset
+    setEmailOpenId(null);
+    setEmailSubject("");
+    setEmailBody("");
+    alert("Email sent successfully.");
+  } catch (e) {
+    alert(e.message || "Failed to send email");
+  }
+};
+
 
   // Derived lists
   const reviews = useMemo(() => items.filter((i) => i.type === "review"), [items]);
@@ -493,111 +543,148 @@ const { responseRate, resolutionRate } = useMemo(() => {
                   )}
 
                   {/* Actions with inline confirm/cancel + Reply */}
-                  <div className="review-actions">
-                    {/* Resolve/Toggle + Reply only for complaints */}
-                    {!isReview && (
-                      <>
-                        <button
-                          className="review-action-btn"
-                          onClick={() =>
-                            setComplaintStatus(
-                              f._id,
-                              isResolved ? "Pending" : "Resolved"
-                            )
-                          }
-                        >
-                          <i className="fas fa-check-circle" />{" "}
-                          {isResolved ? "Mark Pending" : "Resolve"}
-                        </button>
+                 <div className="review-actions">
+  {/* Complaint-only actions */}
+  {!isReview && (
+    <>
+      {/* Resolve / Mark Pending */}
+      <button
+        className="review-action-btn"
+        onClick={() =>
+          setComplaintStatus(
+            f._id,
+            String(f.status || "").toLowerCase() === "resolved" ? "Pending" : "Resolved"
+          )
+        }
+      >
+        <i className="fas fa-check-circle" />
+        {String(f.status || "").toLowerCase() === "resolved" ? "Mark Pending" : "Resolve"}
+      </button>
 
-                        {replyOpenId === f._id ? (
-                          <div style={{ width: "100%", marginTop: 10 }}>
-                            <textarea
-                              value={replyText}
-                              onChange={(e) => setReplyText(e.target.value)}
-                              placeholder="Type your reply…"
-                              rows={4}
-                              style={{
-                                width: "100%",
-                                padding: "10px 12px",
-                                borderRadius: 10,
-                                border: "1px solid #333",
-                                background: "#141414",
-                                color: "#eee",
-                                outline: "none",
-                                resize: "vertical",
-                              }}
-                            />
-                            <div
-                              style={{
-                                display: "flex",
-                                gap: 10,
-                                justifyContent: "flex-end",
-                                marginTop: 8,
-                              }}
-                            >
-                              <button
-                                className="review-action-btn"
-                                onClick={() => sendReply(f._id)}
-                              >
-                                Send
-                              </button>
-                              <button
-                                className="review-action-btn delete"
-                                onClick={() => {
-                                  setReplyOpenId(null);
-                                  setReplyText("");
-                                }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            className="review-action-btn"
-                            onClick={() => {
-                              setReplyOpenId(f._id);
-                              setReplyText(f.adminReply?.text || "");
-                            }}
-                          >
-                            <i className="fas fa-reply" /> Reply
-                          </button>
-                        )}
-                      </>
-                    )}
+      {/* Reply (your existing inline reply UI) */}
+      {replyOpenId === f._id ? (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%", marginTop: 10 }}>
+          <input
+            type="text"
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            placeholder="Type your reply…"
+            style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #333", background: "#141414", color: "#eee" }}
+          />
+          <button className="review-action-btn" onClick={() => sendReply(f._id)}>Send</button>
+          <button className="review-action-btn delete" onClick={() => { setReplyOpenId(null); setReplyText(""); }}>
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          className="review-action-btn"
+          onClick={() => { setReplyOpenId(f._id); setReplyText(f.adminReply?.text || ""); }}
+        >
+          <i className="fas fa-reply" /> Reply
+        </button>
+      )}
 
-                    {f.isAdminHidden ? (
-                      <button className="review-action-btn" onClick={() => doRestore(f._id)}>
-                        <i className="fas fa-undo" /> Restore
-                      </button>
-                    ) : confirmId === f._id ? (
-                      <>
-                        <button
-                          className="review-action-btn delete"
-                          onClick={() => {
-                            doHide(f._id);
-                            setConfirmId(null);
-                          }}
-                        >
-                          Confirm
-                        </button>
-                        <button
-                          className="review-action-btn delete"
-                          onClick={() => setConfirmId(null)}
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        className="review-action-btn delete"
-                        onClick={() => setConfirmId(f._id)}
-                      >
-                        <i className="fas fa-trash" /> Delete
-                      </button>
-                    )}
-                  </div>
+      {/* Email button + inline compose UI (THIS is the new part) */}
+      <button
+        className="review-action-btn"
+        onClick={() => {
+          setEmailOpenId((prev) => (prev === f._id ? null : f._id));
+          setEmailSubject((prev) =>
+            prev?.trim()
+              ? prev
+               : `Update on your ${f.complaintCategory || "GemZyne"} complaint`      
+               );
+                setEmailBody((prev) => (prev?.trim() ? prev : buildEmailTemplate(f)));
+              }}
+      >
+        <i className="fas fa-envelope" /> Email
+      </button>
+
+      {emailOpenId === f._id && (
+        <div style={{ width: "100%", marginTop: 10, display: "grid", gap: 8 }}>
+          <input
+            type="text"
+            value={emailSubject}
+            onChange={(e) => setEmailSubject(e.target.value)}
+            placeholder="Subject"
+            style={{
+              padding: "8px 10px",
+              borderRadius: 8,
+              border: "1px solid #333",
+              background: "#141414",
+              color: "#eee",
+            }}
+          />
+          <textarea
+            value={emailBody}
+            onChange={(e) => setEmailBody(e.target.value)}
+            placeholder="Type your message…"
+            rows={4}
+            style={{
+              padding: "10px",
+              borderRadius: 8,
+              border: "1px solid #333",
+              background: "#141414",
+              color: "#eee",
+              resize: "vertical",
+            }}
+          />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="review-action-btn"
+              onClick={() => sendEmailToComplaint(f._id)}
+              disabled={!emailBody.trim()}
+              title={!emailBody.trim() ? "Message required" : "Send"}
+            >
+              Send Email
+            </button>
+            <button
+              className="review-action-btn delete"
+              onClick={() => {
+                setEmailOpenId(null);
+                setEmailSubject("");
+                setEmailBody("");
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  )}
+
+  {/* Existing moderation actions */}
+  {f.isAdminHidden ? (
+    <button className="review-action-btn" onClick={() => doRestore(f._id)}>
+      <i className="fas fa-undo" /> Restore
+    </button>
+  ) : confirmId === f._id ? (
+    <>
+      <button
+        className="review-action-btn delete"
+        onClick={() => { doHide(f._id); setConfirmId(null); }}
+      >
+        Confirm
+      </button>
+      <button
+        className="review-action-btn delete"
+        onClick={() => setConfirmId(null)}
+      >
+        Cancel
+      </button>
+    </>
+  ) : (
+    <button
+      className="review-action-btn delete"
+      onClick={() => setConfirmId(f._id)}
+    >
+      <i className="fas fa-trash" /> Delete
+    </button>
+  )}
+</div>
+
                 </div>
               );
             })}
