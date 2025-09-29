@@ -406,7 +406,7 @@ export default function BuyerDashboard() {
         })
       );
       push("Checkout ready — redirecting…", "success", 1800);
-      window.location.href = "/payment";
+      window.location.href = `/payment?orderId=${encodeURIComponent(res.orderId)}`;
     } catch {
       openModal(
         "Checkout Error",

@@ -41,7 +41,7 @@ async function findWinnerByAuctionRef(auctionRef) {
   if (!a) return null;
 
   // Treat as Auction Code (e.g., AUC-2025-007)
-  return Winner.findOne({ auctionCode: auctionRef })
+  return Winner.findOne({ auction: a._id })
     .populate("user", "fullName email")
     .populate("auction", "auctionId title type endTime imageUrl sellerId")
     .lean();

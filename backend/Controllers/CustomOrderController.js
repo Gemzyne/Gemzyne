@@ -48,9 +48,13 @@ exports.getCustomOrder = async (req, res, next) => {
 
     if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
 
-    const isOwner = order.buyerId?.toString() === req.user.id;
-    const isStaff = ['seller', 'admin'].includes(req.user.role);
-    if (!isOwner && !isStaff) return res.status(403).json({ ok: false, message: 'Forbidden' });
+    //Works whether buyerId is ObjectId or populated doc
+    const buyerIdStr = (order.buyerId && order.buyerId._id)
+      ? String(order.buyerId._id)
+      : String(order.buyerId || '');
+    const isOwner = buyerIdStr === String(req.user.id);
+      const isStaff = ['seller', 'admin'].includes(req.user.role);
+      if (!isOwner && !isStaff) return res.status(403).json({ ok: false, message: 'Forbidden' });
     
     return res.json({ ok: true, order });    // <— Payment page expects ok:true
   } catch (err) {
