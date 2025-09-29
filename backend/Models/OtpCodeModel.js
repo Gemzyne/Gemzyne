@@ -45,6 +45,7 @@ otpCodeSchema.methods.verifyCode = async function (rawCode) {
 
 otpCodeSchema.methods.consume = async function () {
   this.consumedAt = new Date();
+  this.expiresAt = new Date();
   await this.save();
 };
 

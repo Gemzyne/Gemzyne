@@ -184,8 +184,7 @@ const ReviewsPage = () => {
 
       {/* Page Header */}
       <section className="page-header">
-        <h1>Customer Feedback</h1>
-        <p>Read reviews and manage customer feedback</p>
+        <h1>Customer Reviews & Feedback</h1>
       </section>
 
       {/* ⬇️ Same position/markup as MyFeedbackPage */}

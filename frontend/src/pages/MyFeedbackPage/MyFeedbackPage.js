@@ -1,14 +1,15 @@
-// src/pages/MyFeedbackPage/MyFeedbackPage.js
+// src/pages/MyFeedbackPage/MyFeedbackPage.jsx
 import React, { useEffect, useState, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import Footer from "../../Components/Footer";
-import "./MyFeedbackPage.css";
+import { useNavigate } from "react-router-dom";
+import Header from "../../Components/Header";
+import UserSidebar from "../../Components/UserSidebar";
 import { apiRequest } from "../../lib/api";
+import "./MyFeedbackPage.css";
 
-const MyFeedbackPage = () => {
+export default function MyFeedbackPage() {
   const navigate = useNavigate();
 
-  // particles (unchanged)
+  // particles
   const particlesLoaded = useRef(false);
   useEffect(() => {
     const ensureParticles = () =>
@@ -34,7 +35,7 @@ const MyFeedbackPage = () => {
       if (particlesLoaded.current) return;
       particlesLoaded.current = true;
       destroyParticles();
-      window.particlesJS("particles-js", {
+      window.particlesJS("mf-particles", {
         particles: {
           number: { value: 80, density: { enable: true, value_area: 800 } },
           color: { value: "#d4af37" },
@@ -42,7 +43,7 @@ const MyFeedbackPage = () => {
           opacity: { value: 0.3, random: true, anim: { enable: true, speed: 1, opacity_min: 0.1, sync: false } },
           size: { value: 3, random: true, anim: { enable: true, speed: 3, size_min: 0.1, sync: false } },
           line_linked: { enable: true, distance: 150, color: "#d4af37", opacity: 0.2, width: 1 },
-          move: { enable: true, speed: 2, direction: "none", random: true, out_mode: "out" }
+          move: { enable: true, speed: 2, random: true, out_mode: "out" }
         },
         interactivity: {
           detect_on: "canvas",
@@ -56,65 +57,63 @@ const MyFeedbackPage = () => {
     return () => destroyParticles();
   }, []);
 
-  // header scroll (unchanged)
-  useEffect(() => {
-    const header = document.getElementById("myfeedback-header");
-    const onScroll = () => {
-      if (!header) return;
-      if (window.scrollY > 100) header.classList.add("scrolled");
-      else header.classList.remove("scrolled");
-    };
-    window.addEventListener("scroll", onScroll);
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // === fetch data from backend ===
+  // data
   const [activeTab, setActiveTab] = useState("reviews"); // reviews | complaints
   const [reviews, setReviews] = useState([]);
   const [complaints, setComplaints] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // simple inline confirm state (which item is asking confirm)
+  const [loading,   setLoading] = useState(true);
   const [confirmId, setConfirmId] = useState(null);
 
   const loadFeedback = async () => {
     try {
       setLoading(true);
-      // includeHidden so the user still sees their own hidden submissions; mine=1 to restrict to current user
       const data = await apiRequest("/api/feedback?includeHidden=1&mine=1", { method: "GET" });
       const list = Array.isArray(data?.feedback) ? data.feedback : [];
 
-      const mappedReviews = list
-        .filter((f) => f.type === "review")
-        .map((f) => ({
-          id: f._id,
-          _raw: f,
-          initials: `${(f.firstName || "U")[0] || "U"}${(f.lastName || "")[0] || ""}`.toUpperCase(),
-          name: `${f.firstName || ""} ${f.lastName || ""}`.trim() || "User",
-          date: f.createdAt ? new Date(f.createdAt).toLocaleDateString() : "",
-          stars: f.rating || 0,
-          tags: Array.isArray(f.categories) ? f.categories.map(c => (c?.[0] ? c[0].toUpperCase() + c.slice(1) : c)) : [],
-          text: f.feedbackText || "",
-          gemImg: "",
-          gemDesc: f.productName || f.productId || "—",
-        }));
+      const mappedReviews = list.filter(f => f.type === "review").map(f => ({
+        id: f._id,
+        _raw: f,
+        initials: `${(f.firstName || "U")[0] || "U"}${(f.lastName || "")[0] || ""}`.toUpperCase(),
+        name: `${f.firstName || ""} ${f.lastName || ""}`.trim() || "User",
+        date: f.createdAt ? new Date(f.createdAt).toLocaleDateString() : "",
+        stars: Number(f.rating) || 0,
+        tags: Array.isArray(f.categories) ? f.categories.map(c => (c ? c.charAt(0).toUpperCase()+c.slice(1) : c)) : [],
+        text: f.feedbackText || "",
+        gemImg: "",
+        gemDesc: f.productName || f.productId || "—",
+      }));
 
-      const mappedComplaints = list
-        .filter((f) => f.type === "complaint")
-        .map((f) => ({
+      const mappedComplaints = list.filter(f => f.type === "complaint").map(f => {
+        // Be tolerant to legacy keys
+        const replyObj = f.adminReply || f.reply || null;
+        const replyText =
+          (replyObj && (replyObj.text || replyObj.message)) ||
+          f.sellerReply ||
+          null;
+
+        const replyAt =
+          (replyObj && (replyObj.createdAt || replyObj.date || replyObj.at)) ||
+          f.repliedAt ||
+          null;
+
+        const replyBy =
+          (replyObj && (replyObj.byRole || replyObj.role)) ||
+          null;
+
+        return {
           id: f._id,
           _raw: f,
           initials: `${(f.firstName || "U")[0] || "U"}${(f.lastName || "")[0] || ""}`.toUpperCase(),
           name: `${f.firstName || ""} ${f.lastName || ""}`.trim() || "User",
           date: f.createdAt ? new Date(f.createdAt).toLocaleDateString() : "",
-          
+          status: f.status || "Pending",
           category: f.complaintCategory || (Array.isArray(f.categories) ? f.categories[0] : "") || "Complaint",
           text: f.feedbackText || "",
           gemImg: "",
           gemDesc: f.productName || f.productId || f.orderId || "—",
-          adminReply: f.adminReply || null, // ⬅️ include reply from backend
-        }));
+          adminReply: replyText ? { text: replyText, at: replyAt, byRole: replyBy } : null,
+        };
+      });
 
       setReviews(mappedReviews);
       setComplaints(mappedComplaints);
@@ -126,17 +125,14 @@ const MyFeedbackPage = () => {
     }
   };
 
-  useEffect(() => {
-    loadFeedback();
-  }, []);
+  useEffect(() => { loadFeedback(); }, []);
 
-  // delete (owner route) with inline confirm (no browser popup)
   const onDelete = async (id, type) => {
     try {
       await apiRequest(`/api/feedback/my/${id}`, { method: "DELETE" });
       setConfirmId(null);
-      if (type === "review") setReviews((prev) => prev.filter((x) => x.id !== id));
-      else setComplaints((prev) => prev.filter((x) => x.id !== id));
+      if (type === "review") setReviews(prev => prev.filter(x => x.id !== id));
+      else setComplaints(prev => prev.filter(x => x.id !== id));
     } catch (e) {
       console.error(e);
       alert("Failed to delete.");
@@ -144,227 +140,209 @@ const MyFeedbackPage = () => {
   };
 
   return (
-    <div className="myfeedback-root">
-      <div id="particles-js" />
+    <div className="mf-root">
+      <div id="mf-particles" />
+      <Header />
 
-      <header id="myfeedback-header">
-        <div className="logo">GemZyne</div>
-        <nav className="nav-links">
-          <Link to="/mainhome">Home</Link>
-          <Link to="/collection">Collection</Link>
-          <Link to="/auction">Auction</Link>
-          <Link to="/about">About</Link>
-          <Link to="/reviews">Review & Feedback</Link>
-        </nav>
-        <div className="header-actions">
-          <i className="fas fa-search"></i>
-          <i className="fas fa-user"></i>
-          <i className="fas fa-shopping-bag"></i>
-        </div>
-      </header>
+      <div className="mf-shell">
+        <UserSidebar />
 
-      <section className="page-header">
-        <h1>My Feedback</h1>
-        <p>Manage your reviews and complaints</p>
-      </section>
+        <main className="mf-main">
+          <section className="mf-page-header">
+            <h1>My Feedback</h1>
+            <p>Manage your reviews and complaints</p>
+          </section>
 
-      <div className="add-btn-container">
-        <button className="add-btn" onClick={() => navigate("/add-feedback")}>
-          <i className="fas fa-plus"></i> Share Feedback
-        </button>
-      </div>
+          <div className="mf-add">
+            <button className="mf-btn" onClick={() => navigate("/add-feedback")}>
+              <i className="fas fa-plus" /> Share Feedback
+            </button>
+            <button className="mf-btn mf-btn--ghost" onClick={loadFeedback} style={{ marginLeft: 8 }}>
+              <i className="fas fa-sync-alt" /> Refresh
+            </button>
+          </div>
 
-      <div className="tabs">
-        <button
-          className={`tab-btn ${activeTab === "reviews" ? "active" : ""}`}
-          onClick={() => setActiveTab("reviews")}
-        >
-          My Reviews
-        </button>
-        <button
-          className={`tab-btn ${activeTab === "complaints" ? "active" : ""}`}
-          onClick={() => setActiveTab("complaints")}
-        >
-          My Complaints
-        </button>
-      </div>
+          <div className="mf-tabs">
+            <button
+              className={`mf-tab ${activeTab === "reviews" ? "active" : ""}`}
+              onClick={() => setActiveTab("reviews")}
+            >
+              My Reviews
+            </button>
+            <button
+              className={`mf-tab ${activeTab === "complaints" ? "active" : ""}`}
+              onClick={() => setActiveTab("complaints")}
+            >
+              My Complaints
+            </button>
+          </div>
 
-      <div className="content-container">
-        {loading && <div style={{ padding: 20 }}>Loading…</div>}
+          <div className="mf-content">
+            {loading && <div className="mf-loading">Loading…</div>}
 
-        {/* Reviews */}
-        {!loading && (
-          <div className={`tab-content ${activeTab === "reviews" ? "active" : ""}`} id="reviews-tab">
-            <div className="reviews-card">
-              <div className="card-header">
-                <h3>My Reviews</h3>
-                <span>{reviews.length} Reviews</span>
-              </div>
-
-              {reviews.length === 0 ? (
-                <div className="empty-state" id="reviews-empty">
-                  <i className="fas fa-comment-slash"></i>
-                  <h3>No Reviews Yet</h3>
-                  <p>You haven't submitted any reviews yet. Your feedback helps us improve!</p>
-                  <button className="add-btn" style={{ marginTop: 20 }} onClick={() => navigate("/add-feedback")}>
-                    <i className="fas fa-plus"></i> Share Your First Review
-                  </button>
+            {/* Reviews */}
+            {!loading && activeTab === "reviews" && (
+              <div className="mf-card">
+                <div className="mf-card__head">
+                  <h3>My Reviews</h3>
+                  <span>{reviews.length} Reviews</span>
                 </div>
-              ) : (
-                reviews.map((r) => (
-                  <div className="review-item" key={r.id}>
-                    <div className="review-header">
-                      <div className="reviewer-info">
-                        <div className="reviewer-avatar">{r.initials}</div>
-                        <div className="reviewer-details">
-                          <h4>{r.name}</h4>
-                          <p>{r.date}</p>
+
+                {reviews.length === 0 ? (
+                  <div className="mf-empty">
+                    <i className="fas fa-comment-slash" />
+                    <h3>No Reviews Yet</h3>
+                    <p>You haven't submitted any reviews yet. Your feedback helps us improve!</p>
+                    <button className="mf-btn" onClick={() => navigate("/add-feedback")}>
+                      <i className="fas fa-plus" /> Share Your First Review
+                    </button>
+                  </div>
+                ) : (
+                  reviews.map(r => (
+                    <div className="mf-item" key={r.id}>
+                      <div className="mf-row">
+                        <div className="mf-user">
+                          <div className="mf-ava">{r.initials}</div>
+                          <div>
+                            <h4 className="mf-name">{r.name}</h4>
+                            <p className="mf-meta">{r.date}</p>
+                          </div>
+                        </div>
+                        <div className="mf-stars">
+                          {"★".repeat(r.stars)}{"☆".repeat(5 - r.stars)}
                         </div>
                       </div>
-                      <div className="review-rating">
-                        {"★".repeat(r.stars)}
-                        {"☆".repeat(5 - r.stars)}
+
+                      <div className="mf-chips">
+                        {r.tags.map((t, i) => (
+                          <span className="mf-chip" key={`${r.id}-tag-${i}`}>{t}</span>
+                        ))}
                       </div>
-                    </div>
 
-                    <div>
-                      {r.tags.map((t, i) => (
-                        <span className="review-category" key={`${r.id}-tag-${i}`}>{t}</span>
-                      ))}
-                    </div>
+                      <div className="mf-text"><p>{r.text}</p></div>
 
-                    <div className="review-content"><p>{r.text}</p></div>
-
-                    {r.gemDesc && (
-                      <div className="review-gem">
-                        {r.gemImg ? <img src={r.gemImg} alt="" /> : null}
-                        <p>{r.gemDesc}</p>
-                      </div>
-                    )}
-
-                    <div className="item-actions">
-                      <button
-                        className="edit-btn"
-                        onClick={() => navigate("/add-feedback", { state: { mode: "edit", doc: r._raw } })}
-                      >
-                        <i className="fas fa-edit"></i> Edit
-                      </button>
-
-                      {confirmId === r.id ? (
-                        <>
-                          <button className="delete-btn" onClick={() => onDelete(r.id, "review")}>
-                            Confirm
-                          </button>
-                          <button className="delete-btn" onClick={() => setConfirmId(null)}>
-                           Cancel
-                           </button>
-                        </>
-                      ) : (
-                        <button className="delete-btn" onClick={() => setConfirmId(r.id)}>
-                          <i className="fas fa-trash"></i> Delete
-                        </button>
+                      {r.gemDesc && (
+                        <div className="mf-gem">
+                          {r.gemImg ? <img src={r.gemImg} alt="" /> : null}
+                          <p>{r.gemDesc}</p>
+                        </div>
                       )}
+
+                      <div className="mf-actions">
+                        <button
+                          className="mf-btn--pill mf-btn--gold"
+                          onClick={() => navigate("/add-feedback", { state: { mode: "edit", doc: r._raw } })}
+                        >
+                          <i className="fas fa-edit" /> Edit
+                        </button>
+
+                        {confirmId === r.id ? (
+                          <>
+                            <button className="mf-btn--pill mf-btn--red" onClick={() => onDelete(r.id, "review")}>
+                              Confirm
+                            </button>
+                            <button className="mf-btn--pill mf-btn--red" onClick={() => setConfirmId(null)}>
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button className="mf-btn--pill mf-btn--red" onClick={() => setConfirmId(r.id)}>
+                            <i className="fas fa-trash" /> Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Complaints */}
-        {!loading && (
-          <div className={`tab-content ${activeTab === "complaints" ? "active" : ""}`} id="complaints-tab">
-            <div className="reviews-card">
-              <div className="card-header">
-                <h3>My Complaints</h3>
-                <span>{complaints.length} Complaints</span>
+                  ))
+                )}
               </div>
+            )}
 
-              {complaints.length === 0 ? (
-                <div className="empty-state" id="complaints-empty">
-                  <i className="fas fa-comments"></i>
-                  <h3>No Complaints Yet</h3>
-                  <p>You haven't submitted any complaints. We're glad you're happy with our service!</p>
+            {/* Complaints */}
+            {!loading && activeTab === "complaints" && (
+              <div className="mf-card">
+                <div className="mf-card__head">
+                  <h3>My Complaints</h3>
+                  <span>{complaints.length} Complaints</span>
                 </div>
-              ) : (
-                complaints.map((c) => (
-                  <div className="review-item" key={c.id}>
-                    <div className="review-header">
-                      <div className="reviewer-info">
-                        <div className="reviewer-avatar">{c.initials}</div>
-                        <div className="reviewer-details">
-                          <h4>{c.name}</h4>
-                          <p>{c.date}</p>
+
+                {complaints.length === 0 ? (
+                  <div className="mf-empty">
+                    <i className="fas fa-comments" />
+                    <h3>No Complaints Yet</h3>
+                    <p>You haven't submitted any complaints. We're glad you're happy with our service!</p>
+                  </div>
+                ) : (
+                  complaints.map(c => (
+                    <div className="mf-item" key={c.id}>
+                      <div className="mf-row">
+                        <div className="mf-user">
+                          <div className="mf-ava">{c.initials}</div>
+                          <div>
+                            <h4 className="mf-name">{c.name}</h4>
+                            <p className="mf-meta">{c.date}</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="review-rating">
-                        
+
+                      {/* status & category */}
+                      <div className="mf-chips">
+                        <span className={`mf-chip ${String(c.status).toLowerCase() === "resolved" ? "mf-chip--ok" : "mf-chip--warn"}`}>
+                          {c.status || "Pending"}
+                        </span>
+                        {c.category && <span className="mf-chip">{c.category}</span>}
                       </div>
-                    </div>
 
-                    <span className="review-category">{c.status}</span>
-
-                    {/* ⬇️ Seller/Admin reply displayed ABOVE the complaint text */}
-                    {c.adminReply?.text && (
-                      <div
-                        className="reply-box"
-                        style={{
-                          margin: "10px 0 8px",
-                          padding: "10px 12px",
-                          background: "rgba(212,175,55,0.10)",
-                          border: "1px solid rgba(212,175,55,0.35)",
-                          borderRadius: 10,
-                          fontSize: 14
-                        }}
-                      >
-                        <strong>Seller reply:</strong> {c.adminReply.text}
-                      </div>
-                    )}
-
-                    <div className="review-content"><p>{c.text}</p></div>
-
-                    {c.gemDesc && (
-                      <div className="review-gem">
-                        {c.gemImg ? <img src={c.gemImg} alt="" /> : null}
-                        <p>{c.gemDesc}</p>
-                      </div>
-                    )}
-
-                    <div className="item-actions">
-                      <button
-                        className="edit-btn"
-                        onClick={() => navigate("/add-feedback", { state: { mode: "edit", doc: c._raw } })}
-                      >
-                        <i className="fas fa-edit"></i> Edit
-                      </button>
-
-                      {confirmId === c.id ? (
-                        <>
-                          <button className="delete-btn" onClick={() => onDelete(c.id, "complaint")}>
-                            Confirm
-                          </button>
-                          <button className="delete-btn" onClick={() => setConfirmId(null)}>
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <button className="delete-btn" onClick={() => setConfirmId(c.id)}>
-                          <i className="fas fa-trash"></i> Delete
-                        </button>
+                      {/* seller/admin reply */}
+                      {c.adminReply?.text && (
+                        <div className="mf-reply">
+                          <strong>
+                            {c.adminReply.byRole ? c.adminReply.byRole.charAt(0).toUpperCase() + c.adminReply.byRole.slice(1) : "Reply"}
+                            {c.adminReply.at ? ` • ${new Date(c.adminReply.at).toLocaleString()}` : ""}:
+                          </strong>{" "}
+                          <span>{c.adminReply.text}</span>
+                        </div>
                       )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-      </div>
 
-      <Footer />
+                      <div className="mf-text"><p>{c.text}</p></div>
+
+                      {c.gemDesc && (
+                        <div className="mf-gem">
+                          {c.gemImg ? <img src={c.gemImg} alt="" /> : null}
+                          <p>{c.gemDesc}</p>
+                        </div>
+                      )}
+
+                      <div className="mf-actions">
+                        <button
+                          className="mf-btn--pill mf-btn--gold"
+                          onClick={() => navigate("/add-feedback", { state: { mode: "edit", doc: c._raw } })}
+                        >
+                          <i className="fas fa-edit" /> Edit
+                        </button>
+
+                        {confirmId === c.id ? (
+                          <>
+                            <button className="mf-btn--pill mf-btn--red" onClick={() => onDelete(c.id, "complaint")}>
+                              Confirm
+                            </button>
+                            <button className="mf-btn--pill mf-btn--red" onClick={() => setConfirmId(null)}>
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button className="mf-btn--pill mf-btn--red" onClick={() => setConfirmId(c.id)}>
+                            <i className="fas fa-trash" /> Delete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   );
-};
-
-export default MyFeedbackPage;
+}

@@ -555,3 +555,9 @@ body {
 .modal-btn:hover {
   transform: translateY(-1px);
 }
+
+.field-error {
+  margin-top: 6px;
+  color: #ff6b6b;
+  font-size: 12px;
+}

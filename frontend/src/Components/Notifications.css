@@ -1,0 +1,148 @@
+/* container */
+.gz-wn-wrap {
+  position: relative;
+}
+
+/* bell */
+.gz-wn-bell {
+  position: relative;
+  border: none;
+  background: transparent;
+  color: var(--wn-fg, #f5f5f5);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.gz-wn-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--wn-badge, #e11d48);
+  /* pink/red */
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* dropdown */
+.gz-wn-menu {
+  position: absolute;
+  right: 0;
+  margin-top: 10px;
+  width: 360px;
+  background: var(--wn-bg, rgba(20, 20, 20, 0.96));
+  border: 1px solid var(--wn-border, rgba(212, 175, 55, 0.12));
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.gz-wn-head {
+  padding: 10px 12px;
+  font-weight: 600;
+  letter-spacing: .2px;
+  color: var(--wn-fg, #f5f5f5);
+  border-bottom: 1px solid var(--wn-border, rgba(212, 175, 55, 0.12));
+}
+
+.gz-wn-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.gz-wn-loading,
+.gz-wn-empty {
+  padding: 16px 14px;
+  color: #bdbdbd;
+  font-size: 14px;
+}
+
+/* items */
+.gz-wn-item {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 10px 12px;
+  transition: background .15s ease;
+}
+
+.gz-wn-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gz-wn-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.gz-wn-ico {
+  font-size: 16px;
+  margin-top: 2px;
+}
+
+/* variants */
+.gz-wn-item.win .gz-wn-ico {
+  color: var(--wn-gold, #d4af37);
+}
+
+/* trophy */
+.gz-wn-item.pay .gz-wn-ico {
+  color: var(--wn-green, #22c55e);
+}
+
+/* payment success */
+
+.gz-wn-title {
+  font-size: 14px;
+  color: #f5f5f5;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.gz-wn-meta {
+  font-size: 12px;
+  color: #bdbdbd;
+  margin-top: 2px;
+}
+
+.gz-wn-new {
+  width: 8px;
+  height: 8px;
+  background: var(--wn-new, #22c55e);
+  border-radius: 999px;
+  margin-left: 6px;
+  margin-top: 6px;
+  flex: 0 0 auto;
+}
+
+/* footer */
+.gz-wn-foot {
+  padding: 8px;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--wn-border, rgba(212, 175, 55, 0.12));
+}
+
+.gz-wn-clear {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #404040;
+  background: #181818;
+  color: #f5f5f5;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.gz-wn-clear:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}

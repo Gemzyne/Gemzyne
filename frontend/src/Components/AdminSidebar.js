@@ -42,13 +42,8 @@ export default function AdminSidebar() {
             </NavLink>
           </li>
           <li>
-            <NavLink to="/admin/feedback?view=complaints" className={({ isActive }) => (isActive ? "active" : "")}>
+            <NavLink to="/admin/feedback-hub" className={({ isActive }) => (isActive ? "active" : "")}>
             <i className="fas fa-exclamation-circle"></i> Complaints
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/admin/analytics" className={({ isActive }) => (isActive ? "active" : "")}>
-              <i className="fas fa-chart-bar"></i> Analytics
             </NavLink>
           </li>
           <li>

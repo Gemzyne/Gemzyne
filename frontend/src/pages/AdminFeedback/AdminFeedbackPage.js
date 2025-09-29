@@ -1,6 +1,14 @@
-// src/pages/AdminFeedbackPage/AdminFeedbackPage.js
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "../../lib/api";
+
+// Shared chrome
+import Header from "../../Components/Header";
+import Footer from "../../Components/Footer";
+
+// Seller sidebar (your component)
+import SellerSidebar from "../../Components/SellerSidebar";
+
+// Page-scoped styles
 import "./AdminFeedbackPage.css";
 
 const initials = (first = "", last = "", email = "") => {
@@ -17,9 +25,7 @@ const fmtDate = (iso) => {
       month: "long",
       day: "numeric",
     });
-  } catch {
-    return "";
-  }
+  } catch { return ""; }
 };
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
@@ -48,18 +54,14 @@ GemZyne Support`
 
 
 export default function AdminFeedbackPage() {
-  // UI state
-  const [view, setView] = useState("reviews"); // "reviews" | "complaints"
-  const [category, setCategory] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all"); // all | pending | resolved
+  const [view, setView] = useState("reviews");       // "reviews" | "complaints"
+  const [category, setCategory] = useState("all");   // category filter
+  const [statusFilter, setStatusFilter] = useState("all"); // complaints: all|pending|resolved
   const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState([]); // raw feedback from API
+  const [items, setItems] = useState([]);
   const [error, setError] = useState("");
 
-  // which row is showing the inline delete confirm buttons
-  const [confirmId, setConfirmId] = useState(null);
-
-  // inline reply state
+  const [confirmId, setConfirmId] = useState(null);  // inline delete confirm
   const [replyOpenId, setReplyOpenId] = useState(null);
   const [replyText, setReplyText] = useState("");
 
@@ -69,6 +71,7 @@ const [emailSubject, setEmailSubject] = useState("");
 const [emailBody, setEmailBody] = useState("");
 
   // Particles
+  // Particles (unique ID)
   const particlesLoaded = useRef(false);
   useEffect(() => {
     const ensureParticles = () =>
@@ -80,73 +83,38 @@ const [emailBody, setEmailBody] = useState("");
         s.onload = () => resolve();
         document.body.appendChild(s);
       });
-    const destroyParticles = () => {
+    const destroy = () => {
       if (window.pJSDom && window.pJSDom.length) {
-        window.pJSDom.forEach((p) => {
-          try {
-            p?.pJS?.fn?.vendors?.destroypJS?.();
-          } catch {}
-        });
+        window.pJSDom.forEach((p) => { try { p?.pJS?.fn?.vendors?.destroypJS?.(); } catch {} });
         window.pJSDom = [];
       }
     };
     ensureParticles().then(() => {
       if (particlesLoaded.current) return;
       particlesLoaded.current = true;
-      destroyParticles();
-      window.particlesJS("particles-js", {
+      destroy();
+      window.particlesJS("adfb-particles", {
         particles: {
           number: { value: 80, density: { enable: true, value_area: 800 } },
           color: { value: "#d4af37" },
           shape: { type: "polygon", polygon: { nb_sides: 6 } },
-          opacity: {
-            value: 0.3,
-            random: true,
-            anim: { enable: true, speed: 1, opacity_min: 0.1, sync: false },
-          },
-          size: {
-            value: 3,
-            random: true,
-            anim: { enable: true, speed: 3, size_min: 0.1, sync: false },
-          },
-          line_linked: {
-            enable: true,
-            distance: 150,
-            color: "#d4af37",
-            opacity: 0.2,
-            width: 1,
-          },
-          move: { enable: true, speed: 2, random: true, out_mode: "out" },
+          opacity: { value: 0.3, random: true, anim: { enable: true, speed: 1, opacity_min: 0.1, sync: false } },
+          size: { value: 3, random: true, anim: { enable: true, speed: 3, size_min: 0.1, sync: false } },
+          line_linked: { enable: true, distance: 150, color: "#d4af37", opacity: 0.2, width: 1 },
+          move: { enable: true, speed: 2, random: true, out_mode: "out" }
         },
         interactivity: {
           detect_on: "canvas",
-          events: {
-            onhover: { enable: true, mode: "grab" },
-            onclick: { enable: true, mode: "push" },
-            resize: true,
-          },
-          modes: { grab: { distance: 140, line_linked: { opacity: 0.5 } } },
+          events: { onhover: { enable: true, mode: "grab" }, onclick: { enable: true, mode: "push" }, resize: true },
+          modes: { grab: { distance: 140, line_linked: { opacity: 0.5 } } }
         },
-        retina_detect: true,
+        retina_detect: true
       });
     });
-    return () => destroyParticles();
+    return () => destroy();
   }, []);
 
-  // Header scroll
-  useEffect(() => {
-    const header = document.getElementById("adminfb-header");
-    const onScroll = () => {
-      if (!header) return;
-      if (window.scrollY > 100) header.classList.add("scrolled");
-      else header.classList.remove("scrolled");
-    };
-    window.addEventListener("scroll", onScroll);
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // Fetch
+  // Fetch all feedback for admins
   const loadAll = async () => {
     try {
       setLoading(true);
@@ -159,69 +127,36 @@ const [emailBody, setEmailBody] = useState("");
       setLoading(false);
     }
   };
+  useEffect(() => { loadAll(); }, []);
 
-  useEffect(() => {
-    (async () => {
-      await loadAll();
-    })();
-  }, []);
-
-  // Inline actions (no window.confirm)
+  // Actions
   const doHide = async (id) => {
     try {
       await apiRequest(`/api/feedback/${id}`, { method: "DELETE" });
-    } catch (e) {
-      alert(e.message || "Failed to hide");
-      return;
-    }
-    setItems((prev) => prev.map((x) => (x._id === id ? { ...x, isAdminHidden: true } : x)));
+      setItems((prev) => prev.map((x) => (x._id === id ? { ...x, isAdminHidden: true } : x)));
+    } catch (e) { alert(e.message || "Failed to hide"); }
   };
-
   const doRestore = async (id) => {
     try {
       await apiRequest(`/api/feedback/${id}/restore`, { method: "PATCH" });
-    } catch (e) {
-      alert(e.message || "Failed to restore");
-      return;
-    }
-    setItems((prev) => prev.map((x) => (x._id === id ? { ...x, isAdminHidden: false } : x)));
+      setItems((prev) => prev.map((x) => (x._id === id ? { ...x, isAdminHidden: false } : x)));
+    } catch (e) { alert(e.message || "Failed to restore"); }
   };
-
-  // Change complaint status (uses existing PUT /api/feedback/:id)
   const setComplaintStatus = async (id, nextStatus) => {
     try {
-      await apiRequest(`/api/feedback/${id}`, {
-        method: "PUT",
-        body: JSON.stringify({ status: nextStatus }),
-      });
-    } catch (e) {
-      alert(e.message || "Failed to update status");
-      return;
-    }
-    setItems((prev) =>
-      prev.map((x) => (x._id === id ? { ...x, status: nextStatus } : x))
-    );
+      await apiRequest(`/api/feedback/${id}`, { method: "PUT", body: JSON.stringify({ status: nextStatus }) });
+      setItems((prev) => prev.map((x) => (x._id === id ? { ...x, status: nextStatus } : x)));
+    } catch (e) { alert(e.message || "Failed to update status"); }
   };
-
-  // send reply
   const sendReply = async (id) => {
     const text = (replyText || "").trim();
-    if (!text) {
-      alert("Reply cannot be empty.");
-      return;
-    }
+    if (!text) return alert("Reply cannot be empty.");
     try {
-      await apiRequest(`/api/feedback/${id}/reply`, {
-        method: "PATCH",
-        body: JSON.stringify({ text }),
-      });
-      // refresh so the reply shows instantly (and if backend marks status, it updates too)
+      await apiRequest(`/api/feedback/${id}/reply`, { method: "PATCH", body: JSON.stringify({ text }) });
       await loadAll();
       setReplyText("");
       setReplyOpenId(null);
-    } catch (e) {
-      alert(e.message || "Failed to send reply");
-    }
+    } catch (e) { alert(e.message || "Failed to send reply"); }
   };
 
   // send email
@@ -246,44 +181,29 @@ const [emailBody, setEmailBody] = useState("");
 
 
   // Derived lists
+  // Derivations
   const reviews = useMemo(() => items.filter((i) => i.type === "review"), [items]);
   const complaints = useMemo(() => items.filter((i) => i.type === "complaint"), [items]);
 
-
-  // === Derived metrics: Response & Resolution rates (complaints only) ===
-const { responseRate, resolutionRate } = useMemo(() => {
-  const total = complaints.length;
-  if (!total) return { responseRate: 0, resolutionRate: 0 };
-
-  // Responded = complaints with a non-empty adminReply.text
-  const responded = complaints.filter(
-    (c) => c?.adminReply && typeof c.adminReply.text === "string" && c.adminReply.text.trim().length > 0
-  ).length;
-
-  // Resolved = status equals "resolved" (case-insensitive)
-  const resolved = complaints.filter(
-    (c) => String(c.status || "").toLowerCase() === "resolved"
-  ).length;
-
-  return {
-    responseRate: Math.round((responded / total) * 100),
-    resolutionRate: Math.round((resolved / total) * 100),
-  };
-}, [complaints]);
-
+  const { responseRate, resolutionRate } = useMemo(() => {
+    const total = complaints.length;
+    if (!total) return { responseRate: 0, resolutionRate: 0 };
+    const responded = complaints.filter((c) => c?.adminReply?.text?.trim()).length;
+    const resolved  = complaints.filter((c) => String(c.status || "").toLowerCase() === "resolved").length;
+    return {
+      responseRate: Math.round((responded / total) * 100),
+      resolutionRate: Math.round((resolved  / total) * 100),
+    };
+  }, [complaints]);
 
   const categoryMatch = (fb) => {
     if (category === "all") return true;
     if (fb.type === "complaint") {
-      return (
-        (fb.complaintCategory && fb.complaintCategory === category) ||
-        (Array.isArray(fb.categories) && fb.categories.includes(category))
-      );
+      return (fb.complaintCategory && fb.complaintCategory === category) ||
+             (Array.isArray(fb.categories) && fb.categories.includes(category));
     }
     return Array.isArray(fb.categories) && fb.categories.includes(category);
   };
-
-  // Apply category + status filters
   const shown = (view === "reviews" ? reviews : complaints)
     .filter(categoryMatch)
     .filter((f) => {
@@ -292,7 +212,6 @@ const { responseRate, resolutionRate } = useMemo(() => {
       return statusFilter === "resolved" ? s === "resolved" : s !== "resolved";
     });
 
-  // Sidebar stats + rating distribution
   const { totalReviews, totalComplaints, avgRating, dist } = useMemo(() => {
     const totalReviews = reviews.length;
     const totalComplaints = complaints.length;
@@ -316,504 +235,328 @@ const { responseRate, resolutionRate } = useMemo(() => {
   const maxCount = Math.max(1, ...bars.map((b) => b.count));
 
   return (
-    <div className="adminfb-root">
-      {/* Particles */}
-      <div id="particles-js" />
+    <div className="adfb-root">
+      {/* Particles behind everything */}
+      <div id="adfb-particles" />
 
-      {/* Header */}
-      <header id="adminfb-header">
-        <div className="logo">GemZyne</div>
-        <nav className="nav-links">
-          <a href="#!">Dashboard</a>
-          <a href="#!">Products</a>
-          <a href="#!">Orders</a>
-          <a href="#!">Customers</a>
-          <a href="#!">Settings</a>
-        </nav>
-        <div className="header-actions">
-          <i className="fas fa-bell">
-            <span className="cart-count">5</span>
-          </i>
-          <i className="fas fa-user-circle" />
-          <button className="btn">Log Out</button>
-        </div>
-      </header>
+      {/* Shared sticky header */}
+      <Header />
 
-      {/* Page Header */}
-      <section className="page-header">
-        <h1>Feedback Management</h1>
-        <p>Manage customer reviews and complaints by category</p>
-      </section>
+      {/* Sidebar + main shell */}
+      <div className="adfb-shell">
+        <SellerSidebar />
 
-      {/* Filter Section */}
-      <div className="filter-section">
-        <div className="filter-group">
-          <span className="filter-label">Filter by Category:</span>
-          <select
-            className="filter-select"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="all">All Categories</option>
-            <option value="quality">Quality</option>
-            <option value="website">Website Issues</option>
-            <option value="shipping">Shipping</option>
-            <option value="packaging">Packaging</option>
-            <option value="value">Value</option>
-            <option value="authenticity">Authenticity</option>
-          </select>
-        </div>
+        <main className="adfb-main">
+          {/* Banner */}
+          <section className="adfb-page-header">
+            <h1>Feedback Management</h1>
+            <p>Manage customer reviews and complaints by category</p>
+          </section>
 
-        {/* NEW: Status filter (only for complaints view) */}
-        {view === "complaints" && (
-          <div className="filter-group">
-            <span className="filter-label">Status:</span>
-            <select
-              className="filter-select"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">All</option>
-              <option value="pending">Pending</option>
-              <option value="resolved">Resolved</option>
-            </select>
-          </div>
-        )}
+          {/* Filters */}
+          <div className="adfb-filter">
+            <div className="adfb-filter-group">
+              <span className="adfb-filter-label">Category:</span>
+              <select
+                className="adfb-select"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                <option value="all">All Categories</option>
+                <option value="quality">Quality</option>
+                <option value="website">Website Issues</option>
+                <option value="shipping">Shipping</option>
+                <option value="packaging">Packaging</option>
+                <option value="value">Value</option>
+                <option value="authenticity">Authenticity</option>
+              </select>
+            </div>
 
-        <div className="view-toggle">
-          <button
-            className={`view-toggle-btn ${view === "reviews" ? "active" : ""}`}
-            onClick={() => setView("reviews")}
-          >
-            Reviews
-          </button>
-          <button
-            className={`view-toggle-btn ${view === "complaints" ? "active" : ""}`}
-            onClick={() => setView("complaints")}
-          >
-            Complaints
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="content-container">
-        {/* List Card */}
-        <div className="reviews-card">
-          <div className="card-header">
-            <h3>{view === "reviews" ? "Customer Reviews" : "Customer Complaints"}</h3>
-            {!loading && (
-              <span>
-                Showing {shown.length} of{" "}
-                {view === "reviews" ? reviews.length : complaints.length}{" "}
-                {view}
-              </span>
+            {view === "complaints" && (
+              <div className="adfb-filter-group">
+                <span className="adfb-filter-label">Status:</span>
+                <select
+                  className="adfb-select"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  <option value="pending">Pending</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+              </div>
             )}
+
+            <div className="adfb-toggle">
+              <button
+                className={`adfb-toggle-btn ${view === "reviews" ? "active" : ""}`}
+                onClick={() => setView("reviews")}
+              >
+                Reviews
+              </button>
+              <button
+                className={`adfb-toggle-btn ${view === "complaints" ? "active" : ""}`}
+                onClick={() => setView("complaints")}
+              >
+                Complaints
+              </button>
+            </div>
           </div>
 
-          {loading && (
-            <div className="review-item">
-              <p>Loading…</p>
-            </div>
-          )}
-          {!!error && !loading && (
-            <div className="review-item">
-              <p style={{ color: "#ff6b6b" }}>{error}</p>
-            </div>
-          )}
-          {!loading && !error && shown.length === 0 && (
-            <div className="review-item">
-              <p>No items found for this filter.</p>
-            </div>
-          )}
+          {/* Content grid */}
+          <div className="adfb-content">
+            {/* List card */}
+            <div className="adfb-card">
+              <div className="adfb-card-header">
+                <h3>{view === "reviews" ? "Customer Reviews" : "Customer Complaints"}</h3>
+                {!loading && (
+                  <span>
+                    Showing {shown.length} of {view === "reviews" ? reviews.length : complaints.length} {view}
+                  </span>
+                )}
+              </div>
 
-          {!loading &&
-            !error &&
-            shown.map((f) => {
-              const isReview = f.type === "review";
-              const rowClass = isReview ? "review-item" : "complaint-item";
-              const name =
-                [f.firstName, f.lastName].filter(Boolean).join(" ") ||
-                f.email ||
-                "Anonymous";
-              const cats = [
-                ...(isReview
-                  ? f.categories || []
-                  : [f.complaintCategory, ...(f.categories || [])]),
-              ]
-                .filter(Boolean)
-                .map(cap);
+              {loading && <div className="adfb-item"><p>Loading…</p></div>}
+              {!!error && !loading && <div className="adfb-item"><p style={{ color: "#ff6b6b" }}>{error}</p></div>}
+              {!loading && !error && shown.length === 0 && (
+                <div className="adfb-item"><p>No items found for this filter.</p></div>
+              )}
 
-              const uniqueCats = [...new Set(cats)];
-              const rating = Number(f.rating) || 0;
-              const orderInfo =
-                f.orderId
-                  ? ` • Order #${f.orderId}`
-                  : f.productName || f.productId
-                  ? ` • ${f.productName || f.productId}`
-                  : "";
+              {!loading && !error && shown.map((f) => {
+                const isReview = f.type === "review";
+                const rowClass = isReview ? "adfb-review" : "adfb-complaint";
+                const name = [f.firstName, f.lastName].filter(Boolean).join(" ") || f.email || "Anonymous";
+                const cats = [
+                  ...(isReview ? f.categories || [] : [f.complaintCategory, ...(f.categories || [])]),
+                ].filter(Boolean).map(cap);
+                const uniqueCats = [...new Set(cats)];
+                const rating = Number(f.rating) || 0;
+                const orderInfo =
+                  f.orderId ? ` • Order #${f.orderId}` :
+                  (f.productName || f.productId) ? ` • ${f.productName || f.productId}` : "";
+                const isResolved = String(f.status || "").toLowerCase() === "resolved";
 
-              const statusLower = String(f.status || "").toLowerCase();
-              const isResolved = statusLower === "resolved";
-
-              return (
-                <div className={rowClass} key={f._id}>
-                  <div className="review-header">
-                    <div className="reviewer-info">
-                      <div className="reviewer-avatar">
-                        {initials(f.firstName, f.lastName, f.email)}
+                return (
+                  <div className={`adfb-item ${rowClass}`} key={f._id}>
+                    <div className="adfb-row-head">
+                      <div className="adfb-reviewer">
+                        <div className="adfb-avatar">{initials(f.firstName, f.lastName, f.email)}</div>
+                        <div>
+                          <h4 className="adfb-name">{name}</h4>
+                          <p className="adfb-meta">{fmtDate(f.createdAt)}{orderInfo}</p>
+                        </div>
                       </div>
-                      <div className="reviewer-details">
-                        <h4>{name}</h4>
-                        <p>
-                          {fmtDate(f.createdAt)}
-                          {orderInfo}
-                        </p>
+                      <div className="adfb-rating">
+                        {isReview ? ("★★★★★".slice(0, rating) + "☆☆☆☆☆".slice(0, 5 - rating)) : "—"}
                       </div>
                     </div>
-                    <div className="review-rating">
-                      {isReview
-                        ? "★★★★★".slice(0, rating) +
-                          "☆☆☆☆☆".slice(0, 5 - rating)
-                        : "—"}
+
+                    <div className="adfb-chips">
+                      {uniqueCats.map((c) => (
+                        <span key={`${f._id}-${c}`} className={isReview ? "adfb-chip" : "adfb-chip adfb-chip--danger"}>
+                          {c}
+                        </span>
+                      ))}
                     </div>
-                  </div>
 
-                  <div>
-                    {uniqueCats.map((c) => (
-                      <span
-                        key={`${f._id}-${c}`}
-                        className={isReview ? "review-category" : "complaint-category"}
-                      >
-                        {c}
-                      </span>
-                    ))}
-                  </div>
+                    {!isReview && f.adminReply?.text && (
+                      <div className="adfb-reply">
+                        <strong>Reply:</strong> {f.adminReply.text}
+                      </div>
+                    )}
 
-                  {/* Existing admin reply chip (complaints only) */}
-                  {!isReview && f.adminReply?.text && (
-                    <div
-                      style={{
-                        marginTop: 10,
-                        marginBottom: 6,
-                        padding: "10px 12px",
-                        background: "rgba(212,175,55,0.12)",
-                        border: "1px solid rgba(212,175,55,0.35)",
-                        borderRadius: 10,
-                        fontSize: 14,
-                      }}
-                    >
-                      <strong>Reply:</strong> {f.adminReply.text}
-                    </div>
-                  )}
-
-                  {/* Complaint status chip */}
-                  {!isReview && (
-                    <div style={{ marginTop: 8, marginBottom: 6 }}>
-                      <span
-                        style={{
-                          display: "inline-block",
-                          padding: "4px 10px",
-                          borderRadius: 999,
-                          fontSize: 12,
-                          border: "1px solid",
-                          borderColor: isResolved
-                            ? "rgba(80,200,120,.6)"
-                            : "rgba(212,175,55,.5)",
-                          background: isResolved
-                            ? "rgba(80,200,120,.15)"
-                            : "rgba(212,175,55,.12)",
-                          color: isResolved ? "#7DDEA5" : "#d4af37",
-                        }}
-                      >
+                    {!isReview && (
+                      <div className={`adfb-status ${isResolved ? "adfb-status--ok" : "adfb-status--warn"}`}>
                         {f.status || "Pending"}
-                      </span>
-                    </div>
-                  )}
+                      </div>
+                    )}
 
-                  <div className="review-content">
-                    <p>{f.feedbackText}</p>
-                  </div>
+                    <div className="adfb-text"><p>{f.feedbackText}</p></div>
 
-                  {(f.productName || f.productId) && (
-                    <div className="review-gem">
-                      {/* <img src="..." alt="" /> */}
-                      <p>{f.productName || f.productId}</p>
-                    </div>
-                  )}
+                    {(f.productName || f.productId) && (
+                      <div className="adfb-gem"><p>{f.productName || f.productId}</p></div>
+                    )}
 
-                  {/* Actions with inline confirm/cancel + Reply */}
-                 <div className="review-actions">
-  {/* Complaint-only actions */}
-  {!isReview && (
-    <>
-      {/* Resolve / Mark Pending */}
-      <button
-        className="review-action-btn"
-        onClick={() =>
-          setComplaintStatus(
-            f._id,
-            String(f.status || "").toLowerCase() === "resolved" ? "Pending" : "Resolved"
-          )
-        }
-      >
-        <i className="fas fa-check-circle" />
-        {String(f.status || "").toLowerCase() === "resolved" ? "Mark Pending" : "Resolve"}
-      </button>
+                    <div className="adfb-actions">
+                      {!isReview && (
+  <>
+    {/* Resolve / Mark Pending */}
+    <button
+      className="adfb-action"
+      onClick={() => setComplaintStatus(f._id, isResolved ? "Pending" : "Resolved")}
+    >
+      <i className="fas fa-check-circle" /> {isResolved ? "Mark Pending" : "Resolve"}
+    </button>
 
-      {/* Reply (your existing inline reply UI) */}
-      {replyOpenId === f._id ? (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%", marginTop: 10 }}>
-          <input
-            type="text"
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
-            placeholder="Type your reply…"
-            style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #333", background: "#141414", color: "#eee" }}
-          />
-          <button className="review-action-btn" onClick={() => sendReply(f._id)}>Send</button>
-          <button className="review-action-btn delete" onClick={() => { setReplyOpenId(null); setReplyText(""); }}>
+    {/* Reply */}
+    {replyOpenId === f._id ? (
+      <div className="adfb-replybox">
+        <textarea
+          value={replyText}
+          onChange={(e) => setReplyText(e.target.value)}
+          placeholder="Type your reply…"
+          rows={4}
+        />
+        <div className="adfb-replybox-actions">
+          <button className="adfb-action" onClick={() => sendReply(f._id)}>Send</button>
+          <button
+            className="adfb-action adfb-action--danger"
+            onClick={() => { setReplyOpenId(null); setReplyText(""); }}
+          >
             Cancel
           </button>
         </div>
-      ) : (
-        <button
-          className="review-action-btn"
-          onClick={() => { setReplyOpenId(f._id); setReplyText(f.adminReply?.text || ""); }}
-        >
-          <i className="fas fa-reply" /> Reply
-        </button>
-      )}
-
-      {/* Email button + inline compose UI (THIS is the new part) */}
+      </div>
+    ) : (
       <button
-        className="review-action-btn"
-        onClick={() => {
-          setEmailOpenId((prev) => (prev === f._id ? null : f._id));
-          setEmailSubject((prev) =>
-            prev?.trim()
-              ? prev
-               : `Update on your ${f.complaintCategory || "GemZyne"} complaint`      
-               );
-                setEmailBody((prev) => (prev?.trim() ? prev : buildEmailTemplate(f)));
-              }}
+        className="adfb-action"
+        onClick={() => { setReplyOpenId(f._id); setReplyText(f.adminReply?.text || ""); }}
       >
-        <i className="fas fa-envelope" /> Email
+        <i className="fas fa-reply" /> Reply
       </button>
+    )}
 
-      {emailOpenId === f._id && (
-        <div style={{ width: "100%", marginTop: 10, display: "grid", gap: 8 }}>
-          <input
-            type="text"
-            value={emailSubject}
-            onChange={(e) => setEmailSubject(e.target.value)}
-            placeholder="Subject"
-            style={{
-              padding: "8px 10px",
-              borderRadius: 8,
-              border: "1px solid #333",
-              background: "#141414",
-              color: "#eee",
-            }}
-          />
-          <textarea
-            value={emailBody}
-            onChange={(e) => setEmailBody(e.target.value)}
-            placeholder="Type your message…"
-            rows={4}
-            style={{
-              padding: "10px",
-              borderRadius: 8,
-              border: "1px solid #333",
-              background: "#141414",
-              color: "#eee",
-              resize: "vertical",
-            }}
-          />
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              className="review-action-btn"
-              onClick={() => sendEmailToComplaint(f._id)}
-              disabled={!emailBody.trim()}
-              title={!emailBody.trim() ? "Message required" : "Send"}
-            >
-              Send Email
-            </button>
-            <button
-              className="review-action-btn delete"
-              onClick={() => {
-                setEmailOpenId(null);
-                setEmailSubject("");
-                setEmailBody("");
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-    </>
-  )}
-
-  {/* Existing moderation actions */}
-  {f.isAdminHidden ? (
-    <button className="review-action-btn" onClick={() => doRestore(f._id)}>
-      <i className="fas fa-undo" /> Restore
-    </button>
-  ) : confirmId === f._id ? (
-    <>
-      <button
-        className="review-action-btn delete"
-        onClick={() => { doHide(f._id); setConfirmId(null); }}
-      >
-        Confirm
-      </button>
-      <button
-        className="review-action-btn delete"
-        onClick={() => setConfirmId(null)}
-      >
-        Cancel
-      </button>
-    </>
-  ) : (
+    {/* Email */}
     <button
-      className="review-action-btn delete"
-      onClick={() => setConfirmId(f._id)}
+      className="adfb-action"
+      onClick={() => {
+        setEmailOpenId((prev) => (prev === f._id ? null : f._id));
+        // sensible defaults on open
+        setEmailSubject((prev) =>
+          prev?.trim() ? prev : `Update on your ${f.complaintCategory || "GemZyne"} complaint`
+        );
+        setEmailBody((prev) => (prev?.trim() ? prev : buildEmailTemplate(f)));
+      }}
     >
-      <i className="fas fa-trash" /> Delete
+      <i className="fas fa-envelope" /> Email
     </button>
-  )}
-</div>
 
-                </div>
-              );
-            })}
+    {/* Inline email composer */}
+    {emailOpenId === f._id && (
+      <div style={{ width: "100%", marginTop: 10, display: "grid", gap: 8 }}>
+        <input
+          type="text"
+          value={emailSubject}
+          onChange={(e) => setEmailSubject(e.target.value)}
+          placeholder="Subject"
+          style={{
+            padding: "8px 10px",
+            borderRadius: 8,
+            border: "1px solid #333",
+            background: "#141414",
+            color: "#eee",
+          }}
+        />
+        <textarea
+          value={emailBody}
+          onChange={(e) => setEmailBody(e.target.value)}
+          placeholder="Type your message…"
+          rows={4}
+          style={{
+            padding: "10px",
+            borderRadius: 8,
+            border: "1px solid #333",
+            background: "#141414",
+            color: "#eee",
+            resize: "vertical",
+          }}
+        />
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="adfb-action"
+            onClick={() => sendEmailToComplaint(f._id)}
+            disabled={!emailBody.trim()}
+            title={!emailBody.trim() ? "Message required" : "Send"}
+          >
+            Send Email
+          </button>
+          <button
+            className="adfb-action adfb-action--danger"
+            onClick={() => {
+              setEmailOpenId(null);
+              setEmailSubject("");
+              setEmailBody("");
+            }}
+          >
+            Cancel
+          </button>
         </div>
-
-        {/* Sidebar */}
-        <div className="sidebar">
-          <div className="sidebar-title">Feedback Overview</div>
-          <div className="stats-container">
-            <div className="stat-item">
-              <span>Total Reviews</span>
-              <span className="stat-value">{totalReviews}</span>
-            </div>
-            <div className="stat-item">
-              <span>Total Complaints</span>
-              <span className="stat-value complaints">{totalComplaints}</span>
-            </div>
-            <div className="stat-item">
-              <span>Average Rating</span>
-              <span className="stat-value">{avgRating}</span>
-            </div>
-            <div className="stat-item" title="Complaints with at least one seller/admin reply">
-               <span>Response Rate</span>
-               <span className="stat-value">{responseRate}%</span>
-            </div>
-            <div className="stat-item" title="Complaints marked as Resolved">
-              <span>Resolution Rate</span>
-              <span className="stat-value">{resolutionRate}%</span>
-            </div>
+      </div>
+    )}
+  </>
+)}
 
 
-            {/* Rating Distribution */}
-            <div className="rating-summary">
-              <h4 style={{ color: "#d4af37", marginBottom: 15 }}>Rating Distribution</h4>
-              {bars.map((row) => {
-                const widthPct =
-                  maxCount === 0 ? "0%" : `${(row.count / maxCount) * 100}%`;
-                return (
-                  <div className="rating-bar" key={row.label}>
-                    <span className="rating-label">{row.label}</span>
-                    <div className="rating-progress">
-                      <div
-                        className="rating-progress-fill"
-                        style={{ width: widthPct }}
-                      />
+                      {f.isAdminHidden ? (
+                        <button className="adfb-action" onClick={() => doRestore(f._id)}>
+                          <i className="fas fa-undo" /> Restore
+                        </button>
+                      ) : confirmId === f._id ? (
+                        <>
+                          <button
+                            className="adfb-action adfb-action--danger"
+                            onClick={() => { doHide(f._id); setConfirmId(null); }}
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            className="adfb-action adfb-action--danger"
+                            onClick={() => setConfirmId(null)}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          className="adfb-action adfb-action--danger"
+                          onClick={() => setConfirmId(f._id)}
+                        >
+                          <i className="fas fa-trash" /> Delete
+                        </button>
+                      )}
                     </div>
-                    <span className="rating-count">{row.count}</span>
                   </div>
                 );
               })}
             </div>
 
-            {/* Complaint categories demo (static) */}
-            <div className="rating-summary" style={{ marginTop: 30 }}>
-              <h4 style={{ color: "#ff6b81", marginBottom: 15 }}>Complaint Categories</h4>
-              {[
-                ["Quality", 40, 17],
-                ["Website", 25, 11],
-                ["Shipping", 20, 8],
-                ["Packaging", 10, 4],
-                ["Other", 5, 2],
-              ].map(([label, pct, count]) => (
-                <div className="rating-bar" key={label}>
-                  <span className="rating-label">{label}</span>
-                  <div className="rating-progress">
-                    <div
-                      className="rating-progress-fill"
-                      style={{ width: `${pct}%`, background: "#ff6b81" }}
-                    />
-                  </div>
-                  <span className="rating-count">{count}</span>
+            {/* Sidebar stats (right side) */}
+            <aside className="adfb-sidecard">
+              <div className="adfb-sidecard__title">Feedback Overview</div>
+              <div className="adfb-sidecard__body">
+                <div className="adfb-stat"><span>Total Reviews</span><span className="adfb-stat__val">{totalReviews}</span></div>
+                <div className="adfb-stat"><span>Total Complaints</span><span className="adfb-stat__val adfb-stat__val--danger">{totalComplaints}</span></div>
+                <div className="adfb-stat"><span>Average Rating</span><span className="adfb-stat__val">{avgRating}</span></div>
+                <div className="adfb-stat" title="Complaints with at least one reply">
+                  <span>Response Rate</span><span className="adfb-stat__val">{responseRate}%</span>
                 </div>
-              ))}
-            </div>
+                <div className="adfb-stat" title="Complaints marked Resolved">
+                  <span>Resolution Rate</span><span className="adfb-stat__val">{resolutionRate}%</span>
+                </div>
+
+                <div className="adfb-dist">
+                  <h4>Rating Distribution</h4>
+                  {bars.map((row) => {
+                    const widthPct = maxCount === 0 ? "0%" : `${(row.count / maxCount) * 100}%`;
+                    return (
+                      <div className="adfb-bar" key={row.label}>
+                        <span className="adfb-bar__label">{row.label}</span>
+                        <div className="adfb-bar__track">
+                          <div className="adfb-bar__fill" style={{ width: widthPct }} />
+                        </div>
+                        <span className="adfb-bar__count">{row.count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </aside>
           </div>
-        </div>
+        </main>
       </div>
 
-      {/* Footer */}
-      <footer>
-        <div className="footer-grid">
-          <div className="footer-col">
-            <h3>GemZyne</h3>
-            <p>
-              Discover the world's most exceptional gemstones, curated for
-              discerning collectors.
-            </p>
-          </div>
-          <div className="footer-col">
-            <h3>Collections</h3>
-            <ul>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-gem" /> Sapphires
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-gem" /> Rubies
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-gem" /> Emeralds
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-gem" /> Diamonds
-                </a>
-              </li>
-              <li>
-                <a href="#!">
-                  <i className="fas fa-gem" /> Rare Gems
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div className="footer-col">
-            <h3>Contact</h3>
-            <ul>
-              <li>Email: contact@gemzyne.com</li>
-              <li>Phone: +1 234 567 890</li>
-              <li>Address: 123 Gem Street, New York</li>
-            </ul>
-          </div>
-        </div>
-        <div className="footer-bottom">&copy; 2025 GemZyne. All rights reserved.</div>
-      </footer>
+      {/* Shared footer */}
+      <Footer />
     </div>
   );
 }
