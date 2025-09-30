@@ -1,31 +1,28 @@
 // src/pages/DashBoards/SellerAuctionControlDashboard.jsx
-// ----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // Seller • Auction Control Dashboard
-// - Particles background
-// - Overview widgets (Total Income & Items Sold use ONLY paid items)
-// - Filters (search/type/status)
-// - Charts (weekly/monthly revenue with summary)  ← status chart removed
-// - Live / Upcoming / Ended sections
-// - Drawer (details + recent bidders; edit in "upcoming" mode)
-// - Create Auction modal (4 steps) with validations + popup messages
-// - History table shows Paid / Pending / Expired / Cancelled
-// - Live bid counts auto-refresh for ongoing auctions
-// ----------------------------------------------------------------------------
+// - Particles bg, Filters, Widgets, Revenue chart
+// - Live/Upcoming/Ended sections
+// - Drawer (view/edit upcoming, bidders list)
+// - Create modal (4 steps) with validations + popup + toasts
+// - Winner/paid logic for history
+// - Popups/Toasts via React portal (always on top)
+// -----------------------------------------------------------------------------
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Header";
 import SellerSidebar from "../../Components/SellerSidebar";
-import Footer from "../../Components/Footer";
 import "../DashBoards/SellerAuctionControlDashboard.css";
 import { request } from "../../api";
 
-/* ===================== PAGE (top of file) ===================== */
+/* ========================== PAGE ========================== */
 
 export default function SellerAuctionControlDashboard() {
   const navigate = useNavigate();
 
-  // ---- route guard ----
+  // --- route guard (seller only) ---
   useEffect(() => {
     const raw = localStorage.getItem("user");
     const user = raw ? JSON.parse(raw) : null;
@@ -33,7 +30,7 @@ export default function SellerAuctionControlDashboard() {
     if (user.role !== "seller") return navigate("/mainhome", { replace: true });
   }, [navigate]);
 
-  // ---- particles bg ----
+  // --- particles background (CDN) ---
   useEffect(() => {
     const init = () => {
       window.particlesJS &&
@@ -44,22 +41,12 @@ export default function SellerAuctionControlDashboard() {
             shape: { type: "circle" },
             opacity: { value: 0.3, random: true },
             size: { value: 3, random: true },
-            line_linked: {
-              enable: true,
-              distance: 150,
-              color: "#d4af37",
-              opacity: 0.1,
-              width: 1,
-            },
-            move: { enable: true, speed: 1, random: true, straight: false, out_mode: "out" },
+            line_linked: { enable: true, distance: 150, color: "#d4af37", opacity: 0.1, width: 1 },
+            move: { enable: true, speed: 1, random: true, out_mode: "out" },
           },
           interactivity: {
             detect_on: "canvas",
-            events: {
-              onhover: { enable: true, mode: "repulse" },
-              onclick: { enable: true, mode: "push" },
-              resize: true,
-            },
+            events: { onhover: { enable: true, mode: "repulse" }, onclick: { enable: true, mode: "push" }, resize: true },
           },
           retina_detect: true,
         });
@@ -74,31 +61,10 @@ export default function SellerAuctionControlDashboard() {
     }
   }, []);
 
-  /* ---- state ---- */
-  const [overview, setOverview] = useState({
-    totals: { income: 0, totalAuctions: 0, ongoing: 0, sold: 0 },
-    live: [],
-    upcoming: [],
-    history: [],
-  });
-  const [liveBidCounts, setLiveBidCounts] = useState({});
-  const [winStatusMap, setWinStatusMap] = useState({});
-
-  const [q, setQ] = useState("");
-  const [type, setType] = useState("all");
-  const [status, setStatus] = useState("all");
-
-  const [openDrawer, setOpenDrawer] = useState(false);
-  const [drawerAuction, setDrawerAuction] = useState(null);
-  const [drawerMode, setDrawerMode] = useState("live"); // "live" | "upcoming" | "ended"
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editForm, setEditForm] = useState(null);
-
-  // toasts + popup
+  // --- toasts + popup (global) ---
   const { toasts, push, remove } = useToasts();
   const [popup, setPopup] = useState({ open: false, title: "", message: "", actions: [] });
-  const openPopup = (title, message, actions) =>
-    setPopup({ open: true, title, message, actions: actions || [] });
+  const openPopup = (title, message, actions) => setPopup({ open: true, title, message, actions: actions || [] });
   const closePopup = () => setPopup((p) => ({ ...p, open: false }));
   const confirmAsync = (title, message, yes = "Yes", no = "No") =>
     new Promise((resolve) =>
@@ -108,7 +74,29 @@ export default function SellerAuctionControlDashboard() {
       ])
     );
 
-  /* ---- data load ---- */
+  // --- overview state ---
+  const [overview, setOverview] = useState({
+    totals: { income: 0, totalAuctions: 0, ongoing: 0, sold: 0 },
+    live: [],
+    upcoming: [],
+    history: [],
+  });
+  const [liveBidCounts, setLiveBidCounts] = useState({}); // {id:count}
+  const [winStatusMap, setWinStatusMap] = useState({});   // {id:{purchaseStatus,paymentId,purchaseDeadline}}
+
+  // --- filters ---
+  const [q, setQ] = useState("");
+  const [type, setType] = useState("all");
+  const [status, setStatus] = useState("all");
+
+  // --- drawer/modal state ---
+  const [openDrawer, setOpenDrawer] = useState(false);
+  const [drawerAuction, setDrawerAuction] = useState(null);
+  const [drawerMode, setDrawerMode] = useState("live"); // live | upcoming | ended
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+
+  // --- initial load + poll overview ---
   async function load() {
     try {
       const data = await request("/api/auctions/seller/overview");
@@ -134,12 +122,9 @@ export default function SellerAuctionControlDashboard() {
     return () => clearInterval(id);
   }, []);
 
-  // winner status hydration (ended)
+  // --- hydrate winners for ended rows ---
   async function hydrateWinnerStatuses(items) {
-    if (!items?.length) {
-      setWinStatusMap({});
-      return;
-    }
+    if (!items?.length) return setWinStatusMap({});
     const ids = Array.from(new Set(items.map((h) => h._id)));
     const results = await Promise.allSettled(ids.map((id) => request(`/api/wins/auction/${id}`)));
     const map = {};
@@ -157,7 +142,7 @@ export default function SellerAuctionControlDashboard() {
     setWinStatusMap(map);
   }
 
-  // live bids count hydration
+  // --- live bids count (prefer /count, fallback to list) ---
   async function fetchBidCountForAuction(id) {
     try {
       const c = await request(`/api/bids/auction/${id}/count`);
@@ -172,17 +157,11 @@ export default function SellerAuctionControlDashboard() {
     return 0;
   }
   async function hydrateLiveBidCounts(liveList) {
-    if (!Array.isArray(liveList) || liveList.length === 0) {
-      setLiveBidCounts({});
-      return;
-    }
+    if (!Array.isArray(liveList) || liveList.length === 0) return setLiveBidCounts({});
     const ids = Array.from(new Set(liveList.map((a) => a._id)));
     const results = await Promise.allSettled(ids.map((id) => fetchBidCountForAuction(id)));
     const map = {};
-    results.forEach((r, i) => {
-      const id = ids[i];
-      map[id] = r.status === "fulfilled" ? Number(r.value || 0) : 0;
-    });
+    results.forEach((r, i) => (map[ids[i]] = r.status === "fulfilled" ? Number(r.value || 0) : 0));
     setLiveBidCounts(map);
   }
   useEffect(() => {
@@ -193,7 +172,7 @@ export default function SellerAuctionControlDashboard() {
     return () => clearInterval(t);
   }, [overview.live]);
 
-  // upcoming prefill
+  // --- prefill edit when opening upcoming ---
   useEffect(() => {
     if (openDrawer && drawerMode === "upcoming" && drawerAuction) {
       setEditForm({
@@ -204,13 +183,11 @@ export default function SellerAuctionControlDashboard() {
         startTime: drawerAuction.startTime?.slice(0, 16) || "",
         endTime: drawerAuction.endTime?.slice(0, 16) || "",
       });
-    } else {
-      setEditForm(null);
-    }
+    } else setEditForm(null);
   }, [openDrawer, drawerMode, drawerAuction]);
 
-  /* ---- paid/status helpers ---- */
-  const isPaid = (row) => {
+  // --- paid + status helpers ---
+  const isPaidRow = (row) => {
     const win = winStatusMap[row._id] || {};
     const ps = (win.purchaseStatus || row.purchaseStatus || row.winnerStatus || "").toLowerCase();
     return ps === "paid" || !!win.paymentId || !!row.paymentId;
@@ -225,32 +202,28 @@ export default function SellerAuctionControlDashboard() {
     return { label: "Pending", cls: "pending" };
   };
 
-  /* ---- filters ---- */
+  // --- filter results ---
   const norm = (s) => (s || "").toLowerCase();
   const match = (a) =>
     (!q || norm(a.title).includes(norm(q)) || norm(a.description).includes(norm(q))) &&
     (type === "all" || a.type === type);
-
   const liveFiltered = useMemo(() => overview.live.filter(match), [match, overview.live]);
   const upcomingFiltered = useMemo(() => overview.upcoming.filter(match), [match, overview.upcoming]);
   const historyFiltered = useMemo(() => overview.history.filter(match), [match, overview.history]);
-
   const showLive = status === "all" || status === "live";
   const showUpcoming = status === "all" || status === "upcoming";
   const showEnded = status === "all" || status === "ended";
 
-  /* ---- chart (revenue only; paid items) ---- */
+  // --- revenue chart data (paid only) ---
   const [revenueMode, setRevenueMode] = useState("weekly");
   const chartRefs = { revenue: useRef(null) };
   const chartObjs = useRef({});
-  const paidHistory = useMemo(
-    () => (overview.history || []).filter((h) => isPaid(h)),
-    [overview.history, winStatusMap]
-  );
+  const paidHistory = useMemo(() => (overview.history || []).filter(isPaidRow), [overview.history, winStatusMap]);
   const monthlyRevenue = useMonthlyRevenue(paidHistory);
   const weeklyRevenue = useWeeklyRevenue(paidHistory);
   const revenueSummary = useRevenueSummary(revenueMode === "weekly" ? weeklyRevenue : monthlyRevenue);
 
+  // --- draw chart via CDN Chart.js ---
   useEffect(() => {
     const ensure = () =>
       new Promise((resolve) => {
@@ -262,11 +235,10 @@ export default function SellerAuctionControlDashboard() {
       });
     const draw = async () => {
       await ensure();
-      const Chart = window.Chart;
       Object.values(chartObjs.current).forEach((c) => c?.destroy?.());
       chartObjs.current = {};
-
       if (chartRefs.revenue.current) {
+        const Chart = window.Chart;
         const src = revenueMode === "weekly" ? weeklyRevenue : monthlyRevenue;
         chartObjs.current.revenue = new Chart(chartRefs.revenue.current.getContext("2d"), {
           type: "bar",
@@ -300,7 +272,7 @@ export default function SellerAuctionControlDashboard() {
     };
   }, [weeklyRevenue, monthlyRevenue, revenueMode]);
 
-  /* ---- drawer actions with popup/confirm ---- */
+  // --- upcoming actions (save/delete) with popup ---
   async function saveUpcoming() {
     try {
       const id = drawerAuction?._id;
@@ -321,7 +293,6 @@ export default function SellerAuctionControlDashboard() {
       openPopup("Update Failed", e?.message || "Could not update this auction.");
     }
   }
-
   async function deleteUpcoming() {
     const ok = await confirmAsync("Delete Auction", "Delete this upcoming auction?");
     if (!ok) return;
@@ -336,28 +307,31 @@ export default function SellerAuctionControlDashboard() {
     }
   }
 
-  /* ===================== RENDER ===================== */
+  /* ========================== RENDER ========================== */
 
   return (
     <>
       <div id="particles-js" />
+
       <Header />
 
-      {/* Toasts + Popup */}
+      {/* toasts + popup (portals => always on top) */}
       <ToastRack toasts={toasts} remove={remove} />
       <PopModal open={popup.open} title={popup.title} message={popup.message} actions={popup.actions} onClose={closePopup} />
 
-      <div className="sac-container">
+      <div className="sac-container dashboard-container">
         <SellerSidebar active="auctioncontrol" />
-        <main className="sac-content">
-          <div className="sac-header">
-            <h2 className="sac-title">Seller • Auction Control</h2>
+
+        <main className="sac-content dashboard-content">
+          {/* header */}
+          <div className="sac-header dashboard-header">
+            <h2 className="sac-title dashboard-title">Seller • Auction Control</h2>
             <button className="sac-btn" onClick={() => setCreateOpen(true)}>
               <i className="fa-solid fa-plus" /> New Auction
             </button>
           </div>
 
-          {/* Filters */}
+          {/* filters */}
           <div className="sac-filters">
             <div className="sac-search">
               <i className="fa-solid fa-magnifying-glass" />
@@ -393,26 +367,22 @@ export default function SellerAuctionControlDashboard() {
             </div>
           </div>
 
-          {/* Overview widgets */}
-          <section className="sac-overview">
+          {/* widgets (paid only for income/sold) */}
+          <section className="sac-overview stats-grid">
             <Widget icon="fa-coins" label="Total Income" value={fmtMoney(sumRevenuePaid(overview.history, winStatusMap))} />
             <Widget icon="fa-gavel" label="Total Auctions" value={overview.totals.totalAuctions} />
             <Widget icon="fa-hourglass-half" label="Ongoing" value={overview.totals.ongoing} />
             <Widget icon="fa-gem" label="Items Sold" value={countPaid(overview.history, winStatusMap)} />
           </section>
 
-          {/* Charts — only Revenue now */}
-          <div className="sac-charts">
-            <div className="sac-chart-card">
+          {/* chart */}
+          <div className="sac-charts chart-container">
+            <div className="sac-chart-card chart-card">
               <div className="sac-chart-head">
-                <h3 className="sac-chart-title">Revenue</h3>
+                <h3 className="sac-chart-title chart-title">Revenue</h3>
                 <div className="sac-chart-tabs">
-                  <button className={revenueMode === "weekly" ? "is-active" : ""} onClick={() => setRevenueMode("weekly")} type="button">
-                    Weekly
-                  </button>
-                  <button className={revenueMode === "monthly" ? "is-active" : ""} onClick={() => setRevenueMode("monthly")} type="button">
-                    Monthly
-                  </button>
+                  <button className={revenueMode === "weekly" ? "is-active" : ""} onClick={() => setRevenueMode("weekly")} type="button">Weekly</button>
+                  <button className={revenueMode === "monthly" ? "is-active" : ""} onClick={() => setRevenueMode("monthly")} type="button">Monthly</button>
                 </div>
               </div>
 
@@ -427,14 +397,8 @@ export default function SellerAuctionControlDashboard() {
                 </div>
                 <div className="sac-metric">
                   <div className="sac-metric-label">Change</div>
-                  <div
-                    className={
-                      "sac-trend " + (revenueSummary.delta > 0 ? "up" : revenueSummary.delta < 0 ? "down" : "flat")
-                    }
-                    title={`${revenueSummary.delta.toFixed(1)}%`}
-                  >
-                    {revenueSummary.delta > 0 ? "▲" : revenueSummary.delta < 0 ? "▼" : "▬"}{" "}
-                    {Math.abs(revenueSummary.delta).toFixed(1)}%
+                  <div className={"sac-trend " + (revenueSummary.delta > 0 ? "up" : revenueSummary.delta < 0 ? "down" : "flat")} title={`${revenueSummary.delta.toFixed(1)}%`}>
+                    {revenueSummary.delta > 0 ? "▲" : revenueSummary.delta < 0 ? "▼" : "▬"} {Math.abs(revenueSummary.delta).toFixed(1)}%
                   </div>
                 </div>
               </div>
@@ -443,10 +407,10 @@ export default function SellerAuctionControlDashboard() {
             </div>
           </div>
 
-          {/* Live */}
-          {(status === "all" || status === "live") && (
+          {/* live */}
+          {showLive && (
             <Section title="Live Auctions">
-              <div className="sac-grid">
+              <div className="sac-grid gems-grid">
                 {liveFiltered.length === 0 ? (
                   <p className="sac-empty">No matching live auctions.</p>
                 ) : (
@@ -467,10 +431,10 @@ export default function SellerAuctionControlDashboard() {
             </Section>
           )}
 
-          {/* Upcoming */}
-          {(status === "all" || status === "upcoming") && (
+          {/* upcoming */}
+          {showUpcoming && (
             <Section title="Upcoming Auctions">
-              <div className="sac-grid">
+              <div className="sac-grid gems-grid">
                 {upcomingFiltered.length === 0 ? (
                   <p className="sac-empty">No matching upcoming auctions.</p>
                 ) : (
@@ -490,11 +454,11 @@ export default function SellerAuctionControlDashboard() {
             </Section>
           )}
 
-          {/* Ended */}
-          {(status === "all" || status === "ended") && (
+          {/* ended */}
+          {showEnded && (
             <Section title="Auction History">
-              <div className="sac-table-wrap">
-                <table className="sac-table">
+              <div className="sac-table-wrap table-responsive">
+                <table className="sac-table data-table">
                   <thead>
                     <tr>
                       <th>Gem</th>
@@ -508,11 +472,7 @@ export default function SellerAuctionControlDashboard() {
                   </thead>
                   <tbody>
                     {historyFiltered.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="sac-empty">
-                          No history items match your filters.
-                        </td>
-                      </tr>
+                      <tr><td colSpan={7} className="sac-empty">No history items match your filters.</td></tr>
                     ) : (
                       historyFiltered.map((h) => {
                         const st = statusFor(h);
@@ -520,7 +480,7 @@ export default function SellerAuctionControlDashboard() {
                           <tr key={h._id}>
                             <td>{h.title}</td>
                             <td>{h.type}</td>
-                            <td className="sac-price">{fmtMoney(h.finalPrice ?? h.currentPrice ?? 0)}</td>
+                            <td className="sac-price gem-price">{fmtMoney(h.finalPrice ?? h.currentPrice ?? 0)}</td>
                             <td>{fmtDateTime(h.endTime)}</td>
                             <td className="sac-winner">{h.winnerName || "-"}</td>
                             <td>
@@ -528,7 +488,7 @@ export default function SellerAuctionControlDashboard() {
                             </td>
                             <td>
                               <button
-                                className="sac-btn-outline"
+                                className="sac-btn-outline action-btn btn-view"
                                 onClick={() => {
                                   setDrawerAuction(h);
                                   setDrawerMode("ended");
@@ -550,7 +510,7 @@ export default function SellerAuctionControlDashboard() {
         </main>
       </div>
 
-      {/* Drawer */}
+      {/* drawer */}
       <DetailsDrawer
         open={openDrawer}
         a={drawerAuction}
@@ -562,27 +522,21 @@ export default function SellerAuctionControlDashboard() {
         onDeleteUpcoming={deleteUpcoming}
       />
 
-      {/* Create modal with validations + popup/toast */}
-      <CreateAuctionModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={load}
-        push={push}
-        openPopup={openPopup}
-      />
+      {/* create modal */}
+      <CreateAuctionModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={load} push={push} openPopup={openPopup} />
 
-      <Footer />
     </>
   );
 }
 
-/* ===================== SUB-COMPONENTS ===================== */
+/* ====================== SUB-COMPONENTS ====================== */
 
+// -- section frame --
 function Section({ title, children }) {
   return (
-    <section className="sac-section">
-      <div className="sac-section-title">
-        <h2>{title}</h2>
+    <section className="sac-section dashboard-section">
+      <div className="sac-section-title section-header">
+        <h2 className="section-title">{title}</h2>
         <span className="sac-underline" />
       </div>
       {children}
@@ -590,105 +544,104 @@ function Section({ title, children }) {
   );
 }
 
+// -- small stat widget --
 function Widget({ icon, label, value }) {
   return (
-    <div className="sac-widget">
-      <i className={`fa-solid ${icon}`} />
-      <h3>{label}</h3>
-      <div className="sac-widget-value">{value}</div>
+    <div className="sac-widget stat-card">
+      <div className="stat-icon"><i className={`fa-solid ${icon}`} /></div>
+      <div className="stat-info">
+        <h3>{value}</h3>
+        <p>{label}</p>
+      </div>
     </div>
   );
 }
 
+// -- live card --
 function LiveCard({ a, onOpen, count = 0 }) {
   const { total, days, hours, minutes, seconds } = useCountdown(a.endTime);
   const ended = total <= 0;
   return (
-    <div className="sac-card">
-      <div className="sac-badge sac-badge-live">LIVE • {count} {count === 1 ? "BID" : "BIDS"}</div>
-      <img className="sac-img" src={asset(a.imageUrl)} alt={a.title} />
-      <h3 className="sac-card-title">{a.title}</h3>
-      <p className="sac-card-sub"><i className="fa-solid fa-gem" /> {a.type}</p>
-      <p className="sac-desc">{a.description}</p>
-      <div className="sac-price">Current: {fmtMoney(a.currentPrice)}</div>
-      <p className="sac-line"><strong>Ends:</strong> {fmtDateTime(a.endTime)}</p>
-      <div className="sac-countdown">
-        {ended ? (
-          <span className="sac-muted">Auction ended</span>
-        ) : (
-          <>
-            <TimeBox v={days} lbl="Days" />
-            <TimeBox v={hours} lbl="Hours" />
-            <TimeBox v={minutes} lbl="Mins" />
-            <TimeBox v={seconds} lbl="Secs" />
-          </>
-        )}
-      </div>
-      <div className="sac-actions">
-        <button className="sac-btn-outline sac-btn-wide" onClick={onOpen}>
-          <i className="fa-solid fa-eye" /> View Details
-        </button>
+    <div className="sac-card gem-card">
+      <div className="sac-badge sac-badge-live status status-active">LIVE • {count} {count === 1 ? "BID" : "BIDS"}</div>
+      <div className="gem-image"><img className="sac-img" src={asset(a.imageUrl)} alt={a.title} style={{ maxHeight: "100%", maxWidth: "100%" }} /></div>
+      <div className="gem-info">
+        <h3 className="sac-card-title gem-name">{a.title}</h3>
+        <p className="sac-card-sub"><i className="fa-solid fa-gem" /> {a.type}</p>
+        <p className="sac-desc">{a.description}</p>
+        <div className="sac-price gem-price">Current: {fmtMoney(a.currentPrice)}</div>
+        <p className="sac-line"><strong>Ends:</strong> {fmtDateTime(a.endTime)}</p>
+        <div className="sac-countdown">
+          {ended ? (
+            <span className="sac-muted">Auction ended</span>
+          ) : (
+            <div style={{ display: "flex", gap: 8 }}>
+              <TimeBox v={days} lbl="Days" />
+              <TimeBox v={hours} lbl="Hours" />
+              <TimeBox v={minutes} lbl="Mins" />
+              <TimeBox v={seconds} lbl="Secs" />
+            </div>
+          )}
+        </div>
+        <div className="sac-actions gem-actions" style={{ marginTop: 10 }}>
+          <button className="sac-btn-outline action-btn btn-view" onClick={onOpen}>
+            <i className="fa-solid fa-eye" /> View Details
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
+// -- upcoming card --
 function UpcomingCard({ a, onOpen }) {
   const { total, days, hours, minutes, seconds } = useCountdown(a.startTime);
   const started = total <= 0;
   return (
-    <div className="sac-card">
-      <div className={`sac-badge ${started ? "sac-badge-live" : "sac-badge-upcoming"}`}>
+    <div className="sac-card gem-card">
+      <div className={`sac-badge ${started ? "sac-badge-live" : "sac-badge-upcoming"} status ${started ? "status-active" : "status-pending"}`}>
         {started ? "STARTED" : "UPCOMING"}
       </div>
-      <img className="sac-img" src={asset(a.imageUrl)} alt={a.title} />
-      <h3 className="sac-card-title">{a.title}</h3>
-      <p className="sac-card-sub"><i className="fa-solid fa-gem" /> {a.type}</p>
-      <p className="sac-desc">{a.description}</p>
-      <div className="sac-price">Base: {fmtMoney(a.basePrice)}</div>
-      <p className="sac-line"><strong>Start:</strong> {fmtDateTime(a.startTime)}</p>
-      <p className="sac-line"><strong>End:</strong> {fmtDateTime(a.endTime)}</p>
-      <div className="sac-countdown">
-        {started ? (
-          <span className="sac-muted">Auction started</span>
-        ) : (
-          <>
-            <TimeBox v={days} lbl="Days" />
-            <TimeBox v={hours} lbl="Hours" />
-            <TimeBox v={minutes} lbl="Mins" />
-            <TimeBox v={seconds} lbl="Secs" />
-          </>
-        )}
-      </div>
-      <div className="sac-actions">
-        <button className="sac-btn-outline sac-btn-wide" onClick={onOpen}>
-          <i className="fa-solid fa-pen-to-square" /> Details / Edit
-        </button>
+      <div className="gem-image"><img className="sac-img" src={asset(a.imageUrl)} alt={a.title} style={{ maxHeight: "100%", maxWidth: "100%" }} /></div>
+      <div className="gem-info">
+        <h3 className="sac-card-title gem-name">{a.title}</h3>
+        <p className="sac-card-sub"><i className="fa-solid fa-gem" /> {a.type}</p>
+        <p className="sac-desc">{a.description}</p>
+        <div className="sac-price gem-price">Base: {fmtMoney(a.basePrice)}</div>
+        <p className="sac-line"><strong>Start:</strong> {fmtDateTime(a.startTime)}</p>
+        <p className="sac-line"><strong>End:</strong> {fmtDateTime(a.endTime)}</p>
+        <div className="sac-countdown" style={{ marginTop: 8 }}>
+          {started ? (
+            <span className="sac-muted">Auction started</span>
+          ) : (
+            <div style={{ display: "flex", gap: 8 }}>
+              <TimeBox v={days} lbl="Days" />
+              <TimeBox v={hours} lbl="Hours" />
+              <TimeBox v={minutes} lbl="Mins" />
+              <TimeBox v={seconds} lbl="Secs" />
+            </div>
+          )}
+        </div>
+        <div className="sac-actions gem-actions" style={{ marginTop: 10 }}>
+          <button className="sac-btn-outline action-btn btn-edit" onClick={onOpen}>
+            <i className="fa-solid fa-pen-to-square" /> Details / Edit
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function DetailsDrawer({
-  open,
-  a,
-  mode,
-  onClose,
-  editForm,
-  setEditForm,
-  onSaveUpcoming,
-  onDeleteUpcoming,
-}) {
+// -- drawer (details/edit + bidders) --
+function DetailsDrawer({ open, a, mode, onClose, editForm, setEditForm, onSaveUpcoming, onDeleteUpcoming }) {
   const [bidders, setBidders] = useState([]);
   const [loadingBidders, setLoadingBidders] = useState(false);
 
+  // load bidders for live/ended
   useEffect(() => {
     let active = true;
     async function loadBidders() {
-      if (!a?._id || mode === "upcoming") {
-        setBidders([]);
-        return;
-      }
+      if (!a?._id || mode === "upcoming") return setBidders([]);
       try {
         setLoadingBidders(true);
         const data = await request(`/api/bids/auction/${a._id}?limit=10&sort=desc`);
@@ -719,9 +672,7 @@ function DetailsDrawer({
       <aside className={`sac-drawer ${open ? "open" : ""}`} aria-hidden={!open}>
         <div className="sac-drawer-header">
           <h3>{a ? a.title : "Details"}</h3>
-          <button className="sac-icon-btn" onClick={onClose} aria-label="Close">
-            <i className="fa-solid fa-xmark" />
-          </button>
+          <button className="sac-icon-btn" onClick={onClose} aria-label="Close"><i className="fa-solid fa-xmark" /></button>
         </div>
 
         <div className="sac-drawer-body">
@@ -731,55 +682,30 @@ function DetailsDrawer({
               <div className="sac-form-grid">
                 <div className="sac-form-group sac-col-full">
                   <label className="sac-required">Gem Name</label>
-                  <input
-                    value={editForm?.title || ""}
-                    onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                  />
+                  <input value={editForm?.title || ""} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} />
                 </div>
                 <div className="sac-form-group">
                   <label className="sac-required">Type</label>
-                  <select
-                    value={editForm?.type || "sapphire"}
-                    onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))}
-                  >
-                    <option value="sapphire">Sapphire</option>
-                    <option value="ruby">Ruby</option>
-                    <option value="emerald">Emerald</option>
-                    <option value="diamond">Diamond</option>
-                    <option value="other">Other</option>
+                  <select value={editForm?.type || "sapphire"} onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))}>
+                    <option value="sapphire">Sapphire</option><option value="ruby">Ruby</option>
+                    <option value="emerald">Emerald</option><option value="diamond">Diamond</option><option value="other">Other</option>
                   </select>
                 </div>
                 <div className="sac-form-group">
                   <label className="sac-required">Base Price</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={editForm?.basePrice || ""}
-                    onChange={(e) => setEditForm((f) => ({ ...f, basePrice: e.target.value }))}
-                  />
+                  <input type="number" min="1" value={editForm?.basePrice || ""} onChange={(e) => setEditForm((f) => ({ ...f, basePrice: e.target.value }))} />
                 </div>
                 <div className="sac-form-group sac-col-full">
                   <label>Description</label>
-                  <textarea
-                    value={editForm?.description || ""}
-                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                  />
+                  <textarea value={editForm?.description || ""} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} />
                 </div>
                 <div className="sac-form-group">
                   <label className="sac-required">Start</label>
-                  <input
-                    type="datetime-local"
-                    value={editForm?.startTime || ""}
-                    onChange={(e) => setEditForm((f) => ({ ...f, startTime: e.target.value }))}
-                  />
+                  <input type="datetime-local" value={editForm?.startTime || ""} onChange={(e) => setEditForm((f) => ({ ...f, startTime: e.target.value }))} />
                 </div>
                 <div className="sac-form-group">
                   <label className="sac-required">End</label>
-                  <input
-                    type="datetime-local"
-                    value={editForm?.endTime || ""}
-                    onChange={(e) => setEditForm((f) => ({ ...f, endTime: e.target.value }))}
-                  />
+                  <input type="datetime-local" value={editForm?.endTime || ""} onChange={(e) => setEditForm((f) => ({ ...f, endTime: e.target.value }))} />
                 </div>
               </div>
             </>
@@ -798,26 +724,16 @@ function DetailsDrawer({
 
               <h4 className="sac-subtitle" style={{ marginTop: 12 }}>Recent Bidders</h4>
               <div className="sac-table-wrap">
-                <table className="sac-table">
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th>Bidder</th>
-                      <th>Amount</th>
-                    </tr>
-                  </thead>
+                <table className="sac-table data-table">
+                  <thead><tr><th></th><th>Bidder</th><th>Amount</th></tr></thead>
                   <tbody>
                     {loadingBidders ? (
-                      <tr><td colSpan={5} className="sac-empty">Loading bidders…</td></tr>
+                      <tr><td colSpan={3} className="sac-empty">Loading bidders…</td></tr>
                     ) : bidders.length === 0 ? (
-                      <tr><td colSpan={5} className="sac-empty">No bids yet.</td></tr>
+                      <tr><td colSpan={3} className="sac-empty">No bids yet.</td></tr>
                     ) : (
                       bidders.map((b, idx) => (
-                        <tr key={b.id}>
-                          <td>{idx + 1}</td>
-                          <td>{b.name}</td>
-                          <td className="sac-price">{fmtMoney(b.amount)}</td>
-                        </tr>
+                        <tr key={b.id}><td>{idx + 1}</td><td>{b.name}</td><td className="sac-price">{fmtMoney(b.amount)}</td></tr>
                       ))
                     )}
                   </tbody>
@@ -830,12 +746,8 @@ function DetailsDrawer({
         <div className="sac-drawer-footer">
           {mode === "upcoming" ? (
             <>
-              <button className="sac-btn-danger" onClick={onDeleteUpcoming}>
-                <i className="fa-solid fa-trash" /> Delete
-              </button>
-              <button className="sac-btn" onClick={onSaveUpcoming}>
-                <i className="fa-solid fa-floppy-disk" /> Save Changes
-              </button>
+              <button className="sac-btn-danger action-btn btn-delete" onClick={onDeleteUpcoming}><i className="fa-solid fa-trash" /> Delete</button>
+              <button className="sac-btn" onClick={onSaveUpcoming}><i className="fa-solid fa-floppy-disk" /> Save Changes</button>
             </>
           ) : (
             <button className="sac-btn-outline" onClick={onClose}>Close</button>
@@ -846,50 +758,36 @@ function DetailsDrawer({
   );
 }
 
+// -- create modal with validations + popup + toasts --
 function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
-  // safe fallbacks (never crash)
   const toast = push || (() => {});
-  const showPopup =
-    openPopup || ((t, m) => window.alert(`${t || "Notice"}\n\n${m || ""}`));
+  const showPopup = openPopup || ((t, m) => window.alert(`${t || "Notice"}\n\n${m || ""}`));
 
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
-    title: "",
-    type: "",
-    description: "",
-    imageDataUrl: "",
-    file: null,
-    basePrice: "",
-    startTime: "",
-    endTime: "",
+    title: "", type: "", description: "", imageDataUrl: "", file: null,
+    basePrice: "", startTime: "", endTime: "",
   });
   const [warn, setWarn] = useState({});
   const fileRef = useRef(null);
 
+  // reset on close
   useEffect(() => {
     if (!open) {
       setStep(1);
-      setForm({
-        title: "",
-        type: "",
-        description: "",
-        imageDataUrl: "",
-        file: null,
-        basePrice: "",
-        startTime: "",
-        endTime: "",
-      });
+      setForm({ title: "", type: "", description: "", imageDataUrl: "", file: null, basePrice: "", startTime: "", endTime: "" });
       setWarn({});
       if (fileRef.current) fileRef.current.value = "";
     }
   }, [open]);
 
+  // field setter + live validation
   const setField = (k, v) => {
     setForm((f) => ({ ...f, [k]: v }));
     requestAnimationFrame(validateAll);
   };
 
-  // validations with inline warnings + popup usage
+  // full validation
   function validateAll() {
     const w = {};
     const price = Number(form.basePrice);
@@ -906,20 +804,16 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
     else if (start <= now) w.startTime = "Start time must be after the current time.";
     if (!end) w.endTime = "End time is required.";
     else if (start && end <= start) w.endTime = "End time must be after the start time.";
-
     setWarn(w);
     return w;
   }
 
-  const valid1 =
-    form.title.trim() && form.type && form.description.trim() && (form.file || form.imageDataUrl);
+  // step validity
+  const valid1 = form.title.trim() && form.type && form.description.trim() && (form.file || form.imageDataUrl);
   const valid2 = Number(form.basePrice) > 0;
-  const valid3 =
-    form.startTime &&
-    form.endTime &&
-    new Date(form.startTime) > new Date() &&
-    new Date(form.endTime) > new Date(form.startTime);
+  const valid3 = form.startTime && form.endTime && new Date(form.startTime) > new Date() && new Date(form.endTime) > new Date(form.startTime);
 
+  // file handler + size/type checks
   const handleFile = (file) => {
     if (!file) return;
     if (!/^image\//.test(file.type)) {
@@ -933,15 +827,12 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
       return;
     }
     const r = new FileReader();
-    r.onload = (e) =>
-      setForm((f) => ({ ...f, imageDataUrl: String(e.target?.result || ""), file }));
+    r.onload = (e) => setForm((f) => ({ ...f, imageDataUrl: String(e.target?.result || ""), file }));
     r.readAsDataURL(file);
-    setWarn((w) => {
-      const { image, ...rest } = w;
-      return rest;
-    });
+    setWarn((w) => { const { image, ...rest } = w; return rest; });
   };
 
+  // submit
   async function submit(e) {
     e.preventDefault();
     const w = validateAll();
@@ -963,7 +854,6 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
       await request("/api/auctions", { method: "POST", body: fd });
       toast("Auction created successfully.", "success");
       showPopup("Auction Created", "Your auction was created successfully.");
-
       onClose();
       onCreated?.();
     } catch (err) {
@@ -977,12 +867,10 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
       <div className={`sac-modal ${open ? "open" : ""}`} role="dialog" aria-modal="true">
         <div className="sac-modal-header">
           <h2>Create Auction</h2>
-          <button className="sac-icon-btn" onClick={onClose}>
-            <i className="fa-solid fa-xmark" />
-          </button>
+          <button className="sac-icon-btn" onClick={onClose}><i className="fa-solid fa-xmark" /></button>
         </div>
 
-        {/* Steps */}
+        {/* steps */}
         <div className="sac-steps">
           {["Gem Details", "Pricing", "Schedule", "Review"].map((label, i) => {
             const n = i + 1;
@@ -996,7 +884,7 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
           })}
         </div>
 
-        {/* Body */}
+        {/* body */}
         <form className="sac-modal-body" onSubmit={submit}>
           {step === 1 && (
             <div className="sac-form-grid">
@@ -1008,7 +896,7 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
                   onChange={(e) => setField("title", e.target.value)}
                   placeholder="e.g., Royal Blue Sapphire"
                 />
-                {warn.title && <small className="sac-field-warn">{warn.title}</small>}
+                {warn.title && <small className="error">{warn.title}</small>}
               </div>
 
               <div className="sac-form-group">
@@ -1025,7 +913,7 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
                   <option value="diamond">Diamond</option>
                   <option value="other">Other</option>
                 </select>
-                {warn.type && <small className="sac-field-warn">{warn.type}</small>}
+                {warn.type && <small className="error">{warn.type}</small>}
               </div>
 
               <div className="sac-form-group sac-col-full">
@@ -1036,7 +924,7 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
                   onChange={(e) => setField("description", e.target.value)}
                   placeholder="Describe the gem..."
                 />
-                {warn.description && <small className="sac-field-warn">{warn.description}</small>}
+                {warn.description && <small className="error">{warn.description}</small>}
               </div>
 
               <div className="sac-form-group sac-col-full">
@@ -1045,21 +933,13 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
                   <div
                     className={`sac-upload ${warn.image ? "sac-upload-error" : ""}`}
                     onClick={() => fileRef.current?.click()}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      handleFile(e.dataTransfer.files?.[0]);
-                    }}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => { e.preventDefault(); handleFile(e.dataTransfer.files?.[0]); }}
                   >
                     <i className="fa-solid fa-cloud-arrow-up sac-upload-icon" />
-                    <p className="sac-upload-text">
-                      Drag & drop here or <span>browse</span>
-                    </p>
+                    <p className="sac-upload-text">Drag & drop here or <span>browse</span></p>
                     <p className="sac-upload-hint">JPG/PNG up to 5MB</p>
-                    {warn.image && <small className="sac-field-warn">{warn.image}</small>}
+                    {warn.image && <small className="error">{warn.image}</small>}
                   </div>
                 ) : (
                   <div className={`sac-image-preview ${warn.image ? "sac-upload-error" : ""}`}>
@@ -1080,32 +960,15 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
                         <i className="fa-solid fa-trash" /> Remove
                       </button>
                     </div>
+                    {warn.image && <small className="error">{warn.image}</small>}
                   </div>
                 )}
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  style={{ display: "none" }}
-                  onChange={(e) => handleFile(e.target.files?.[0])}
-                />
+                <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => handleFile(e.target.files?.[0])} />
               </div>
 
               <div className="sac-form-nav sac-col-full">
-                <button type="button" className="sac-btn-secondary" onClick={onClose}>
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="sac-btn"
-                  onClick={() => {
-                    validateAll();
-                    valid1 && setStep(2);
-                  }}
-                  disabled={!valid1}
-                >
-                  Next
-                </button>
+                <button type="button" className="sac-btn-secondary" onClick={onClose}>Cancel</button>
+                <button type="button" className="sac-btn" onClick={() => { validateAll(); valid1 && setStep(2); }} disabled={!valid1}>Next</button>
               </div>
             </div>
           )}
@@ -1117,30 +980,17 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
                 <div className="sac-price-wrap">
                   <input
                     className={warn.basePrice ? "sac-input-error" : ""}
-                    type="number"
-                    min="1"
+                    type="number" min="1"
                     value={form.basePrice}
                     onChange={(e) => setField("basePrice", e.target.value)}
                     placeholder="e.g., 8500"
                   />
                 </div>
-                {warn.basePrice && <small className="sac-field-warn">{warn.basePrice}</small>}
+                {warn.basePrice && <small className="error">{warn.basePrice}</small>}
               </div>
               <div className="sac-form-nav sac-col-full">
-                <button type="button" className="sac-btn-secondary" onClick={() => setStep(1)}>
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="sac-btn"
-                  onClick={() => {
-                    validateAll();
-                    valid2 && setStep(3);
-                  }}
-                  disabled={!valid2}
-                >
-                  Next
-                </button>
+                <button type="button" className="sac-btn-secondary" onClick={() => setStep(1)}>Back</button>
+                <button type="button" className="sac-btn" onClick={() => { validateAll(); valid2 && setStep(3); }} disabled={!valid2}>Next</button>
               </div>
             </div>
           )}
@@ -1155,7 +1005,7 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
                   value={form.startTime}
                   onChange={(e) => setField("startTime", e.target.value)}
                 />
-                {warn.startTime && <small className="sac-field-warn">{warn.startTime}</small>}
+                {warn.startTime && <small className="error">{warn.startTime}</small>}
               </div>
               <div className="sac-form-group">
                 <label className="sac-required">End Time</label>
@@ -1165,23 +1015,11 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
                   value={form.endTime}
                   onChange={(e) => setField("endTime", e.target.value)}
                 />
-                {warn.endTime && <small className="sac-field-warn">{warn.endTime}</small>}
+                {warn.endTime && <small className="error">{warn.endTime}</small>}
               </div>
               <div className="sac-form-nav sac-col-full">
-                <button type="button" className="sac-btn-secondary" onClick={() => setStep(2)}>
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="sac-btn"
-                  onClick={() => {
-                    validateAll();
-                    valid3 && setStep(4);
-                  }}
-                  disabled={!valid3}
-                >
-                  Next
-                </button>
+                <button type="button" className="sac-btn-secondary" onClick={() => setStep(2)}>Back</button>
+                <button type="button" className="sac-btn" onClick={() => { validateAll(); valid3 && setStep(4); }} disabled={!valid3}>Next</button>
               </div>
             </div>
           )}
@@ -1201,12 +1039,8 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
                 {form.imageDataUrl && <img className="sac-review-img" src={form.imageDataUrl} alt="Gem" />}
               </div>
               <div className="sac-form-nav sac-col-full">
-                <button type="button" className="sac-btn-secondary" onClick={() => setStep(3)}>
-                  Back
-                </button>
-                <button type="submit" className="sac-btn">
-                  Create Auction
-                </button>
+                <button type="button" className="sac-btn-secondary" onClick={() => setStep(3)}>Back</button>
+                <button type="submit" className="sac-btn">Create Auction</button>
               </div>
             </div>
           )}
@@ -1216,30 +1050,23 @@ function CreateAuctionModal({ open, onClose, onCreated, push, openPopup }) {
   );
 }
 
-/* ===================== HELPERS / HOOKS (bottom) ===================== */
+/* ====================== HELPERS / HOOKS ====================== */
 
+// -- backend asset path --
 const BACKEND = process.env.REACT_APP_API_URL || "http://localhost:5000";
-
 function asset(p) {
   if (!p) return "";
   if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) return p;
   return `${BACKEND}${p.startsWith("/") ? "" : "/"}${p}`;
 }
 
-function fmtMoney(n) {
-  return "$" + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
-}
-
+// -- format helpers --
+function fmtMoney(n) { return "$" + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 }); }
 function fmtDateTime(iso) {
-  return new Date(iso).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return new Date(iso).toLocaleString(undefined, { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
+// -- paid-only revenue/sold counters --
 function sumRevenuePaid(history, winMap) {
   if (!history?.length) return 0;
   return history.reduce((sum, h) => {
@@ -1251,7 +1078,6 @@ function sumRevenuePaid(history, winMap) {
     return sum + (isNaN(amount) ? 0 : amount);
   }, 0);
 }
-
 function countPaid(history, winMap) {
   if (!history?.length) return 0;
   return history.reduce((count, h) => {
@@ -1262,13 +1088,10 @@ function countPaid(history, winMap) {
   }, 0);
 }
 
-/* ----- countdown ----- */
+// -- tiny countdown hook + box --
 function useCountdown(targetISO) {
   const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
   const target = Date.parse(targetISO || 0);
   const diff = target - now;
   const total = Math.max(diff, 0);
@@ -1278,7 +1101,6 @@ function useCountdown(targetISO) {
   const seconds = Math.floor((total % 60000) / 1000);
   return { total, days, hours, minutes, seconds };
 }
-
 function TimeBox({ v, lbl }) {
   return (
     <div className="sac-timebox">
@@ -1288,7 +1110,7 @@ function TimeBox({ v, lbl }) {
   );
 }
 
-/* ----- toasts + popup ----- */
+// -- toasts store/rack (portal) --
 function useToasts() {
   const [toasts, setToasts] = useState([]);
   const push = (text, kind = "info", ms = 2500) => {
@@ -1299,33 +1121,31 @@ function useToasts() {
   const remove = (id) => setToasts((t) => t.filter((x) => x.id !== id));
   return { toasts, push, remove };
 }
-
 function ToastRack({ toasts, remove }) {
-  return (
+  if (!toasts?.length) return null;
+  return createPortal(
     <div className="sac-toast-rack" aria-live="polite" aria-atomic="true">
       {toasts.map((t) => (
         <div key={t.id} className={`sac-toast sac-toast--${t.kind}`}>
           <span>{t.text}</span>
-          <button className="sac-toast__x" onClick={() => remove(t.id)} aria-label="Dismiss">
-            ×
-          </button>
+          <button className="sac-toast__x" onClick={() => remove(t.id)} aria-label="Dismiss">×</button>
         </div>
       ))}
-    </div>
+    </div>,
+    document.body
   );
 }
 
+// -- popup modal (portal) --
 function PopModal({ open, title = "Notice", message, onClose, actions }) {
   if (!open) return null;
-  return (
+  const body = (
     <>
       <div className="sac-pop-overlay" onClick={onClose} />
       <div className="sac-pop" role="dialog" aria-modal="true">
         <div className="sac-pop-head">
           <h3>{title}</h3>
-          <button className="sac-icon-btn" onClick={onClose} aria-label="Close">
-            ×
-          </button>
+          <button className="sac-icon-btn" onClick={onClose} aria-label="Close">×</button>
         </div>
         <div className="sac-pop-body">{message}</div>
         <div className="sac-pop-foot">
@@ -1333,13 +1153,7 @@ function PopModal({ open, title = "Notice", message, onClose, actions }) {
             actions.map((a, i) => (
               <button
                 key={i}
-                className={
-                  a.kind === "danger"
-                    ? "sac-btn-danger"
-                    : a.kind === "secondary"
-                    ? "sac-btn-secondary"
-                    : "sac-btn"
-                }
+                className={a.kind === "danger" ? "sac-btn-danger" : a.kind === "secondary" ? "sac-btn-secondary" : "sac-btn"}
                 onClick={a.onClick}
                 type="button"
               >
@@ -1347,31 +1161,26 @@ function PopModal({ open, title = "Notice", message, onClose, actions }) {
               </button>
             ))
           ) : (
-            <button className="sac-btn" onClick={onClose} type="button">
-              OK
-            </button>
+            <button className="sac-btn" onClick={onClose} type="button">OK</button>
           )}
         </div>
       </div>
     </>
   );
+  return createPortal(body, document.body);
 }
 
-/* ----- revenue helpers ----- */
+// -- revenue grouping helpers/hooks --
 function lastNMonths(n, from = new Date()) {
   const arr = [];
   const d = new Date(from.getFullYear(), from.getMonth(), 1);
   for (let i = 0; i < n; i++) {
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    arr.unshift({
-      key,
-      label: d.toLocaleString(undefined, { month: "short", year: "2-digit" }),
-    });
+    arr.unshift({ key, label: d.toLocaleString(undefined, { month: "short", year: "2-digit" }) });
     d.setMonth(d.getMonth() - 1);
   }
   return arr;
 }
-
 function isoWeek(date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNum = d.getUTCDay() || 7;
@@ -1380,7 +1189,6 @@ function isoWeek(date) {
   const wk = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
   return { year: d.getUTCFullYear(), week: wk };
 }
-
 function lastNWeeks(n, from = new Date()) {
   const arr = [];
   const today = new Date(from);
@@ -1396,22 +1204,14 @@ function lastNWeeks(n, from = new Date()) {
     const { year, week } = isoWeek(start);
     arr.push({
       key: `${year}-W${String(week).padStart(2, "0")}`,
-      label:
-        `W${week} (` +
-        `${start.toLocaleDateString(undefined, { month: "short", day: "2-digit" })}–` +
-        `${end.toLocaleDateString(undefined, { month: "short", day: "2-digit" })})`,
+      label: `W${week} (${start.toLocaleDateString(undefined, { month: "short", day: "2-digit" })}–${end.toLocaleDateString(undefined, { month: "short", day: "2-digit" })})`,
       start,
       end,
     });
   }
   return arr;
 }
-
-function pctDelta(curr, prev) {
-  if (prev <= 0) return curr > 0 ? 100 : 0;
-  return ((curr - prev) / prev) * 100;
-}
-
+function pctDelta(curr, prev) { if (prev <= 0) return curr > 0 ? 100 : 0; return ((curr - prev) / prev) * 100; }
 function useMonthlyRevenue(paidHistory) {
   return useMemo(() => {
     const buckets = lastNMonths(12);
@@ -1423,13 +1223,9 @@ function useMonthlyRevenue(paidHistory) {
       const amount = Number(h.finalPrice ?? h.currentPrice ?? 0);
       if (sums.has(key)) sums.set(key, (sums.get(key) || 0) + (isNaN(amount) ? 0 : amount));
     }
-    return {
-      labels: buckets.map((b) => b.label),
-      data: buckets.map((b) => sums.get(b.key) || 0),
-    };
+    return { labels: buckets.map((b) => b.label), data: buckets.map((b) => sums.get(b.key) || 0) };
   }, [paidHistory]);
 }
-
 function useWeeklyRevenue(paidHistory) {
   return useMemo(() => {
     const buckets = lastNWeeks(12);
@@ -1442,13 +1238,9 @@ function useWeeklyRevenue(paidHistory) {
       const amount = Number(h.finalPrice ?? h.currentPrice ?? 0);
       if (sums.has(key)) sums.set(key, (sums.get(key) || 0) + (isNaN(amount) ? 0 : amount));
     }
-    return {
-      labels: buckets.map((b) => b.label),
-      data: buckets.map((b) => sums.get(b.key) || 0),
-    };
+    return { labels: buckets.map((b) => b.label), data: buckets.map((b) => sums.get(b.key) || 0) };
   }, [paidHistory]);
 }
-
 function useRevenueSummary(src) {
   return useMemo(() => {
     const arr = src.data || [];
