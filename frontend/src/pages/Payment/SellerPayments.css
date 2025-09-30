@@ -16,18 +16,14 @@ body {
   min-height: 100vh;
 }
 
-/* ====== Main content area ======
-   - Reserve the fixed sidebar width
-   - Offset under the fixed header
-   - Stretch to the remaining width
-*/
+/* ====== Main content area ====== */
 .dashboard-content {
   position: relative;
   width: calc(100% - var(--sidebar-w));
-  margin-left: var(--sidebar-w);    /* make room for fixed sidebar */
-  margin-top: var(--header-h);      /* make room for fixed header */
+  margin-left: var(--sidebar-w);
+  margin-top: var(--header-h);
   padding: 30px;
-  max-width: none;                  /* let table use full remaining width */
+  max-width: none;
   min-height: calc(100vh - var(--header-h));
 }
 
@@ -35,18 +31,17 @@ body {
 .dashboard-container.seller-payments {
   display: flex;
   min-height: 100vh;
-  padding-top: var(--header-h); /* sit under fixed header */
+  padding-top: var(--header-h);
 }
 
 /* Push the fixed sidebar below the header on this page only */
 .seller-payments .dashboard-sidebar {
-  top: var(--header-h);              /* 80px from your vars */
+  top: var(--header-h);
   left: 0;
   height: calc(100vh - var(--header-h));
 }
 
-/* Content already has margin-left; remove extra top margin here
-   because the container adds padding-top. */
+/* Content already has margin-left; remove extra top margin here */
 .seller-payments .dashboard-content {
   margin-top: 0;
 }
@@ -169,7 +164,7 @@ body {
   text-align: left; padding: 15px; color: #b0b0b0; font-weight: 500;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   background: rgba(18, 18, 18, 0.5);
-  position: sticky; top: 0;           /* sticky header inside section */
+  position: sticky; top: 0;
   z-index: 1;
 }
 .payment-table th:first-child { border-top-left-radius: 8px; }
@@ -189,22 +184,36 @@ body {
 .buyer-name { font-weight: 600; margin-bottom: 4px; }
 .buyer-email { color: #b0b0b0; font-size: 13px; }
 
-/* Status styles */
+/* Status styles (badge) */
 .status {
-  padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;
-  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 12px;
+  border-radius: 999px;              /* a bit more pill-like for the mock */
+  font-size: 12px; font-weight: 600; /* slightly bolder like the mock */
+  display: inline-flex; align-items: center; gap: 6px;
+  line-height: 1;
 }
+.status i { font-size: 12px; }
+
 .status-paid {
-  background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3);
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.35); /* a hair stronger */
 }
 .status-pending {
-  background: rgba(241, 196, 15, 0.15); color: #f1c40f; border: 1px solid rgba(241, 196, 15, 0.3);
+  background: rgba(241, 196, 15, 0.15);
+  color: #f1c40f;
+  border: 1px solid rgba(241, 196, 15, 0.3);
 }
 .status-cancelled {
-  background: rgba(231, 76, 60, 0.15); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.3);
+  background: rgba(231, 76, 60, 0.15);
+  color: #e74c3c;
+  border: 1px solid rgba(231, 76, 60, 0.3);
 }
+
+/* Select (unchanged, only used while bank payment is NOT paid) */
 .status-select {
-  background: rgba(18, 18, 18, 0.7); color: #f5f5f5;
+  background: rgba(18, 18, 18, 0.7);
+  color: #f5f5f5;
   border: 1px solid rgba(212, 175, 55, 0.3);
   border-radius: 6px; padding: 6px 10px; font-size: 13px;
   outline: none; cursor: pointer; transition: all 0.3s ease;
@@ -246,30 +255,107 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: rgba(212,175,55,0.5); }
 
 /* ====== Responsive ====== */
-/* If you later make the sidebar collapsible on small screens,
-   you can remove the left offset here. For now, keep it so content
-   never hides under the fixed sidebar. */
 @media (max-width: 1280px) {
-  .dashboard-content {
-    padding: 24px;
-  }
+  .dashboard-content { padding: 24px; }
 }
-
 @media (max-width: 1024px) {
   .dashboard-header { flex-direction: column; align-items: flex-start; }
   .dashboard-controls { width: 100%; }
   .filter-input { width: 100%; }
   .payment-table { display: block; overflow-x: auto; }
 }
-
 @media (max-width: 768px) {
-  /* If you implement a collapsible sidebar, switch margin-left to 0 here
-     and ensure the sidebar is hidden via your Sidebar.css. */
-  .dashboard-content {
-    /* margin-left: 0; width: 100%; */
-    padding: 20px;
-  }
+  .dashboard-content { padding: 20px; }
   .stats-summary { grid-template-columns: 1fr; }
   .payment-table th, .payment-table td { padding: 12px 10px; }
   .section-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+}
+
+/* ========= Modal (Confirm) ========= */
+.sp-modal-backdrop{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  animation: spFade .15s ease-out both;
+}
+.sp-modal{
+  width: min(480px, 92vw);
+  background: #121212;
+  border: 1px solid rgba(212,175,55,.25);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  overflow: hidden;
+}
+.sp-modal-header{
+  padding: 16px 18px;
+  font-weight: 700;
+  background: linear-gradient(135deg, rgba(212,175,55,.18), rgba(249,242,149,.08));
+  border-bottom: 1px solid rgba(212,175,55,.15);
+}
+.sp-modal-body{
+  padding: 18px;
+  color: #ddd;
+}
+.sp-modal-actions{
+  padding: 14px 18px;
+  display: flex; gap: 10px; justify-content: flex-end;
+  background: rgba(255,255,255,.02);
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.sp-btn{
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform .08s ease, box-shadow .2s ease, opacity .2s ease;
+}
+.sp-btn:active{ transform: translateY(1px); }
+.sp-btn-primary{
+  color: #0d1f0d;
+  background: #2ecc71;
+  border-color: rgba(46,204,113,.6);
+}
+.sp-btn-primary:hover{ box-shadow: 0 0 0 3px rgba(46,204,113,.25); }
+.sp-btn-ghost{
+  color: #f5f5f5;
+  background: transparent;
+  border-color: rgba(212,175,55,.35);
+}
+.sp-btn-ghost:hover{ box-shadow: 0 0 0 3px rgba(212,175,55,.2); }
+
+/* ========= Toast ========= */
+.sp-toast-wrap{
+  position: fixed; right: 16px; bottom: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+  z-index: 1100;
+}
+.sp-toast{
+  display: flex; align-items: center; gap: 10px;
+  background: #161616;
+  color: #eaeaea;
+  border: 1px solid rgba(255,255,255,.08);
+  border-left-width: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  min-width: 220px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  animation: spSlideUp .22s ease-out both;
+}
+.sp-toast.success{ border-left-color: #2ecc71; }
+.sp-toast.error{ border-left-color: #e74c3c; }
+.sp-toast-icon{ opacity: .9; }
+.sp-toast-msg{ flex: 1; font-size: 0.95rem; }
+.sp-toast-close{
+  background: transparent; border: none; color: #aaa; cursor: pointer;
+  font-size: 18px; line-height: 1;
+}
+.sp-toast-close:hover{ color: #fff; }
+
+/* ========= Animations ========= */
+@keyframes spFade{ from{opacity:0} to{opacity:1} }
+@keyframes spSlideUp{
+  from{ transform: translateY(8px); opacity: 0 }
+  to{ transform: translateY(0); opacity: 1 }
 }

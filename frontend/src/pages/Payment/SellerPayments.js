@@ -1,4 +1,3 @@
-// src/pages/Seller/SellerPayments.js
 import React, { useEffect, useMemo, useState } from "react";
 import "./SellerPayments.css";
 import Header from "../../Components/Header";
@@ -68,18 +67,8 @@ function isImageUrl(u) {
 }
 
 const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
 ];
 
 // ---------- robust PDF loader with fallbacks ----------
@@ -138,7 +127,6 @@ async function ensureJsPdf() {
 
 // ---------- Report builders ----------
 function filterByMonth(items, month, year) {
-  // month: 1..12
   return items.filter((p) => {
     const d = p.createdAt ? new Date(p.createdAt) : null;
     if (!d || isNaN(d.getTime())) return false;
@@ -205,7 +193,6 @@ async function generateMonthlyPdf({ items, month, year }) {
   const jsPDF = await ensureJsPdf();
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
 
-  // Filter + shape rows
   const monthItems = filterByMonth(items, month, year);
   if (monthItems.length === 0) {
     window.alert("No transactions found for the selected month.");
@@ -214,7 +201,6 @@ async function generateMonthlyPdf({ items, month, year }) {
   const rows = buildReportRows(monthItems);
   const summary = buildMonthlySummary(rows);
 
-  // Header
   const pad = 40;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
@@ -224,7 +210,6 @@ async function generateMonthlyPdf({ items, month, year }) {
   doc.text(`Period: ${MONTHS[month - 1]} ${year}`, pad, 70);
   doc.text(`Generated: ${new Date().toLocaleString()}`, pad, 88);
 
-  // Summary band
   const y0 = 110;
   const bandH = 60;
   doc.setDrawColor(212, 175, 55);
@@ -235,17 +220,16 @@ async function generateMonthlyPdf({ items, month, year }) {
   doc.setFont("helvetica", "normal");
   const s = summary;
   const line1 = `Orders: ${s.count}   |   Paid: ${s.paid}   Pending: ${s.pending}   Cancelled: ${s.cancelled}`;
-  const line2 = `Totals — Paid: ${money(
-    s.sumPaid,
+  const line2 = `Totals — Paid: ${money(s.sumPaid, s.ccy)}   |   Pending: ${money(
+    s.sumPending,
     s.ccy
-  )}   |   Pending: ${money(s.sumPending, s.ccy)}   |   Cancelled: ${money(
-    s.sumCancelled,
+  )}   |   Cancelled: ${money(s.sumCancelled, s.ccy)}   |   Grand: ${money(
+    s.grand,
     s.ccy
-  )}   |   Grand: ${money(s.grand, s.ccy)}`;
+  )}`;
   doc.text(line1, pad, y0 + 18);
   doc.text(line2, pad, y0 + 36);
 
-  // Table
   const head = [
     ["Date/Time", "Order No", "Product", "Buyer", "Method", "Status", "Amount"],
   ];
@@ -291,6 +275,40 @@ async function generateMonthlyPdf({ items, month, year }) {
   doc.save(`SellerPayments_${year}-${mm}.pdf`);
 }
 
+/* =========================================================
+   Small UI helpers: Confirm modal + Toast
+   =======================================================*/
+function ConfirmModal({ open, title, message, confirmText = "Confirm", cancelText = "Cancel", onConfirm, onClose }) {
+  if (!open) return null;
+  return (
+    <div className="sp-modal-backdrop" role="dialog" aria-modal="true">
+      <div className="sp-modal">
+        <div className="sp-modal-header">{title || "Please Confirm"}</div>
+        <div className="sp-modal-body">{message}</div>
+        <div className="sp-modal-actions">
+          <button className="sp-btn sp-btn-ghost" onClick={onClose}>{cancelText}</button>
+          <button className="sp-btn sp-btn-primary" onClick={onConfirm}>{confirmText}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+function Toast({ toasts, onHide }) {
+  return (
+    <div className="sp-toast-wrap">
+      {toasts.map(t => (
+        <div key={t.id} className={`sp-toast ${t.type}`}>
+          <div className="sp-toast-icon">
+            <i className={`fas ${t.type === "error" ? "fa-times-circle" : "fa-check-circle"}`} />
+          </div>
+          <div className="sp-toast-msg">{t.msg}</div>
+          <button className="sp-toast-close" onClick={() => onHide(t.id)}>×</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ---------- Component ----------
 export default function SellerPayments() {
   // filters
@@ -314,75 +332,81 @@ export default function SellerPayments() {
   const [busyId, setBusyId] = useState(null);
   const [downloading, setDownloading] = useState(false);
 
+  // confirm modal state
+  const [confirm, setConfirm] = useState({
+    open: false, title: "", message: "", onConfirm: null,
+  });
+
+  // toast state
+  const [toasts, setToasts] = useState([]);
+  const pushToast = (msg, type = "success") => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((t) => [...t, { id, msg, type }]);
+    // auto hide
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3000);
+  };
+  const hideToast = (id) => setToasts((t) => t.filter((x) => x.id !== id));
+
   // load particles once
- useEffect(() => {
-  const config = {
-    particles: {
-      number: { value: 60, density: { enable: true, value_area: 800 } },
-      color: { value: "#d4af37" },
-      shape: { type: "circle" },
-      opacity: { value: 0.3, random: true },
-      size: { value: 3, random: true },
-      line_linked: {
-        enable: true,
-        distance: 150,
-        color: "#d4af37",
-        opacity: 0.1,
-        width: 1,
+  useEffect(() => {
+    const config = {
+      particles: {
+        number: { value: 60, density: { enable: true, value_area: 800 } },
+        color: { value: "#d4af37" },
+        shape: { type: "circle" },
+        opacity: { value: 0.3, random: true },
+        size: { value: 3, random: true },
+        line_linked: {
+          enable: true,
+          distance: 150,
+          color: "#d4af37",
+          opacity: 0.1,
+          width: 1,
+        },
+        move: { enable: true, speed: 1 },
       },
-      move: { enable: true, speed: 1 },
-    },
-    interactivity: {
-      detect_on: "canvas",
-      events: {
-        onhover: { enable: true, mode: "repulse" },
-        onclick: { enable: true, mode: "push" },
-        resize: true,
+      interactivity: {
+        detect_on: "canvas",
+        events: {
+          onhover: { enable: true, mode: "repulse" },
+          onclick: { enable: true, mode: "push" },
+          resize: true,
+        },
       },
-    },
-    retina_detect: true,
-  };
+      retina_detect: true,
+    };
 
-  const init = () => {
-    // destroy any previous instance targeting this container
-    if (window.pJSDom && window.pJSDom.length) {
-      window.pJSDom.forEach(p => {
-        try { p.pJS.fn.vendors.destroypJS(); } catch {}
-      });
-      window.pJSDom = [];
-    }
-    // ensure the container exists before init
-    if (document.getElementById("particles-js") && window.particlesJS) {
-      window.particlesJS("particles-js", config);
-    }
-  };
+    const init = () => {
+      if (window.pJSDom && window.pJSDom.length) {
+        window.pJSDom.forEach((p) => { try { p.pJS.fn.vendors.destroypJS(); } catch {} });
+        window.pJSDom = [];
+      }
+      if (document.getElementById("particles-js") && window.particlesJS) {
+        window.particlesJS("particles-js", config);
+      }
+    };
 
-  const scriptId = "particles-cdn";
-  if (window.particlesJS) {
-    // script already on the page -> just init
-    init();
-  } else if (!document.getElementById(scriptId)) {
-    const s = document.createElement("script");
-    s.id = scriptId;
-    s.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
-    s.async = true;
-    s.onload = init;
-    document.body.appendChild(s);
-  } else {
-    // script tag exists but library not ready yet -> wait for load
-    document.getElementById(scriptId).addEventListener("load", init, { once: true });
-  }
-
-  // cleanup on unmount
-  return () => {
-    if (window.pJSDom && window.pJSDom.length) {
-      window.pJSDom.forEach(p => {
-        try { p.pJS.fn.vendors.destroypJS(); } catch {}
-      });
-      window.pJSDom = [];
+    const scriptId = "particles-cdn";
+    if (window.particlesJS) {
+      init();
+    } else if (!document.getElementById(scriptId)) {
+      const s = document.createElement("script");
+      s.id = scriptId;
+      s.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
+      s.async = true;
+      s.onload = init;
+      document.body.appendChild(s);
+    } else {
+      document.getElementById(scriptId).addEventListener("load", init, { once: true });
     }
-  };
-}, []);
+
+    return () => {
+      if (window.pJSDom && window.pJSDom.length) {
+        window.pJSDom.forEach((p) => { try { p.pJS.fn.vendors.destroypJS(); } catch {} });
+        window.pJSDom = [];
+      }
+    };
+  }, []);
 
   // fetch payments (seller endpoint)
   const fetchPayments = async (orderNoFilter = "") => {
@@ -391,9 +415,7 @@ export default function SellerPayments() {
       setErr("");
       const qs = new URLSearchParams();
       if (orderNoFilter) qs.set("orderNo", orderNoFilter.trim());
-      const data = await apiRequest(
-        `/api/payments${qs.toString() ? `?${qs}` : ""}`
-      );
+      const data = await apiRequest(`/api/payments${qs.toString() ? `?${qs}` : ""}`);
       setItems(data.items || []);
     } catch (e) {
       setErr(e?.message || "Failed to load payments");
@@ -412,10 +434,7 @@ export default function SellerPayments() {
     const paid = items.filter((p) => p?.payment?.status === "paid");
     const pending = items.filter((p) => p?.payment?.status === "pending");
     const cancelled = items.filter((p) => p?.payment?.status === "cancelled");
-    const totalRevenue = paid.reduce(
-      (s, p) => s + Number(p?.amounts?.total || 0),
-      0
-    );
+    const totalRevenue = paid.reduce((s, p) => s + Number(p?.amounts?.total || 0), 0);
     const ccy = items[0]?.currency || "USD";
     return {
       totalRevenue: money(totalRevenue, ccy),
@@ -450,8 +469,10 @@ export default function SellerPayments() {
       setBusyId(id);
       await apiRequest(`/api/payments/${id}/mark-paid`, { method: "PATCH" });
       await fetchPayments(orderNo);
+      pushToast("Payment marked as PAID.");
     } catch (e) {
       setErr(e?.message || "Failed to mark as paid");
+      pushToast(e?.message || "Failed to mark as paid", "error");
     } finally {
       setBusyId(null);
     }
@@ -464,24 +485,49 @@ export default function SellerPayments() {
         body: { status },
       });
       await fetchPayments(orderNo);
+      pushToast(`Status updated to ${status.toUpperCase()}.`);
     } catch (e) {
       setErr(
         e?.status === 404
           ? "Backend route /api/payments/:id/status missing. Add it per previous snippet."
           : e?.message || "Failed to update status"
       );
+      pushToast(e?.message || "Failed to update status", "error");
     } finally {
       setBusyId(null);
     }
   }
+
+  function openConfirm({ title, message, onConfirm }) {
+    setConfirm({ open: true, title, message, onConfirm });
+  }
+  function closeConfirm() {
+    setConfirm((c) => ({ ...c, open: false }));
+  }
+
   async function onChangeStatus(p, next) {
     const cur = p?.payment?.status;
     if (next === cur) return;
-    if (p?.payment?.method === "bank" && next === "paid") {
-      await markPaid(p._id);
-      return;
-    }
-    await updateStatus(p._id, next);
+
+    const from = cur?.toUpperCase?.() || "—";
+    const to = next?.toUpperCase?.() || "—";
+
+    // For any change, show our popup confirm:
+    openConfirm({
+      title: "Change Payment Status?",
+      message:
+        p?.payment?.method === "bank" && next === "paid"
+          ? `Mark this BANK payment as PAID? This action is final.`
+          : `Change status from ${from} → ${to}?`,
+      onConfirm: async () => {
+        closeConfirm();
+        if (p?.payment?.method === "bank" && next === "paid") {
+          await markPaid(p._id);
+        } else {
+          await updateStatus(p._id, next);
+        }
+      },
+    });
   }
 
   // PDF trigger
@@ -503,7 +549,7 @@ export default function SellerPayments() {
       <div id="particles-js" />
 
       <div className="dashboard-container seller-payments">
-         <SellerSidebar />
+        <SellerSidebar />
         <main className="dashboard-content">
           <div className="dashboard-header">
             <h2 className="dashboard-title">Seller Payments</h2>
@@ -691,9 +737,7 @@ export default function SellerPayments() {
                         const status = p?.payment?.status || "—";
                         const ccy = p?.currency || "USD";
                         const totalAmt = p?.amounts?.total ?? 0;
-                        const slipUrl = slipUrlFromPath(
-                          p?.payment?.bankSlipPath
-                        );
+                        const slipUrl = slipUrlFromPath(p?.payment?.bankSlipPath);
                         const slipIsImage = isImageUrl(slipUrl);
 
                         const badgeClass =
@@ -702,6 +746,8 @@ export default function SellerPayments() {
                             : status === "pending"
                             ? "status-pending"
                             : "status-cancelled";
+
+                        const showSelectForBank = method === "bank" && status !== "paid";
 
                         return (
                           <tr key={p._id || idx}>
@@ -726,21 +772,27 @@ export default function SellerPayments() {
                                 : method}
                             </td>
                             <td>
-                              {method === "bank" ? (
+                              {showSelectForBank ? (
                                 <select
                                   className="status-select"
                                   value={status}
-                                  onChange={(e) =>
-                                    onChangeStatus(p, e.target.value)
-                                  }
+                                  onChange={(e) => onChangeStatus(p, e.target.value)}
                                   disabled={busyId === p._id}
+                                  title="Change bank payment status"
                                 >
                                   <option value="pending">Pending</option>
                                   <option value="paid">Paid</option>
                                   <option value="cancelled">Cancelled</option>
                                 </select>
                               ) : (
-                                <span className={`status ${badgeClass}`}>
+                                <span
+                                  className={`status ${badgeClass}`}
+                                  title={
+                                    method === "bank" && status === "paid"
+                                      ? "Bank payment marked as Paid (final)"
+                                      : status.charAt(0).toUpperCase() + status.slice(1)
+                                  }
+                                >
                                   <i
                                     className={`fas ${
                                       status === "paid"
@@ -750,36 +802,20 @@ export default function SellerPayments() {
                                         : "fa-times-circle"
                                     }`}
                                   />
-                                  {status.charAt(0).toUpperCase() +
-                                    status.slice(1)}
+                                  {status.charAt(0).toUpperCase() + status.slice(1)}
                                 </span>
                               )}
                             </td>
-                            <td className="total-amount">
-                              {money(totalAmt, ccy)}
-                            </td>
+                            <td className="total-amount">{money(totalAmt, ccy)}</td>
                             <td>
                               {slipUrl ? (
                                 <>
                                   {slipIsImage ? (
-                                    <a
-                                      href={slipUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                    >
-                                      <img
-                                        src={slipUrl}
-                                        alt="Bank slip"
-                                        className="slip-thumb"
-                                      />
+                                    <a href={slipUrl} target="_blank" rel="noreferrer">
+                                      <img src={slipUrl} alt="Bank slip" className="slip-thumb" />
                                     </a>
                                   ) : (
-                                    <a
-                                      className="order-id"
-                                      href={slipUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                    >
+                                    <a className="order-id" href={slipUrl} target="_blank" rel="noreferrer">
                                       View
                                     </a>
                                   )}
@@ -799,6 +835,18 @@ export default function SellerPayments() {
           </div>
         </main>
       </div>
+
+      {/* Popups */}
+      <ConfirmModal
+        open={confirm.open}
+        title={confirm.title}
+        message={confirm.message}
+        onConfirm={confirm.onConfirm}
+        onClose={closeConfirm}
+        confirmText="Yes, continue"
+        cancelText="No, cancel"
+      />
+      <Toast toasts={toasts} onHide={hideToast} />
     </>
   );
 }
