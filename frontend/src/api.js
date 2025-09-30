@@ -305,7 +305,7 @@ export const api = {
       if (customer) fd.append("customer", JSON.stringify(customer));
       fd.append("payment", JSON.stringify({ method: "bank", ...payment }));
       if (slip) fd.append("slip", slip);
-      return request(`/api/orders/${id}`, {
+      return request(`/api/orders/${id}/checkout`, {
         method: "POST",
         body: fd,
       });

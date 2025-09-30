@@ -29,7 +29,7 @@ export default function GemInventory() {
     localStorage.getItem("selectedCurrency") || "USD"
   );
   const [priceRange, setPriceRange] = useState(50000);
-  const [caratRange, setCaratRange] = useState(20);
+  const [caratRange] = useState(20);
   const [selectedTypes, setSelectedTypes] = useState({
     sapphire: true,
     ruby: true,
@@ -204,15 +204,7 @@ export default function GemInventory() {
   };
   // ============================================
 
-  const addToCart = (gem, e) => {
-    e.stopPropagation();
-    if (!requireLogin()) return;
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    if (!cart.find((i) => i._id === gem._id)) cart.push({ ...gem, qty: 1 });
-    localStorage.setItem("cart", JSON.stringify(cart));
-    alert("Added to cart");
-  };
-
+  
   const goLogin = () => {
     setShowLoginPrompt(false);
     navigate("/login");
