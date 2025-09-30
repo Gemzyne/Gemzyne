@@ -1,5 +1,6 @@
 // backend/Controllers/FeedbackController.js
 const Feedback = require("../Models/FeedbackModel");
+const sendEmail = require("../Utills/Email");  
 
 /* ========================
  * CREATE (private)
@@ -318,3 +319,55 @@ exports.addReply = async (req, res) => {
   }
 };
 
+// helper: escape HTML so user text is safe in an HTML email
+function escapeHtml(str = "") {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+exports.emailComplaint = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { subject, message } = req.body || {};
+
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({ message: "Email message is required" });
+    }
+
+    const fb = await Feedback.findById(id);
+    if (!fb) return res.status(404).json({ message: "Feedback not found" });
+    if (fb.type !== "complaint") {
+      return res.status(400).json({ message: "Email is only supported for complaints" });
+    }
+    if (!fb.email) {
+      return res.status(400).json({ message: "No customer email on this complaint" });
+    }
+
+    const subj =
+      (subject && subject.toString().trim()) ||
+      `Update on your ${fb.complaintCategory || "GemZyne"} complaint`;
+
+    // Plain-text (keeps \n for clients that show text)
+    const text = String(message);
+
+    // HTML with preserved line breaks via white-space: pre-line
+    const html =
+      `<div style="font:14px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:#111">
+         <div style="white-space:pre-line">${escapeHtml(message)}</div>
+       </div>`;
+
+    await sendEmail({
+      to: fb.email,
+      subject: subj,
+      text,   // for text-based clients
+      html,   // for HTML clients (keeps your newlines and bullets)
+    });
+
+    return res.json({ ok: true, sentTo: fb.email });
+  } catch (e) {
+    console.error("emailComplaint", e);
+    return res.status(500).json({ message: "Failed to send email" });
+  }
+};

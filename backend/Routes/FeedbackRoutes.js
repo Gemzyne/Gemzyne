@@ -23,6 +23,8 @@ const {
   unhideFeedback,
 
    addReply,
+   emailComplaint, 
+
 } = require("../Controllers/FeedbackController");
 
 // ✅ reuse your existing auth middleware
@@ -76,5 +78,8 @@ router.delete("/:id", requireAuth, deleteFeedback);
 
 // Legacy alias for unhide
 router.patch("/:id/restore", requireAuth, restoreFeedback);
+
+// Send an email to the complainant
+router.post("/:id/email", requireAuth, requireRoles("admin", "seller"), emailComplaint);
 
 module.exports = router;

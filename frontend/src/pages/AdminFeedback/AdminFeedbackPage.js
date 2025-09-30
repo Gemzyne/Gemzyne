@@ -29,6 +29,30 @@ const fmtDate = (iso) => {
 };
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
+function buildEmailTemplate(f) {
+  const cat = f.complaintCategory || "your complaint";
+  const name =
+    [f.firstName, f.lastName].filter(Boolean).join(" ") || f.email || "Customer";
+  const ref =
+    f.orderId ? ` (Order #${f.orderId})` : f.productName || f.productId ? ` (${f.productName || f.productId})` : "";
+  return (
+`Hi ${name},
+
+We’re writing regarding your ${cat}${ref}. 
+We’ve reviewed your case and here’s our current update:
+
+• Summary: 
+• Next steps: 
+• Expected timeline: 
+
+If you have any additional details or questions, just reply to this email.
+
+Best regards,
+GemZyne Support`
+  );
+}
+
+
 export default function AdminFeedbackPage() {
   const [view, setView] = useState("reviews");       // "reviews" | "complaints"
   const [category, setCategory] = useState("all");   // category filter
@@ -41,6 +65,12 @@ export default function AdminFeedbackPage() {
   const [replyOpenId, setReplyOpenId] = useState(null);
   const [replyText, setReplyText] = useState("");
 
+  /** Email compose state **/
+const [emailOpenId, setEmailOpenId] = useState(null);
+const [emailSubject, setEmailSubject] = useState("");
+const [emailBody, setEmailBody] = useState("");
+
+  // Particles
   // Particles (unique ID)
   const particlesLoaded = useRef(false);
   useEffect(() => {
@@ -129,6 +159,28 @@ export default function AdminFeedbackPage() {
     } catch (e) { alert(e.message || "Failed to send reply"); }
   };
 
+  // send email
+  const sendEmailToComplaint = async (id) => {
+  try {
+    await apiRequest(`/api/feedback/${id}/email`, {
+      method: "POST",
+      body: JSON.stringify({
+        subject: emailSubject,
+        message: emailBody,
+      }),
+    });
+    // Optional: quick UX reset
+    setEmailOpenId(null);
+    setEmailSubject("");
+    setEmailBody("");
+    alert("Email sent successfully.");
+  } catch (e) {
+    alert(e.message || "Failed to send email");
+  }
+};
+
+
+  // Derived lists
   // Derivations
   const reviews = useMemo(() => items.filter((i) => i.type === "review"), [items]);
   const complaints = useMemo(() => items.filter((i) => i.type === "complaint"), [items]);
@@ -327,42 +379,113 @@ export default function AdminFeedbackPage() {
 
                     <div className="adfb-actions">
                       {!isReview && (
-                        <>
-                          <button
-                            className="adfb-action"
-                            onClick={() => setComplaintStatus(f._id, isResolved ? "Pending" : "Resolved")}
-                          >
-                            <i className="fas fa-check-circle" /> {isResolved ? "Mark Pending" : "Resolve"}
-                          </button>
+  <>
+    {/* Resolve / Mark Pending */}
+    <button
+      className="adfb-action"
+      onClick={() => setComplaintStatus(f._id, isResolved ? "Pending" : "Resolved")}
+    >
+      <i className="fas fa-check-circle" /> {isResolved ? "Mark Pending" : "Resolve"}
+    </button>
 
-                          {replyOpenId === f._id ? (
-                            <div className="adfb-replybox">
-                              <textarea
-                                value={replyText}
-                                onChange={(e) => setReplyText(e.target.value)}
-                                placeholder="Type your reply…"
-                                rows={4}
-                              />
-                              <div className="adfb-replybox-actions">
-                                <button className="adfb-action" onClick={() => sendReply(f._id)}>Send</button>
-                                <button
-                                  className="adfb-action adfb-action--danger"
-                                  onClick={() => { setReplyOpenId(null); setReplyText(""); }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <button
-                              className="adfb-action"
-                              onClick={() => { setReplyOpenId(f._id); setReplyText(f.adminReply?.text || ""); }}
-                            >
-                              <i className="fas fa-reply" /> Reply
-                            </button>
-                          )}
-                        </>
-                      )}
+    {/* Reply */}
+    {replyOpenId === f._id ? (
+      <div className="adfb-replybox">
+        <textarea
+          value={replyText}
+          onChange={(e) => setReplyText(e.target.value)}
+          placeholder="Type your reply…"
+          rows={4}
+        />
+        <div className="adfb-replybox-actions">
+          <button className="adfb-action" onClick={() => sendReply(f._id)}>Send</button>
+          <button
+            className="adfb-action adfb-action--danger"
+            onClick={() => { setReplyOpenId(null); setReplyText(""); }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    ) : (
+      <button
+        className="adfb-action"
+        onClick={() => { setReplyOpenId(f._id); setReplyText(f.adminReply?.text || ""); }}
+      >
+        <i className="fas fa-reply" /> Reply
+      </button>
+    )}
+
+    {/* Email */}
+    <button
+      className="adfb-action"
+      onClick={() => {
+        setEmailOpenId((prev) => (prev === f._id ? null : f._id));
+        // sensible defaults on open
+        setEmailSubject((prev) =>
+          prev?.trim() ? prev : `Update on your ${f.complaintCategory || "GemZyne"} complaint`
+        );
+        setEmailBody((prev) => (prev?.trim() ? prev : buildEmailTemplate(f)));
+      }}
+    >
+      <i className="fas fa-envelope" /> Email
+    </button>
+
+    {/* Inline email composer */}
+    {emailOpenId === f._id && (
+      <div style={{ width: "100%", marginTop: 10, display: "grid", gap: 8 }}>
+        <input
+          type="text"
+          value={emailSubject}
+          onChange={(e) => setEmailSubject(e.target.value)}
+          placeholder="Subject"
+          style={{
+            padding: "8px 10px",
+            borderRadius: 8,
+            border: "1px solid #333",
+            background: "#141414",
+            color: "#eee",
+          }}
+        />
+        <textarea
+          value={emailBody}
+          onChange={(e) => setEmailBody(e.target.value)}
+          placeholder="Type your message…"
+          rows={4}
+          style={{
+            padding: "10px",
+            borderRadius: 8,
+            border: "1px solid #333",
+            background: "#141414",
+            color: "#eee",
+            resize: "vertical",
+          }}
+        />
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="adfb-action"
+            onClick={() => sendEmailToComplaint(f._id)}
+            disabled={!emailBody.trim()}
+            title={!emailBody.trim() ? "Message required" : "Send"}
+          >
+            Send Email
+          </button>
+          <button
+            className="adfb-action adfb-action--danger"
+            onClick={() => {
+              setEmailOpenId(null);
+              setEmailSubject("");
+              setEmailBody("");
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    )}
+  </>
+)}
+
 
                       {f.isAdminHidden ? (
                         <button className="adfb-action" onClick={() => doRestore(f._id)}>
