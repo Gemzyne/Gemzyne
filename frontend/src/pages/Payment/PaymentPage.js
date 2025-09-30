@@ -101,11 +101,27 @@ function isExpired(exp) {
 export default function PaymentPage() {
   const { state } = useLocation() || {};
   const navigate = useNavigate();
+  const location = useLocation();
   const [sp] = useSearchParams();
   const orderIdFromQuery = sp.get("orderId") || null;
   const gemIdFromQuery = sp.get("gemId") || null;
   const kindFromQuery = (sp.get("kind") || "").toLowerCase();
   const isCustomMode = kindFromQuery === "custom";
+
+  const handleBack = () => {
+    // 1) if caller passed a specific route in state, use it
+    if (location.state?.from) {
+      navigate(location.state.from);
+      return;
+    }
+    // 2) if there is browser history, go back
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    // 3) fallback: home (or wherever you like)
+    navigate("/");
+  };
 
   const orderIdFromNav =
     state?.orderId ||
@@ -532,7 +548,6 @@ export default function PaymentPage() {
       return;
     }
 
-
     if (!validateCard()) {
       openModal("Card details", "Please fill all card fields correctly.");
       return;
@@ -671,6 +686,12 @@ export default function PaymentPage() {
 
   return (
     <>
+      <div>
+        {/* Back button — top-left corner */}
+        <button className="back-btn" onClick={handleBack} >
+          Back
+        </button>
+      </div>
       <div id="particles-js" />
 
       <div className="payment-container">
