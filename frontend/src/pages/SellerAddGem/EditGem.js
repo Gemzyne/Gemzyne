@@ -4,8 +4,11 @@ import { useParams } from "react-router-dom";
 import Header from "../../Components/Header";
 import Footer from "../../Components/Footer";
 import "./EditGem.css";
+import api from "../../api"; 
 
 const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000";
+
+
 
 // Ensure server-relative URLs become absolute for previewing
 const absUrl = (u) => {
@@ -87,18 +90,13 @@ const EditGem = () => {
     }
   }, []);
 
-  // ---------------- Load gem by :id ----------------
+  // ----- LOAD gem for editing (STAFF endpoint) -----
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/gems/${id}`, { credentials: "include" });
-        if (!res.ok) throw new Error(`Load failed: ${res.status}`);
-
-        // Support multiple shapes: {data}, {gem}, or raw object
-        const payload = await res.json();
+        const payload = await api.gems.adminById(id); // <-- staff-only
         const g = payload?.data || payload?.gem || payload;
 
-        // Basic fields
         setGemName(g.name || "");
         setGemId(g.gemId || "");
         setGemType(g.type || "");
@@ -113,22 +111,17 @@ const EditGem = () => {
         setCertNumber(g.certificateNumber || "");
         setPrice(g.priceUSD ?? "");
         setStatus(
-          g.status === "out_of_stock"
-            ? "out-of-stock"
-            : g.status === "reserved"
-            ? "reserved"
-            : "in-stock"
+          g.status === "out_of_stock" ? "out-of-stock"
+          : g.status === "reserved" ? "reserved"
+          : "in-stock"
         );
         setDescription(g.description || "");
 
-        // Images (support g.images or g.imageUrls)
         const imgs = (Array.isArray(g.images) ? g.images : g.imageUrls || [])
-          .map(absUrl)
-          .filter(Boolean);
+          .map(absUrl).filter(Boolean);
         setExistingImages(imgs);
         setKeptImages(imgs);
 
-        // Certificate (support certificateUrl or certificate)
         setExistingCertUrl(absUrl(g.certificateUrl || g.certificate || ""));
       } catch (e) {
         console.error(e);

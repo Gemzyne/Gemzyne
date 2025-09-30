@@ -55,13 +55,17 @@ exports.createGem = async (req, res) => {
     const certFiles = Array.isArray(up.certificate) ? up.certificate : [];
 
     const images = imageFiles.map((f) => toPublicPath(f.filename));
-    const certPath =
-      certFiles[0]?.filename ? toPublicPath(certFiles[0].filename) : certificateUrl || "";
+    const certPath = certFiles[0]?.filename
+      ? toPublicPath(certFiles[0].filename)
+      : certificateUrl || "";
 
     if (!name || !type || caratNum == null || priceNum == null) {
       return res
         .status(400)
-        .json({ ok: false, message: "name, type, carat, priceUSD are required" });
+        .json({
+          ok: false,
+          message: "name, type, carat, priceUSD are required",
+        });
     }
     if (!images.length || images.length > 4) {
       return res.status(400).json({
@@ -120,16 +124,28 @@ exports.listGems = async (req, res) => {
       limit = 50,
     } = req.query;
 
-    const filter = { isActive: true };
+    const isStaff = ["seller", "admin"].includes(req.user?.role);
+    const wantAll = status === "all";
 
-    // Default: hide reserved / out_of_stock / sold from public inventory
-    // If the client supplies ?status=..., we respect it instead.
-    if (!status) {
-      // include legacy-cased values so older docs don't leak through
-    filter.status = { $nin: ['reserved', 'Reserved', 'out_of_stock', 'Out of Stock', 'sold', 'Sold'] };
-    } else if (status && status !== 'all') {
-      filter.status = STATUS_MAP[status] || status;
-    }
+    // 👇 Only force isActive:true for public OR when not explicitly asking for all
+    const filter = {};
+if (!isStaff) {
+  // public: only active items
+  filter.isActive = true;
+  // public default: hide unavailable unless they explicitly filter by a status
+  if (!status || status === "active") {
+    filter.status = {
+      $nin: ["reserved","Reserved","out_of_stock","Out of Stock","sold","Sold"],
+    };
+  } else if (status !== "all") {
+    filter.status = STATUS_MAP[status] || status;
+  }
+} else {
+  // staff: show everything by default
+  if (status && status !== "all") {
+    filter.status = STATUS_MAP[status] || status;
+  }
+}
 
     if (types) filter.type = { $in: types.split(",").filter(Boolean) };
     if (treatment && treatment !== "all-treatments") filter.treatment = treatment;
@@ -161,12 +177,26 @@ exports.listGems = async (req, res) => {
 // Returns a random sample of active/in-stock-ish gems for homepage discovery
 exports.publicRandom = async (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit || '6', 10), 24);
+    const limit = Math.min(parseInt(req.query.limit || "6", 10), 24);
     // Treat "active" inventory as anything not sold/out_of_stock
     const items = await Gem.aggregate([
-      { $match: { isActive: true, status: { $nin: ['reserved','Reserved','sold','Sold','out_of_stock','Out of Stock'] } } },
+      {
+        $match: {
+          isActive: true,
+          status: {
+            $nin: [
+              "reserved",
+              "Reserved",
+              "sold",
+              "Sold",
+              "out_of_stock",
+              "Out of Stock",
+            ],
+          },
+        },
+      },
       { $sample: { size: limit } },
-      { $project: { title: '$name', type: 1, priceUSD: 1, images: 1 } }
+      { $project: { title: "$name", type: 1, priceUSD: 1, images: 1 } },
     ]);
     res.json({ ok: true, items });
   } catch (e) {
@@ -191,13 +221,40 @@ exports.listMine = async (req, res) => {
 exports.getGemById = async (req, res) => {
   try {
     const gem = await Gem.findById(req.params.id);
-    if (!gem) return res.status(404).json({ ok: false, message: "Gem not found" });
+    if (!gem)
+      return res.status(404).json({ ok: false, message: "Gem not found" });
+    // ✅ Hide unavailable gem from public single view too
+    const isStaff = ["seller", "admin"].includes(req.user?.role);
+    const norm = (s) =>
+      String(s || "")
+        .toLowerCase()
+        .replace(/\s+/g, "_");
+    if (
+      !isStaff &&
+      ["reserved", "out_of_stock", "sold"].includes(norm(gem.status))
+    ) {
+      return res.status(404).json({ ok: false, message: "Gem not found" });
+    }
     res.json({ ok: true, data: gem });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, message: e.message });
   }
 };
+
+// --- GET BY ID (staff edit): GET /api/gems/admin/:id
+exports.getGemByIdAdmin = async (req, res) => {
+  try {
+    const gem = await Gem.findById(req.params.id);
+    if (!gem) return res.status(404).json({ ok: false, message: 'Gem not found' });
+    // never hide here — staff needs to edit even if out_of_stock/sold/reserved
+    return res.json({ ok: true, data: gem });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
 
 // --- UPDATE (protected seller/admin) : PUT /api/gems/:id
 // Accepts:
@@ -208,12 +265,14 @@ exports.updateGem = async (req, res) => {
   try {
     const id = req.params.id;
     const existing = await Gem.findById(id);
-    if (!existing) return res.status(404).json({ ok: false, message: "Gem not found" });
+    if (!existing)
+      return res.status(404).json({ ok: false, message: "Gem not found" });
 
     // ensure owner or admin
     if (
       req.user?.role !== "admin" &&
-      String(existing.createdBy || "") !== String(req.user?.id || req.user?._id || "")
+      String(existing.createdBy || "") !==
+        String(req.user?.id || req.user?._id || "")
     ) {
       return res.status(403).json({ ok: false, message: "Forbidden" });
     }
@@ -233,12 +292,13 @@ exports.updateGem = async (req, res) => {
     }
 
     const certFiles = Array.isArray(up.certificate) ? up.certificate : [];
-    const certificateUrl =
-      certFiles[0]?.filename
-        ? toPublicPath(certFiles[0].filename)
-        : body.certificateUrl ?? existing.certificateUrl;
+    const certificateUrl = certFiles[0]?.filename
+      ? toPublicPath(certFiles[0].filename)
+      : body.certificateUrl ?? existing.certificateUrl;
 
-    const STATUS = body.status ? STATUS_MAP[body.status] || body.status : existing.status;
+    const STATUS = body.status
+      ? STATUS_MAP[body.status] || body.status
+      : existing.status;
 
     existing.name = body.name ?? existing.name;
     existing.type = body.type ?? existing.type;
@@ -251,12 +311,19 @@ exports.updateGem = async (req, res) => {
     existing.cutQuality = body.cutQuality ?? existing.cutQuality;
     existing.treatment = body.treatment ?? existing.treatment;
 
-    existing.certificationAgency = body.certificationAgency ?? existing.certificationAgency;
-    existing.certificateNumber = body.certificateNumber ?? existing.certificateNumber;
+    existing.certificationAgency =
+      body.certificationAgency ?? existing.certificationAgency;
+    existing.certificateNumber =
+      body.certificateNumber ?? existing.certificateNumber;
     existing.certificateUrl = certificateUrl;
 
-    existing.priceUSD = body.priceUSD != null ? Number(body.priceUSD) : existing.priceUSD;
+    existing.priceUSD =
+      body.priceUSD != null ? Number(body.priceUSD) : existing.priceUSD;
     existing.status = STATUS;
+    // If bringing back into stock, make it visible again
+    if (existing.status === "in_stock") {
+       existing.isActive = true;
+    }
     existing.description = body.description ?? existing.description;
     existing.quality = body.quality ?? existing.quality;
     existing.origin = body.origin ?? existing.origin;
@@ -279,11 +346,13 @@ exports.deleteGem = async (req, res) => {
   try {
     const id = req.params.id;
     const gem = await Gem.findById(id);
-    if (!gem) return res.status(404).json({ ok: false, message: "Gem not found" });
+    if (!gem)
+      return res.status(404).json({ ok: false, message: "Gem not found" });
 
     if (
       req.user?.role !== "admin" &&
-      String(gem.createdBy || "") !== String(req.user?.id || req.user?._id || "")
+      String(gem.createdBy || "") !==
+        String(req.user?.id || req.user?._id || "")
     ) {
       return res.status(403).json({ ok: false, message: "Forbidden" });
     }
@@ -294,4 +363,5 @@ exports.deleteGem = async (req, res) => {
     console.error(e);
     res.status(500).json({ ok: false, message: e.message });
   }
+  
 };

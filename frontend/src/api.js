@@ -378,6 +378,8 @@ api.gems = {
   },
   byId: (id) => request(`/api/gems/${id}`),
 
+  adminById: (id) => request(`/api/gems/admin/${id}`),
+
   // seller: my gems in inventory page
   mine: async () => {
     const attempts = [
