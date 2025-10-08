@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const auctionSchema = new mongoose.Schema(
   {
-    auctionId: { type: String, unique: true, index: true }, // AUC-YYYY-###
+    auctionId: { type: String, unique: true, index: true },
     title: { type: String, required: true, trim: true },
     type: {
       type: String,
@@ -26,7 +26,11 @@ const auctionSchema = new mongoose.Schema(
       index: true,
     },
 
-    sellerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
+    sellerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+    },
 
     bidsCount: { type: Number, default: 0 },
     highestBid: {

@@ -1,134 +1,157 @@
-const Auction = require("../Models/Auction");
-const Bid = require("../Models/Bid");
+// Controllers/bidController.js
 
-/** Ensure auction is within its bid window (start <= now < end) */
+const Auction = require("../Models/Auction"); // auction model
+const Bid = require("../Models/Bid"); // bid model
+
 async function ensureOngoing(auctionId) {
+  // guard: auction in bid window
   const a = await Auction.findById(auctionId);
   if (!a) throw new Error("Auction not found");
   const now = Date.now();
-  if (!(new Date(a.startTime).getTime() <= now && now < new Date(a.endTime).getTime())) {
+  if (
+    !(
+      new Date(a.startTime).getTime() <= now &&
+      now < new Date(a.endTime).getTime()
+    )
+  ) {
     throw new Error("Auction is not accepting bids");
   }
   return a;
 }
 
-/** Get global current top bid amount for the auction (or null if none) */
 async function topBidAmount(auctionId) {
+  // helper: highest bid amount
   const top = await Bid.findOne({ auction: auctionId })
-    .sort({ amount: -1, placedAt: 1 }) // highest amount; tie -> earliest wins
+    .sort({ amount: -1, placedAt: 1 })
     .lean();
   return top ? top.amount : null;
 }
 
-/**
- * POST /api/bids/place  { auctionId, amount }
- * If the user already has a bid for this auction, update that SAME row
- * (no new documents are created).
- */
+// POST /api/bids/place – create/update single row per user+auction
 exports.placeBid = async (req, res) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const userId = req.user?.id; // caller id
+    if (!userId) return res.status(401).json({ message: "Unauthorized" }); // auth guard
 
-    const { auctionId, amount } = req.body || {};
-    const amt = Number(amount);
+    const { auctionId, amount } = req.body || {}; // body
+    const amt = Number(amount); // amount numeric
     if (!auctionId || !Number.isFinite(amt)) {
-      return res.status(400).json({ message: "auctionId and amount are required" });
+      return res
+        .status(400)
+        .json({ message: "auctionId and amount are required" }); // input guard
     }
 
-    const a = await ensureOngoing(auctionId);
-
-    const currentTop = await topBidAmount(auctionId);
-    const floor = Math.max(a.basePrice || 0, a.currentPrice || 0, currentTop || 0);
+    const a = await ensureOngoing(auctionId); // time window check
+    const currentTop = await topBidAmount(auctionId); // current top
+    const floor = Math.max(
+      a.basePrice || 0,
+      a.currentPrice || 0,
+      currentTop || 0
+    ); // minimum allowed
     if (amt <= floor) {
-      return res.status(400).json({ message: `Bid must be greater than current price (${floor})` });
+      return res
+        .status(400)
+        .json({ message: `Bid must be greater than current price (${floor})` }); // reject low bids
     }
 
-    // ⬇️ update existing row or create the first one for this user/auction
-    const existing = await Bid.findOne({ auction: auctionId, user: userId });
+    const existing = await Bid.findOne({ auction: auctionId, user: userId }); // find your bid
     if (existing) {
-      existing.amount = amt;
-      existing.placedAt = new Date();
-      await existing.save();
+      existing.amount = amt; // update amount
+      existing.placedAt = new Date(); // update time
+      await existing.save(); // save change
     } else {
       await Bid.create({
         auction: auctionId,
         user: userId,
         amount: amt,
         placedAt: new Date(),
-      });
+      }); // create new
     }
 
-    // Update auction current price if this is the new top
     if ((a.currentPrice || 0) < amt) {
-      await Auction.updateOne({ _id: auctionId }, { $set: { currentPrice: amt } });
+      await Auction.updateOne(
+        { _id: auctionId },
+        { $set: { currentPrice: amt } }
+      ); // raise current price
     }
 
-    return res.status(201).json({ ok: true, currentPrice: Math.max(a.currentPrice || 0, amt) });
+    return res
+      .status(201)
+      .json({ ok: true, currentPrice: Math.max(a.currentPrice || 0, amt) }); // reply
   } catch (e) {
-    console.error("placeBid error:", e);
-    return res.status(400).json({ message: e.message || "Failed to place bid" });
+    console.error("placeBid error:", e); // log
+    return res
+      .status(400)
+      .json({ message: e.message || "Failed to place bid" }); // error
   }
 };
 
-/**
- * POST /api/bids/increase  { auctionId, amount }
- * Strictly updates the user's existing bid row – DOES NOT create a new one.
- */
+// POST /api/bids/increase – update existing bid only
 exports.increaseBid = async (req, res) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const userId = req.user?.id; // caller id
+    if (!userId) return res.status(401).json({ message: "Unauthorized" }); // auth guard
 
-    const { auctionId, amount } = req.body || {};
-    const amt = Number(amount);
+    const { auctionId, amount } = req.body || {}; // body
+    const amt = Number(amount); // numeric
     if (!auctionId || !Number.isFinite(amt)) {
-      return res.status(400).json({ message: "auctionId and amount are required" });
+      return res
+        .status(400)
+        .json({ message: "auctionId and amount are required" }); // input guard
     }
 
-    const a = await ensureOngoing(auctionId);
+    const a = await ensureOngoing(auctionId); // window check
+    const existing = await Bid.findOne({ auction: auctionId, user: userId }); // your bid
+    if (!existing)
+      return res
+        .status(400)
+        .json({ message: "No existing bid to increase. Place a bid first." }); // must exist
 
-    const existing = await Bid.findOne({ auction: auctionId, user: userId });
-    if (!existing) {
-      return res.status(400).json({ message: "No existing bid to increase. Place a bid first." });
-    }
-
-    const currentTop = await topBidAmount(auctionId);
-    const floor = Math.max(a.basePrice || 0, a.currentPrice || 0, currentTop || 0);
+    const currentTop = await topBidAmount(auctionId); // current top
+    const floor = Math.max(
+      a.basePrice || 0,
+      a.currentPrice || 0,
+      currentTop || 0
+    ); // minimum
     if (amt <= floor) {
-      return res.status(400).json({ message: `Increase must be greater than current price (${floor})` });
+      return res
+        .status(400)
+        .json({
+          message: `Increase must be greater than current price (${floor})`,
+        }); // reject low
     }
 
-    existing.amount = amt;
-    existing.placedAt = new Date();
-    await existing.save();
+    existing.amount = amt; // update amount
+    existing.placedAt = new Date(); // update time
+    await existing.save(); // save
 
     if ((a.currentPrice || 0) < amt) {
-      await Auction.updateOne({ _id: auctionId }, { $set: { currentPrice: amt } });
+      await Auction.updateOne(
+        { _id: auctionId },
+        { $set: { currentPrice: amt } }
+      ); // update auction price
     }
 
-    return res.status(200).json({ ok: true, currentPrice: Math.max(a.currentPrice || 0, amt) });
+    return res
+      .status(200)
+      .json({ ok: true, currentPrice: Math.max(a.currentPrice || 0, amt) }); // reply
   } catch (e) {
-    console.error("increaseBid error:", e);
-    return res.status(400).json({ message: e.message || "Failed to increase bid" });
+    console.error("increaseBid error:", e); // log
+    return res
+      .status(400)
+      .json({ message: e.message || "Failed to increase bid" }); // error
   }
 };
 
-/**
- * GET /api/bids/my
- * Returns the exact shape your Buyer Dashboard expects:
- * [{ auctionId, id, title, type, endTime, currentPrice, image, yourBid }]
- * (One row per auction because we now keep one bid row per user per auction)
- */
+// GET /api/bids/my – list your bids shaped for dashboard
 exports.listMyBids = async (req, res) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const userId = req.user?.id; // caller id
+    if (!userId) return res.status(401).json({ message: "Unauthorized" }); // auth guard
 
-    const bids = await Bid.find({ user: userId }).populate("auction").lean();
-
+    const bids = await Bid.find({ user: userId }).populate("auction").lean(); // load bids
     const items = (bids || [])
-      .filter((b) => b.auction)
+      .filter((b) => b.auction) // keep valid
       .map((b) => ({
         auctionId: b.auction._id,
         id: String(b.auction._id),
@@ -138,25 +161,24 @@ exports.listMyBids = async (req, res) => {
         currentPrice: b.auction.currentPrice,
         image: b.auction.imageUrl || "",
         yourBid: b.amount,
-      }))
-      .sort((x, y) => new Date(x.endTime) - new Date(y.endTime));
+      })) // shape rows
+      .sort((x, y) => new Date(x.endTime) - new Date(y.endTime)); // sort by end
 
-    return res.json({ items });
+    return res.json({ items }); // reply data
   } catch (e) {
-    console.error("listMyBids error:", e);
-    return res.status(500).json({ message: "Failed to load your bids" });
+    console.error("listMyBids error:", e); // log
+    return res.status(500).json({ message: "Failed to load your bids" }); // error
   }
 };
 
-/** GET /api/bids/auction/:id  (optional seller/debug) */
+// GET /api/bids/auction/:id – seller/debug list for one auction
 exports.listBidsForAuction = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params; // read param
     const items = await Bid.find({ auction: id })
       .populate("user", "fullName email")
       .sort({ amount: -1, placedAt: 1 })
-      .lean();
-
+      .lean(); // load list
     return res.json({
       items: items.map((b) => ({
         id: String(b._id),
@@ -164,9 +186,9 @@ exports.listBidsForAuction = async (req, res) => {
         amount: b.amount,
         placedAt: b.placedAt,
       })),
-    });
+    }); // shape rows
   } catch (e) {
-    console.error("listBidsForAuction error:", e);
-    return res.status(500).json({ message: "Failed to load bids" });
+    console.error("listBidsForAuction error:", e); // log
+    return res.status(500).json({ message: "Failed to load bids" }); // error
   }
 };

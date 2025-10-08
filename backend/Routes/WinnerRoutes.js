@@ -1,8 +1,4 @@
 // Routes/winnerRoutes.js
-// ----------------------------------------------------
-// Routes for winner info.
-// NOTE: `:auctionId` can be either the Auction's Mongo _id OR its human code (AUC-YYYY-###)
-
 const router = require("express").Router();
 const { requireAuth } = require("../Middleware/auth");
 const ctrl = require("../Controllers/winnerController");

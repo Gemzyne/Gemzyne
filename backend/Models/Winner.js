@@ -1,11 +1,4 @@
 // Models/Winner.js
-// ---------------------------------------------
-// Winner model: who won an auction and for how much.
-// We keep both:
-//   1) `auction` (Mongo ObjectId)  -> the authoritative link to the Auction document
-//   2) `auctionCode` (string)      -> the human-friendly code like "AUC-2025-007"
-// This makes it easy to search/report winners by code without extra populates.
-
 const mongoose = require("mongoose");
 
 const WinnerSchema = new mongoose.Schema(

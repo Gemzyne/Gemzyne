@@ -22,7 +22,8 @@ const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (req, file, cb) => {
-    if (!file.mimetype?.startsWith("image/")) return cb(new Error("Only image files are allowed"));
+    if (!file.mimetype?.startsWith("image/"))
+      return cb(new Error("Only image files are allowed"));
     cb(null, true);
   },
 });
@@ -31,8 +32,19 @@ const upload = multer({
 router.get("/public", ctrl.publicList);
 
 // Seller-only (must be BEFORE '/:id')
-router.get("/seller/overview", requireAuth, requireRoles("seller"), ctrl.sellerOverview);
-router.post("/", requireAuth, requireRoles("seller"), upload.single("image"), ctrl.create);
+router.get(
+  "/seller/overview",
+  requireAuth,
+  requireRoles("seller"),
+  ctrl.sellerOverview
+);
+router.post(
+  "/",
+  requireAuth,
+  requireRoles("seller"),
+  upload.single("image"),
+  ctrl.create
+);
 router.patch("/:id", requireAuth, requireRoles("seller"), ctrl.updateUpcoming);
 router.delete("/:id", requireAuth, requireRoles("seller"), ctrl.deleteUpcoming);
 
