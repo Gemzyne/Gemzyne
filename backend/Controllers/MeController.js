@@ -226,7 +226,7 @@ exports.softDeleteMe = async (req, res) => {
     me.status = "suspended";
     await me.save();
 
-    await revokeAllSessions?.(me._id); // keep if you have sessions
+    await revokeAllSessions?.(me._id); 
 
     return res.json({ message: "Account deleted (soft)" });
   } catch (e) {

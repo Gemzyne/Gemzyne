@@ -116,7 +116,6 @@ exports.monthlyRevenue = async (req, res, next) => {
 };
 
 // GET /api/metrics/seller/category?year=2025
-// Buckets PAID sales by inferred category from order title (best-effort).
 // Returns: { labels: [...], values: [...] }
 exports.categoryBreakdown = async (req, res, next) => {
   try {
@@ -124,7 +123,7 @@ exports.categoryBreakdown = async (req, res, next) => {
     const start = new Date(Date.UTC(year, 0, 1, 0, 0, 0));
     const end = new Date(Date.UTC(year + 1, 0, 1, 0, 0, 0));
 
-    // NOTE: collection name for CustomOrder is Mongoose-pluralized: "customorders"
+    
     const rows = await Payment.aggregate([
       {
         $match: {
@@ -145,7 +144,7 @@ exports.categoryBreakdown = async (req, res, next) => {
         $project: {
           amount: "$amounts.total",
           title: { $ifNull: ["$order.title", ""] },
-          // you can also project other fields if your CustomOrder has them, e.g. $order.type
+          
         },
       },
     ]);

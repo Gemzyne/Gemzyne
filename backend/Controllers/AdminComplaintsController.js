@@ -2,7 +2,7 @@
 const Feedback = require("../Models/FeedbackModel");
 
 // GET /api/admin/complaints
-// Optional: ?category=<name> to filter (case-insensitive). Use category=all to force no filtering.
+// ?category=<name> to filter (case-insensitive). Use category=all to force no filtering.
 exports.listComplaints = async (req, res) => {
   try {
     const category = (req.query.category || "").toString().trim().toLowerCase();

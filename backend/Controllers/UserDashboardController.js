@@ -34,12 +34,6 @@ const normOrder = (v) => {
 };
 
 // GET /api/dashboard/me
-// Returns:
-// {
-//   ok: true,
-//   totals: { activeBids, myReviews, totalOrders },
-//   recent: { reviews: [...], orders: [...] }   // orders: last 3
-// }
 exports.getMyDashboard = async (req, res) => {
   try {
     const userId = req.user && (req.user._id || req.user.id);
@@ -113,7 +107,7 @@ exports.getMyDashboard = async (req, res) => {
         .lean()
         .catch(() => []);
 
-      // Optional: map payment statuses if Payment model exists
+      // map payment statuses if Payment model exists
       let paysByOrderId = {};
       if (Payment && orders.length) {
         const ids = orders.map((o) => o._id);
