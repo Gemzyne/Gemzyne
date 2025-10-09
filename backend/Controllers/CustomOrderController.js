@@ -27,9 +27,9 @@ exports.createCustomOrder = async (req, res, next) => {
       pricing,
       currency: 'USD',
       estimatedFinishDate,
-      status: 'pending',                 // <— IMPORTANT: must match model enum
-      buyerId: req.user.id, // 🔗 attach the logged-in user
-      // ADDED: initialize orderStatus (seller tracking)
+      status: 'pending',                 // must match model enum
+      buyerId: req.user.id, //  attach the logged-in user
+      //initialize orderStatus (seller tracking)
       orderStatus: "processing",
     });
 
@@ -42,9 +42,9 @@ exports.createCustomOrder = async (req, res, next) => {
 // GET /api/orders/:id
 exports.getCustomOrder = async (req, res, next) => {
   try {
-    // ADDED: populate buyer name fields so frontend can show a human name
+    // populate buyer name fields so frontend can show a human name
     const order = await CustomOrder.findById(req.params.id)
-      .populate('buyerId', 'name fullName firstName lastName username email'); // ← ADDED
+      .populate('buyerId', 'name fullName firstName lastName username email');
 
     if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
 
@@ -56,7 +56,7 @@ exports.getCustomOrder = async (req, res, next) => {
       const isStaff = ['seller', 'admin'].includes(req.user.role);
       if (!isOwner && !isStaff) return res.status(403).json({ ok: false, message: 'Forbidden' });
     
-    return res.json({ ok: true, order });    // <— Payment page expects ok:true
+    return res.json({ ok: true, order });    //Payment page expects ok:true
   } catch (err) {
     next(err);
   }
@@ -67,7 +67,7 @@ exports.getCustomOrder = async (req, res, next) => {
    =========================== */
 
 // GET /api/orders   (seller/admin) — list with pagination
-// ADDED (orderStatus)
+//(orderStatus)
 exports.listOrdersForSeller = async (req, res, next) => {
   try {
     const role = req.user?.role;
@@ -80,12 +80,12 @@ exports.listOrdersForSeller = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([
-      // ADDED: populate buyer name fields so the frontend can show the name
+      //populate buyer name fields so the frontend can show the name
       CustomOrder.find({})
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('buyerId', 'name fullName firstName lastName username email'), // ← ADDED
+        .populate('buyerId', 'name fullName firstName lastName username email'),
       CustomOrder.countDocuments({}),
     ]);
 
@@ -96,7 +96,7 @@ exports.listOrdersForSeller = async (req, res, next) => {
 };
 
 // PATCH /api/orders/:id/order-status  (seller/admin) — update only orderStatus
-// ADDED (orderStatus)
+// (orderStatus)
 exports.updateOrderStatus = async (req, res, next) => {
   try {
     const role = req.user?.role;
@@ -125,7 +125,7 @@ exports.updateOrderStatus = async (req, res, next) => {
 };
 
 // DELETE /api/orders/:id  (seller/admin) — delete a row
-// ADDED (orderStatus)
+// (orderStatus)
 exports.deleteOrder = async (req, res, next) => {
   try {
     const role = req.user?.role;
