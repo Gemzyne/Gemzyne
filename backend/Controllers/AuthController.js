@@ -59,7 +59,7 @@ exports.register = async (req, res) => {
     }
 
     if (!user) {
-      // brand new
+      
       // (also ensure phone is free among active users)
       if (phone) {
         const phoneHolder = await User.findOne({ phone, isDeleted: false });
@@ -79,7 +79,7 @@ exports.register = async (req, res) => {
       await user.save();
     }
 
-    // Send verify code (same as you already do)
+    // Send verify code 
     const raw = six();
     const otp = new OtpCode({
       userId: user._id,
@@ -163,7 +163,7 @@ exports.login = async (req, res) => {
       (await User.findOne({ email: identifier }).select("+passwordHash")) ||
       (await User.findOne({ phone: identifier }).select("+passwordHash"));
 
-    // ✅ first ensure user exists before accessing properties
+    // first ensure user exists before accessing properties
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
     if (user.isDeleted) {
@@ -176,7 +176,7 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: "Account suspended" });
     }
 
-    // ✅ block login until email is verified
+    //  block login until email is verified
     if (!user.emailVerified) {
       return res.status(403).json({
         message: "Email not verified. Please verify your email to continue.",
