@@ -19,7 +19,7 @@ function useDebounce(value, delay = 400) {
 export default function AdminUsersPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState("all"); // all | buyer | seller | admin
-  const [q, setQ] = useState("");        // 🔎 search query
+  const [q, setQ] = useState("");        //  search query
   const debouncedQ = useDebounce(q, 400);
 
   const [users, setUsers] = useState([]);
@@ -105,7 +105,9 @@ export default function AdminUsersPage() {
   // reload on tab or debounced search change
   useEffect(() => {
     const role =
-      tab === "all" ? undefined : tab === "buyer" ? "buyer" : tab === "seller" ? "seller" : "admin";
+      tab === "all" ? undefined : 
+      tab === "buyer" ? "buyer" : 
+      tab === "seller" ? "seller" : "admin";
     loadUsers(role, debouncedQ);
   }, [tab, debouncedQ]);
 
@@ -144,7 +146,7 @@ export default function AdminUsersPage() {
               </button>
             </div>
 
-            {/* 🔎 Search Bar */}
+            
             <div
               style={{
                 display: "flex",
@@ -164,7 +166,7 @@ export default function AdminUsersPage() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      // force immediate search on Enter
+                      
                       loadUsers(
                         tab === "all"
                           ? undefined
