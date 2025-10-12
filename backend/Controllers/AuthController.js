@@ -2,7 +2,8 @@ const crypto = require("crypto");
 const User = require("../Models/UserModel");
 const OtpCode = require("../Models/OtpCodeModel");
 const Session = require("../Models/SessionModel");
-const sendEmail = require("../Utills/Email");
+const { sendVerifyEmail, sendPasswordResetEmail } = require("../Utills/Email");
+
 const {
   signAccessToken,
   generateRawRefreshToken,
@@ -89,11 +90,7 @@ exports.register = async (req, res) => {
     await otp.setCode(raw);
     await otp.save();
 
-    await sendEmail({
-      to: normEmail,
-      subject: "Verify your GemZyne account",
-      text: `Your OTP is ${raw}. It expires in 10 minutes.`,
-    });
+    await sendVerifyEmail(normEmail, raw, { expiresInMinutes: 10 });
 
     return res.status(201).json({
       message: user.deletedAt
@@ -225,11 +222,7 @@ exports.forgotPassword = async (req, res) => {
       await otp.setCode(raw);
       await otp.save();
 
-      await sendEmail({
-        to: email,
-        subject: "Your password reset code",
-        text: `Use this OTP to reset your password: ${raw} (valid 10 minutes)`,
-      });
+      await sendPasswordResetEmail(email, raw, { expiresInMinutes: 10 });
     }
 
     return res.json({
@@ -352,11 +345,7 @@ exports.resendVerify = async (req, res) => {
     await otp.setCode(raw);
     await otp.save();
 
-    await sendEmail({
-      to: user.email,
-      subject: "Verify your GemZyne account",
-      text: `Your OTP is ${raw}. It expires in 10 minutes.`,
-    });
+    await sendVerifyEmail(user.email, raw, { expiresInMinutes: 10 });
 
     return res.json({ message: "Verification code resent" });
   } catch (e) {
