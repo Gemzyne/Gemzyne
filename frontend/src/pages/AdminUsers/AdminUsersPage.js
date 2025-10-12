@@ -26,6 +26,10 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
 
+  // NEW: modal states
+  const [confirmModal, setConfirmModal] = useState({ open: false, id: null, text: "" });
+  const [alertModal, setAlertModal] = useState({ open: false, title: "", message: "" });
+
   // guard
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem("user") || "null");
@@ -40,7 +44,7 @@ export default function AdminUsersPage() {
         particles: {
           number: { value: 60, density: { enable: true, value_area: 800 } },
           color: { value: "#d4af37" },
-          shape: { type: "circle" },
+        shape: { type: "circle" },
           opacity: { value: 0.3, random: true },
           size: { value: 3, random: true },
           line_linked: {
@@ -54,11 +58,7 @@ export default function AdminUsersPage() {
         },
         interactivity: {
           detect_on: "canvas",
-          events: {
-            onhover: { enable: true, mode: "repulse" },
-            onclick: { enable: true, mode: "push" },
-            resize: true,
-          },
+          events: { onhover: { enable: true, mode: "repulse" }, onclick: { enable: true, mode: "push" }, resize: true },
         },
         retina_detect: true,
       });
@@ -105,25 +105,33 @@ export default function AdminUsersPage() {
   // reload on tab or debounced search change
   useEffect(() => {
     const role =
-      tab === "all" ? undefined : 
-      tab === "buyer" ? "buyer" : 
+      tab === "all" ? undefined :
+      tab === "buyer" ? "buyer" :
       tab === "seller" ? "seller" : "admin";
     loadUsers(role, debouncedQ);
   }, [tab, debouncedQ]);
 
   const visible = useMemo(() => users, [users]);
 
-  // delete handler (preserves current filters)
-  const deleteUser = async (id) => {
-    const yes = window.confirm("Delete this user?");
-    if (!yes) return;
+  // open confirm modal instead of window.confirm
+  const askDeleteUser = (id) => {
+    setConfirmModal({ open: true, id, text: "Delete this user?" });
+  };
+
+  // called when clicking Delete inside modal
+  const actuallyDeleteUser = async () => {
+    const id = confirmModal.id;
+    setConfirmModal({ open: false, id: null, text: "" });
+    if (!id) return;
+
     try {
       setDeletingId(id);
       await api.admin.deleteUser(id);
       setUsers((prev) => prev.filter((u) => u._id !== id));
+      setAlertModal({ open: true, title: "Success", message: "User has been deleted." });
     } catch (e) {
       console.error("deleteUser error", e);
-      alert(e.message || "Failed to delete user");
+      setAlertModal({ open: true, title: "Error", message: e?.message || "Failed to delete user" });
     } finally {
       setDeletingId(null);
     }
@@ -146,7 +154,6 @@ export default function AdminUsersPage() {
               </button>
             </div>
 
-            
             <div
               style={{
                 display: "flex",
@@ -166,7 +173,6 @@ export default function AdminUsersPage() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      
                       loadUsers(
                         tab === "all"
                           ? undefined
@@ -283,7 +289,7 @@ export default function AdminUsersPage() {
                           </button>
                           <button
                             className="action-btn btn-delete"
-                            onClick={() => deleteUser(u._id)}
+                            onClick={() => askDeleteUser(u._id)}
                             disabled={deletingId === u._id}
                           >
                             {deletingId === u._id ? "…" : "Delete"}
@@ -304,6 +310,60 @@ export default function AdminUsersPage() {
             </div>
           </div>
         </main>
+      </div>
+
+      {/* ---------- Modals ---------- */}
+      {/* Confirm Modal */}
+      <div className={`modal-overlay ${confirmModal.open ? "active" : ""}`}>
+        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+          <div className="modal-header">
+            <div className="modal-title" id="confirm-title">Confirm</div>
+            <button
+              className="modal-close"
+              aria-label="Close"
+              onClick={() => setConfirmModal({ open: false, id: null, text: "" })}
+            >
+              &times;
+            </button>
+          </div>
+          <div className="modal-body">
+            {confirmModal.text || "Are you sure?"}
+          </div>
+          <div className="modal-actions">
+            <button className="action-btn btn-delete" onClick={actuallyDeleteUser}>Delete</button>
+            <button
+              className="action-btn btn-view"
+              onClick={() => setConfirmModal({ open: false, id: null, text: "" })}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Alert Modal */}
+      <div className={`modal-overlay ${alertModal.open ? "active" : ""}`}>
+        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="alert-title">
+          <div className="modal-header">
+            <div className="modal-title" id="alert-title">{alertModal.title || "Message"}</div>
+            <button
+              className="modal-close"
+              aria-label="Close"
+              onClick={() => setAlertModal({ open: false, title: "", message: "" })}
+            >
+              &times;
+            </button>
+          </div>
+          <div className="modal-body">{alertModal.message}</div>
+          <div className="modal-actions">
+            <button
+              className="action-btn btn-view"
+              onClick={() => setAlertModal({ open: false, title: "", message: "" })}
+            >
+              OK
+            </button>
+          </div>
+        </div>
       </div>
     </>
   );

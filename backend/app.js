@@ -51,7 +51,7 @@ app.use(cookieParser());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // health
-app.get("/", (_req, res) => res.send("🚀 API up"));
+app.get("/", (_req, res) => res.send(" API up"));
 
 // mount
 app.use("/users", meRoutes);
@@ -83,7 +83,8 @@ app.use((err, _req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-// ✅ mount your Custom Order + Checkout API
+
+//  mount your Custom Order + Checkout API
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes); 
 app.use('/api/metrics', require('./Routes/MetricsRoutes'));
@@ -96,12 +97,13 @@ app.use("/api/bids", bidRoutes);
 app.use("/api/wins", winnerRoutes);
 
 
-// ✅ error handler last
+//  error handler last
 app.use(errorMiddleware);
 
 
-app.use("/api/orders", require("./Routes/CustomOrderRoutes"));
 app.use("/api/my-orders", require("./Routes/UserOrdersRoutes"));
+app.use("/api/orders", require("./Routes/CustomOrderRoutes"));
+
 
 
 // --- Connect DB + Start Server
