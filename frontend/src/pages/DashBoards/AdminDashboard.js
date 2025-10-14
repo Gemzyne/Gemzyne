@@ -20,18 +20,31 @@ export default function AdminDashboard() {
   const [deletingId, setDeletingId] = useState(null);
   const [metrics, setMetrics] = useState(null); // from /admin/metrics
 
+  // NEW: modal states
+  const [confirmModal, setConfirmModal] = useState({ open: false, id: null, text: "" });
+  const [alertModal, setAlertModal] = useState({ open: false, title: "", message: "" });
+
   // Keep chart instances to destroy on rerender/unmount
   const chartsRef = useRef({});
 
   // --------- Handlers ---------
   const handleViewUser = (id) => navigate(`/admin/users/${id}`);
 
-  const handleDeleteUser = async (id) => {
-    const ok = window.confirm("Delete this user?");
-    if (!ok) return;
+  // Open confirm modal (replaces window.confirm)
+  const handleDeleteUser = (id) => {
+    setConfirmModal({ open: true, id, text: "Delete this user?" });
+  };
+
+  // When user clicks "Delete" in the confirm modal
+  const actuallyDeleteUser = async () => {
+    const id = confirmModal.id;
+    setConfirmModal({ open: false, id: null, text: "" });
+    if (!id) return;
+
     try {
       setDeletingId(id);
       await api.admin.deleteUser(id);
+
       const refreshed = await api.admin.listUsers({ page: 1, limit: 20 });
       const list = Array.isArray(refreshed?.users)
         ? refreshed.users
@@ -39,9 +52,12 @@ export default function AdminDashboard() {
         ? refreshed
         : [];
       setUsers(list);
+
+      // Success popup (replaces alert)
+      setAlertModal({ open: true, title: "Success", message: "User has been deleted." });
     } catch (e) {
-      console.error("Delete failed:", e);
-      alert(e.message || "Failed to delete user");
+      // Error popup (replaces alert)
+      setAlertModal({ open: true, title: "Error", message: e?.message || "Failed to delete user" });
     } finally {
       setDeletingId(null);
     }
@@ -126,13 +142,7 @@ export default function AdminDashboard() {
     const status = (c.status || "open").toLowerCase();
     const createdAt = c.createdAt || c.date || c.created_on || null;
 
-    return {
-      _id: id,
-      userName,
-      subject,
-      status,
-      createdAt,
-    };
+    return { _id: id, userName, subject, status, createdAt };
   };
 
   // --------- Fetch overview + users + complaints + metrics ---------
@@ -140,26 +150,21 @@ export default function AdminDashboard() {
     let mounted = true;
     (async () => {
       try {
-        const [overviewRes, usersRes, complaintsRes, metricsRes] =
-          await Promise.all([
-            api.admin.getOverview(), // { totalUsers, totalSellers, openComplaints }
-            api.admin.listUsers({ page: 1, limit: 20 }),
-            api.admin.listComplaints
-              ? api.admin.listComplaints()
-              : Promise.resolve([]),
-            api.admin.getMetrics(),
-          ]);
+        const [overviewRes, usersRes, complaintsRes, metricsRes] = await Promise.all([
+          api.admin.getOverview(), // { totalUsers, totalSellers, openComplaints }
+          api.admin.listUsers({ page: 1, limit: 20 }),
+          api.admin.listComplaints ? api.admin.listComplaints() : Promise.resolve([]),
+          api.admin.getMetrics(),
+        ]);
 
         if (!mounted) return;
 
-        // Overview comes flat from backend now
         const baseOverview = {
           totalUsers: Number(overviewRes?.totalUsers) || 0,
           totalSellers: Number(overviewRes?.totalSellers) || 0,
           openComplaints: Number(overviewRes?.openComplaints) || 0,
         };
 
-        // Users
         const ulist = Array.isArray(usersRes?.users)
           ? usersRes.users
           : Array.isArray(usersRes)
@@ -167,7 +172,6 @@ export default function AdminDashboard() {
           : [];
         setUsers(ulist);
 
-        // Complaints (normalize + sort desc)
         const clistRaw = Array.isArray(complaintsRes?.complaints)
           ? complaintsRes.complaints
           : Array.isArray(complaintsRes)
@@ -180,10 +184,8 @@ export default function AdminDashboard() {
         });
         setComplaints(clist);
 
-        // Prefer the computed open count from metrics when present
         const fallbackOpen = clist.filter(
-          (c) =>
-            !["resolved", "closed"].includes(String(c.status).toLowerCase())
+          (c) => !["resolved", "closed"].includes(String(c.status).toLowerCase())
         ).length;
 
         setOverview({
@@ -235,32 +237,15 @@ export default function AdminDashboard() {
       chartsRef.current = {};
 
       const byMonth = metrics.usersByMonth || {
-        labels: [
-          "Jan",
-          "Feb",
-          "Mar",
-          "Apr",
-          "May",
-          "Jun",
-          "Jul",
-          "Aug",
-          "Sep",
-          "Oct",
-        ],
+        labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct"],
         values: [4, 6, 5, 7, 10, 12, 9, 13, 11, 15],
       };
       const roles = metrics.usersByRole || {
         labels: ["buyer", "seller", "admin"],
         values: [10, 3, 1],
       };
-      const statuses = metrics.usersByStatus || {
-        labels: ["active", "suspended"],
-        values: [10, 1],
-      };
-      const comp = metrics.complaintsByStatus || {
-        labels: ["Pending", "Resolved", "Closed"],
-        values: [0, 0, 0],
-      };
+      const statuses = metrics.usersByStatus || { labels: ["active", "suspended"], values: [10, 1] };
+      const comp = metrics.complaintsByStatus || { labels: ["Pending", "Resolved", "Closed"], values: [0, 0, 0] };
 
       // User Growth
       const ug = document.getElementById("userGrowthChart");
@@ -273,28 +258,14 @@ export default function AdminDashboard() {
           type: "bar",
           data: {
             labels: byMonth.labels,
-            datasets: [
-              {
-                label: "New Users",
-                data: byMonth.values,
-                backgroundColor: grad,
-                borderRadius: 5,
-              },
-            ],
+            datasets: [{ label: "New Users", data: byMonth.values, backgroundColor: grad, borderRadius: 5 }],
           },
           options: {
             responsive: true,
             plugins: { legend: { labels: { color: "#f5f5f5" } } },
             scales: {
-              y: {
-                beginAtZero: true,
-                grid: { color: "rgba(255,255,255,0.1)" },
-                ticks: { color: "#b0b0b0" },
-              },
-              x: {
-                grid: { color: "rgba(255,255,255,0.1)" },
-                ticks: { color: "#b0b0b0" },
-              },
+              y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.1)" }, ticks: { color: "#b0b0b0" } },
+              x: { grid: { color: "rgba(255,255,255,0.1)" }, ticks: { color: "#b0b0b0" } },
             },
           },
         });
@@ -329,11 +300,7 @@ export default function AdminDashboard() {
               },
             ],
           },
-          options: {
-            plugins: {
-              legend: { position: "bottom", labels: { color: "#f5f5f5" } },
-            },
-          },
+          options: { plugins: { legend: { position: "bottom", labels: { color: "#f5f5f5" } } } },
         });
       }
 
@@ -346,29 +313,13 @@ export default function AdminDashboard() {
         grad.addColorStop(1, "rgba(212, 175, 55, 0.1)");
         chartsRef.current.status = new Chart(ctx, {
           type: "bar",
-          data: {
-            labels: statuses.labels,
-            datasets: [
-              {
-                label: "Users by Status",
-                data: statuses.values,
-                backgroundColor: grad,
-              },
-            ],
-          },
+          data: { labels: statuses.labels, datasets: [{ label: "Users by Status", data: statuses.values, backgroundColor: grad }] },
           options: {
             responsive: true,
             plugins: { legend: { labels: { color: "#f5f5f5" } } },
             scales: {
-              y: {
-                beginAtZero: true,
-                grid: { color: "rgba(255,255,255,0.1)" },
-                ticks: { color: "#b0b0b0" },
-              },
-              x: {
-                grid: { color: "rgba(255,255,255,0.1)" },
-                ticks: { color: "#b0b0b0" },
-              },
+              y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.1)" }, ticks: { color: "#b0b0b0" } },
+              x: { grid: { color: "rgba(255,255,255,0.1)" }, ticks: { color: "#b0b0b0" } },
             },
           },
         });
@@ -402,12 +353,7 @@ export default function AdminDashboard() {
               },
             ],
           },
-          options: {
-            cutout: "55%",
-            plugins: {
-              legend: { position: "bottom", labels: { color: "#f5f5f5" } },
-            },
-          },
+          options: { cutout: "55%", plugins: { legend: { position: "bottom", labels: { color: "#f5f5f5" } } } },
         });
       }
     };
@@ -425,10 +371,7 @@ export default function AdminDashboard() {
   }, [metrics]);
 
   // --------- Recent rows (just show 4) ---------
-  const usersRows = useMemo(
-    () => (Array.isArray(users) ? users.slice(0, 4) : []),
-    [users]
-  );
+  const usersRows = useMemo(() => (Array.isArray(users) ? users.slice(0, 4) : []), [users]);
 
   const complaintsRows = useMemo(() => {
     if (!Array.isArray(complaints)) return [];
@@ -454,9 +397,7 @@ export default function AdminDashboard() {
           {/* Stats */}
           <div className="stats-grid">
             <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-users" />
-              </div>
+              <div className="stat-icon"><i className="fas fa-users" /></div>
               <div className="stat-info">
                 <h3>{overview.totalUsers}</h3>
                 <p>Total Users</p>
@@ -464,21 +405,15 @@ export default function AdminDashboard() {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-store" />
-              </div>
+              <div className="stat-icon"><i className="fas fa-store" /></div>
               <div className="stat-info">
                 <h3>{overview.totalSellers}</h3>
                 <p>Total Sellers</p>
               </div>
             </div>
 
-            {/* Removed the Total Orders card */}
-
             <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-exclamation-circle" />
-              </div>
+              <div className="stat-icon"><i className="fas fa-exclamation-circle" /></div>
               <div className="stat-info">
                 <h3>{overview.openComplaints}</h3>
                 <p>Open Complaints</p>
@@ -502,9 +437,7 @@ export default function AdminDashboard() {
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Recent Users</h3>
-              <Link to="/admin/users" className="view-all">
-                View All
-              </Link>
+              <Link to="/admin/users" className="view-all">View All</Link>
             </div>
 
             <div className="table-responsive">
@@ -528,28 +461,13 @@ export default function AdminDashboard() {
                       <td>{u.email}</td>
                       <td>{u.role}</td>
                       <td>
-                        <span
-                          className={`status ${
-                            u.status === "active"
-                              ? "status-active"
-                              : "status-inactive"
-                          }`}
-                        >
+                        <span className={`status ${u.status === "active" ? "status-active" : "status-inactive"}`}>
                           {u.status === "active" ? "Active" : "Inactive"}
                         </span>
                       </td>
+                      <td>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}</td>
                       <td>
-                        {u.createdAt
-                          ? new Date(u.createdAt).toLocaleDateString()
-                          : "—"}
-                      </td>
-                      <td>
-                        <button
-                          className="action-btn btn-view"
-                          onClick={() => handleViewUser(u._id)}
-                        >
-                          View
-                        </button>
+                        <button className="action-btn btn-view" onClick={() => handleViewUser(u._id)}>View</button>
                         <button
                           className="action-btn btn-delete"
                           onClick={() => handleDeleteUser(u._id)}
@@ -562,9 +480,7 @@ export default function AdminDashboard() {
                   ))}
                   {!usersRows.length && (
                     <tr>
-                      <td colSpan="7" style={{ color: "#b0b0b0" }}>
-                        No users yet.
-                      </td>
+                      <td colSpan="7" style={{ color: "#b0b0b0" }}>No users yet.</td>
                     </tr>
                   )}
                 </tbody>
@@ -576,9 +492,7 @@ export default function AdminDashboard() {
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Recent Complaints</h3>
-              <Link to="/admin/feedback-hub" className="view-all">
-                View All
-              </Link>
+              <Link to="/admin/feedback-hub" className="view-all">View All</Link>
             </div>
 
             <div className="table-responsive">
@@ -601,27 +515,18 @@ export default function AdminDashboard() {
                       <td>
                         <span
                           className={`status ${
-                            ["resolved", "closed"].includes(c.status)
-                              ? "status-active"
-                              : "status-inactive"
+                            ["resolved", "closed"].includes(c.status) ? "status-active" : "status-inactive"
                           }`}
                         >
-                          {c.status?.charAt(0).toUpperCase() +
-                            c.status?.slice(1)}
+                          {c.status?.charAt(0).toUpperCase() + c.status?.slice(1)}
                         </span>
                       </td>
-                      <td>
-                        {c.createdAt
-                          ? new Date(c.createdAt).toLocaleDateString()
-                          : "—"}
-                      </td>
+                      <td>{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "—"}</td>
                     </tr>
                   ))}
                   {!complaintsRows.length && (
                     <tr>
-                      <td colSpan="5" style={{ color: "#b0b0b0" }}>
-                        No complaints yet.
-                      </td>
+                      <td colSpan="5" style={{ color: "#b0b0b0" }}>No complaints yet.</td>
                     </tr>
                   )}
                 </tbody>
@@ -643,6 +548,60 @@ export default function AdminDashboard() {
             </div>
           </div>
         </main>
+      </div>
+
+      {/* ---------- Modals (use your CSS classes) ---------- */}
+      {/* Confirm Modal */}
+      <div className={`modal-overlay ${confirmModal.open ? "active" : ""}`}>
+        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+          <div className="modal-header">
+            <div className="modal-title" id="confirm-title">Confirm</div>
+            <button
+              className="modal-close"
+              aria-label="Close"
+              onClick={() => setConfirmModal({ open: false, id: null, text: "" })}
+            >
+              &times;
+            </button>
+          </div>
+          <div className="modal-body">
+            {confirmModal.text || "Are you sure?"}
+          </div>
+          <div className="modal-actions">
+            <button className="action-btn btn-delete" onClick={actuallyDeleteUser}>Delete</button>
+            <button
+              className="action-btn btn-view"
+              onClick={() => setConfirmModal({ open: false, id: null, text: "" })}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Alert Modal */}
+      <div className={`modal-overlay ${alertModal.open ? "active" : ""}`}>
+        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="alert-title">
+          <div className="modal-header">
+            <div className="modal-title" id="alert-title">{alertModal.title || "Message"}</div>
+            <button
+              className="modal-close"
+              aria-label="Close"
+              onClick={() => setAlertModal({ open: false, title: "", message: "" })}
+            >
+              &times;
+            </button>
+          </div>
+          <div className="modal-body">{alertModal.message}</div>
+          <div className="modal-actions">
+            <button
+              className="action-btn btn-view"
+              onClick={() => setAlertModal({ open: false, title: "", message: "" })}
+            >
+              OK
+            </button>
+          </div>
+        </div>
       </div>
     </>
   );

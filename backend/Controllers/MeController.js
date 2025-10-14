@@ -1,8 +1,9 @@
+//MeController.js
 const crypto = require("crypto");
 const User = require("../Models/UserModel");
 const OtpCode = require("../Models/OtpCodeModel");
 const { revokeAllSessions } = require("../Middleware/auth");
-const sendEmail = require("../Utills/Email");
+const { sendChangeEmailCodeEmail } = require("../Utills/Email");
 
 const six = () => crypto.randomInt(100000, 999999).toString();
 
@@ -71,73 +72,6 @@ exports.changeMyPassword = async (req, res) => {
   }
 };
 
-// POST /users/me/password/reset/request
-exports.requestMyPasswordReset = async (req, res) => {
-  try {
-    const me = await User.findById(req.user.id);
-    if (!me) return res.status(404).json({ message: "User not found" });
-
-    const code = six();
-    const otp = new OtpCode({
-      userId: me._id,
-      purpose: "reset_password",
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    });
-    await otp.setCode(code);
-    await otp.save();
-
-    await sendEmail({
-      to: me.email,
-      subject: "Your password reset code",
-      text: `Use this OTP to reset your password: ${code}. It expires in 10 minutes.`,
-    });
-
-    res.json({ message: "Reset code sent to your email" });
-  } catch (e) {
-    console.error("requestMyPasswordReset", e);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-// POST /users/me/password/reset/confirm   { code, newPassword }
-exports.confirmMyPasswordReset = async (req, res) => {
-  try {
-    const { code, newPassword } = req.body;
-    if (!code || !newPassword)
-      return res
-        .status(400)
-        .json({ message: "code and newPassword are required" });
-
-    const me = await User.findById(req.user.id).select("+passwordHash");
-    if (!me) return res.status(404).json({ message: "User not found" });
-
-    const otp = await OtpCode.findOne({
-      userId: me._id,
-      purpose: "reset_password",
-      consumedAt: null,
-    })
-      .select("+codeHash")
-      .sort({ createdAt: -1 });
-
-    if (!otp || otp.expiresAt < new Date()) {
-      return res.status(400).json({ message: "Invalid or expired code" });
-    }
-
-    const ok = await otp.verifyCode(code);
-    if (!ok) return res.status(400).json({ message: "Invalid code" });
-
-    await me.setPassword(newPassword);
-    await me.save();
-    await otp.consume();
-    await revokeAllSessions(me._id);
-
-    res.json({ message: "Password reset successful" });
-  } catch (e) {
-    console.error("confirmMyPasswordReset", e);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
 // POST /users/me/email/request   { newEmail }
 exports.requestEmailChange = async (req, res) => {
   try {
@@ -162,11 +96,7 @@ exports.requestEmailChange = async (req, res) => {
     await otp.setCode(code);
     await otp.save();
 
-    await sendEmail({
-      to: newEmail,
-      subject: "Confirm your new email",
-      text: `Your email change code is: ${code}. It expires in 10 minutes.`,
-    });
+    await sendChangeEmailCodeEmail(newEmail, code, { expiresInMinutes: 10 });
 
     res.json({ message: "Verification code sent to new email" });
   } catch (e) {
@@ -226,7 +156,7 @@ exports.softDeleteMe = async (req, res) => {
     me.status = "suspended";
     await me.save();
 
-    await revokeAllSessions?.(me._id); // keep if you have sessions
+    await revokeAllSessions?.(me._id); 
 
     return res.json({ message: "Account deleted (soft)" });
   } catch (e) {

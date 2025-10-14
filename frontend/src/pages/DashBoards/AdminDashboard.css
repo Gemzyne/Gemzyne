@@ -428,6 +428,19 @@ body {
 .modal-close:hover {
   color: #e74c3c;
 }
+/* Modal content pieces (used by AdminDashboard modals) */
+.modal-body {
+  padding: 10px 0 20px;
+  color: #e0e0e0;
+  line-height: 1.6;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 
 /* Responsive */
 @media (max-width: 1200px) {

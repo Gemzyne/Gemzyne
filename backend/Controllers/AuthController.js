@@ -2,7 +2,8 @@ const crypto = require("crypto");
 const User = require("../Models/UserModel");
 const OtpCode = require("../Models/OtpCodeModel");
 const Session = require("../Models/SessionModel");
-const sendEmail = require("../Utills/Email");
+const { sendVerifyEmail, sendPasswordResetEmail } = require("../Utills/Email");
+
 const {
   signAccessToken,
   generateRawRefreshToken,
@@ -59,7 +60,7 @@ exports.register = async (req, res) => {
     }
 
     if (!user) {
-      // brand new
+      
       // (also ensure phone is free among active users)
       if (phone) {
         const phoneHolder = await User.findOne({ phone, isDeleted: false });
@@ -79,7 +80,7 @@ exports.register = async (req, res) => {
       await user.save();
     }
 
-    // Send verify code (same as you already do)
+    // Send verify code 
     const raw = six();
     const otp = new OtpCode({
       userId: user._id,
@@ -89,11 +90,7 @@ exports.register = async (req, res) => {
     await otp.setCode(raw);
     await otp.save();
 
-    await sendEmail({
-      to: normEmail,
-      subject: "Verify your GemZyne account",
-      text: `Your OTP is ${raw}. It expires in 10 minutes.`,
-    });
+    await sendVerifyEmail(normEmail, raw, { expiresInMinutes: 10 });
 
     return res.status(201).json({
       message: user.deletedAt
@@ -163,7 +160,7 @@ exports.login = async (req, res) => {
       (await User.findOne({ email: identifier }).select("+passwordHash")) ||
       (await User.findOne({ phone: identifier }).select("+passwordHash"));
 
-    // ✅ first ensure user exists before accessing properties
+    // first ensure user exists before accessing properties
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
     if (user.isDeleted) {
@@ -176,7 +173,7 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: "Account suspended" });
     }
 
-    // ✅ block login until email is verified
+    //  block login until email is verified
     if (!user.emailVerified) {
       return res.status(403).json({
         message: "Email not verified. Please verify your email to continue.",
@@ -225,11 +222,7 @@ exports.forgotPassword = async (req, res) => {
       await otp.setCode(raw);
       await otp.save();
 
-      await sendEmail({
-        to: email,
-        subject: "Your password reset code",
-        text: `Use this OTP to reset your password: ${raw} (valid 10 minutes)`,
-      });
+      await sendPasswordResetEmail(email, raw, { expiresInMinutes: 10 });
     }
 
     return res.json({
@@ -352,11 +345,7 @@ exports.resendVerify = async (req, res) => {
     await otp.setCode(raw);
     await otp.save();
 
-    await sendEmail({
-      to: user.email,
-      subject: "Verify your GemZyne account",
-      text: `Your OTP is ${raw}. It expires in 10 minutes.`,
-    });
+    await sendVerifyEmail(user.email, raw, { expiresInMinutes: 10 });
 
     return res.json({ message: "Verification code resent" });
   } catch (e) {

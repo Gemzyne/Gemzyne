@@ -85,7 +85,7 @@ export async function request(path, options) {
   return coreRequest(path, options);
 }
 
-//NEW: metrics helpers (read-only, hit your new endpoints)
+//metrics helpers (read-only, hit your new endpoints)
 export const metrics = {
   summary: (year) => request(`/api/metrics/seller/summary?year=${year}`),
   monthly: (year) => request(`/api/metrics/seller/monthly?year=${year}`),

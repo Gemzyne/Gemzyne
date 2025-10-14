@@ -18,12 +18,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
       trim: true,
-      // If you want uniqueness only when present:
-      // index: { unique: true, sparse: true },
+    
     },
 
-    // In your original model you stored 'password'; here we store hash only.
-    // If you prefer 'password' with a pre-save hook, adapt controllers accordingly.
+    // here we store hash only.
+    
     passwordHash: { type: String, required: true, select: false },
 
     role: {

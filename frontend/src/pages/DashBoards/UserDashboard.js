@@ -129,7 +129,9 @@ const UserDashboard = () => {
         totalOrders: data?.totals?.totalOrders ?? 0,
       };
       const recent = {
-        reviews: Array.isArray(data?.recent?.reviews) ? data.recent.reviews : [],
+        reviews: Array.isArray(data?.recent?.reviews)
+          ? data.recent.reviews
+          : [],
         orders: Array.isArray(data?.recent?.orders) ? data.recent.orders : [],
       };
 
@@ -153,7 +155,7 @@ const UserDashboard = () => {
       const token = localStorage.getItem("accessToken");
       if (!token) return navigate("/login", { replace: true });
 
-      const res = await fetch(`${API_BASE}/api/orders/mine`, {
+      const res = await fetch(`${API_BASE}/api/my-orders`, {
         headers: { Authorization: `Bearer ${token}` },
         credentials: "include",
       });
@@ -225,8 +227,13 @@ const UserDashboard = () => {
       const acc = new Map();
       (data.items || []).forEach((p) => {
         const card = p?.payment?.card;
-        if (p?.payment?.method === "card" && card && (card.last4 || card.cardCipher)) {
-          const id = card.cardCipher || `${card.cardName || ""}|${card.last4 || ""}`;
+        if (
+          p?.payment?.method === "card" &&
+          card &&
+          (card.last4 || card.cardCipher)
+        ) {
+          const id =
+            card.cardCipher || `${card.cardName || ""}|${card.last4 || ""}`;
           if (!acc.has(id)) {
             acc.set(id, {
               id,
@@ -304,17 +311,22 @@ const UserDashboard = () => {
 
   // Stat card: prefer totalOrders from dashboard; else fallback to orders.length
   const totalOrders =
-    typeof summary?.totals?.totalOrders === "number" && summary.totals.totalOrders > 0
+    typeof summary?.totals?.totalOrders === "number" &&
+    summary.totals.totalOrders > 0
       ? summary.totals.totalOrders
       : orders.length;
 
   const renderOrderBadge = (order) => {
     const ps = String(order.paymentStatus || "").toLowerCase();
     const os = String(order.orderStatus || "").toLowerCase();
-    if (ps === "paid") return <span className="status status-delivered">Paid</span>;
-    if (ps === "cancelled") return <span className="status status-pending">Cancelled</span>;
-    if (os === "shipped") return <span className="status status-processing">Shipped</span>;
-    if (os === "completed") return <span className="status status-delivered">Completed</span>;
+    if (ps === "paid")
+      return <span className="status status-delivered">Paid</span>;
+    if (ps === "cancelled")
+      return <span className="status status-pending">Cancelled</span>;
+    if (os === "shipped")
+      return <span className="status status-processing">Shipped</span>;
+    if (os === "completed")
+      return <span className="status status-delivered">Completed</span>;
     return <span className="status status-processing">Processing</span>;
   };
 
@@ -333,7 +345,9 @@ const UserDashboard = () => {
 
           {dashLoading && <p>Loading…</p>}
           {!dashLoading && dashError && (
-            <p className="error" style={{ color: "#e74c3c" }}>{dashError}</p>
+            <p className="error" style={{ color: "#e74c3c" }}>
+              {dashError}
+            </p>
           )}
 
           {/* ====== Stats ====== */}
@@ -344,9 +358,7 @@ const UserDashboard = () => {
                 <i className="fas fa-shopping-bag"></i>
               </div>
               <div className="stat-info">
-                <h3>
-                  {dashLoading ? "…" : totalOrders}
-                </h3>
+                <h3>{dashLoading ? "…" : totalOrders}</h3>
                 <p>Total Orders</p>
               </div>
             </div>
@@ -374,18 +386,22 @@ const UserDashboard = () => {
             </div>
           </div>
 
-          {/* ====== Recent Orders (wired) ====== */}
+          {/* ====== Recent Orders====== */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Recent Orders</h3>
-              <a href="/my-orders" className="view-all">View All</a>
+              <a href="/my-orders" className="view-all">
+                View All
+              </a>
             </div>
 
-            {(ordersLoading && dashboardOrders.length === 0) && (
+            {ordersLoading && dashboardOrders.length === 0 && (
               <p>Loading your orders…</p>
             )}
             {ordersError && dashboardOrders.length === 0 && (
-              <p className="error" style={{ color: "#e74c3c" }}>{ordersError}</p>
+              <p className="error" style={{ color: "#e74c3c" }}>
+                {ordersError}
+              </p>
             )}
 
             <div className="table-responsive">
@@ -397,13 +413,19 @@ const UserDashboard = () => {
                     <th>Items</th>
                     <th>Total</th>
                     <th>Status</th>
-                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(!recentOrders || recentOrders.length === 0) ? (
+                  {!recentOrders || recentOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ color: "#b0b0b0", textAlign: "center", padding: 16 }}>
+                      <td
+                        colSpan={6}
+                        style={{
+                          color: "#b0b0b0",
+                          textAlign: "center",
+                          padding: 16,
+                        }}
+                      >
                         No orders yet.
                       </td>
                     </tr>
@@ -415,23 +437,13 @@ const UserDashboard = () => {
                         <td>
                           {o.title ||
                             (o.selections?.type
-                              ? `${o.selections.type} ${o.selections.shape || ""}`.trim()
+                              ? `${o.selections.type} ${
+                                  o.selections.shape || ""
+                                }`.trim()
                               : "Custom Order")}
                         </td>
                         <td>{money(o.amount, o.currency)}</td>
                         <td>{renderOrderBadge(o)}</td>
-                        <td>
-                          <a
-                            className="view-all"
-                            href={`/orders/${o.id}`}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              navigate(`/orders/${o.id}`);
-                            }}
-                          >
-                            View
-                          </a>
-                        </td>
                       </tr>
                     ))
                   )}
@@ -440,7 +452,7 @@ const UserDashboard = () => {
             </div>
           </div>
 
-          {/* ====== Payment Methods (dynamic) ====== */}
+          {/* ====== Payment Methods  ====== */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Payment Methods</h3>
@@ -506,7 +518,7 @@ const UserDashboard = () => {
             )}
           </div>
 
-          {/* ====== Recent Reviews (wired) ====== */}
+          {/* ====== Recent Reviews  ====== */}
           <div className="dashboard-section">
             <div className="section-header">
               <h3 className="section-title">Recent Reviews</h3>

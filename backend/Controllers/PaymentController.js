@@ -6,7 +6,7 @@ const Auction = require("../Models/Auction");
 const Gem = require("../Models/AddGems/Gem");
 const { computePricing, plus3Days } = require("../Utills/CustomPricing"); // ← added
 
-// 🔎 robust extractor for linked inventory Gem id (covers all flows)
+//robust extractor for linked inventory Gem id (covers all flows)
 function getLinkedGemId(order) {
   return (
     order?.gemId ||
@@ -97,7 +97,7 @@ exports.checkout = async (req, res, next) => {
       return res.status(400).json({ ok: false, error: "ORDER_CANCELLED" });
     }
 
-    // 🔒 claim ownership or enforce it
+    //claim ownership or enforce it
     if (order.buyerId && order.buyerId.toString() !== req.user.id) {
       return res.status(403).json({ ok: false, error: "NOT_YOUR_ORDER" });
     }
@@ -232,7 +232,7 @@ exports.checkout = async (req, res, next) => {
   }
 };
 
-// --- NEW: one-shot checkout directly from a gem (no precreated order) ---
+// one-shot checkout directly from a gem (no precreated order) ---
 exports.checkoutFromGem = async (req, res, next) => {
   const CustomOrder = require("../Models/CustomOrderModel");
   const Gem = require("../Models/AddGems/Gem");
@@ -412,7 +412,7 @@ exports.checkoutFromGem = async (req, res, next) => {
   }
 };
 
-// --- NEW: pay-first checkout for CUSTOM selections (no pre-created order) ---
+//pay-first checkout for CUSTOM selections (no pre-created order) ---
 exports.checkoutCustom = async (req, res, next) => {
   try {
     const buyerId = req.user?.id || req.user?._id;

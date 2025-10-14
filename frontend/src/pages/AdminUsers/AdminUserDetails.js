@@ -1,3 +1,4 @@
+// src/pages/Settings/AdminUserDetailPage.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import Header from "../../Components/Header";
@@ -12,8 +13,10 @@ export default function AdminUserDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [err, setErr] = useState("");
-  const [msg, setMsg] = useState("");
+
+  // modals
+  const [confirmModal, setConfirmModal] = useState({ open: false, text: "", id: null });
+  const [alertModal, setAlertModal] = useState({ open: false, title: "", message: "", onOk: null });
 
   // form state
   const [fullName, setFullName] = useState("");
@@ -34,7 +37,7 @@ export default function AdminUserDetailPage() {
     if (u.role !== "admin") return navigate("/mainhome", { replace: true });
   }, [navigate]);
 
-  // particles (optional, matches your other pages)
+  // particles
   useEffect(() => {
     const init = () =>
       window.particlesJS?.("particles-js", {
@@ -55,11 +58,7 @@ export default function AdminUserDetailPage() {
         },
         interactivity: {
           detect_on: "canvas",
-          events: {
-            onhover: { enable: true, mode: "repulse" },
-            onclick: { enable: true, mode: "push" },
-            resize: true,
-          },
+          events: { onhover: { enable: true, mode: "repulse" }, onclick: { enable: true, mode: "push" }, resize: true },
         },
         retina_detect: true,
       });
@@ -89,13 +88,12 @@ export default function AdminUserDetailPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setErr("");
-      setMsg("");
       setLoading(true);
       try {
         const r = await api.admin.getUser(id);
         const u = r?.user || r;
         if (!u) throw new Error("User not found");
+
         if (cancelled) return;
 
         setCreatedAt(u.createdAt || "");
@@ -110,55 +108,77 @@ export default function AdminUserDetailPage() {
           setSeeded(true);
         }
       } catch (e) {
-        if (!cancelled) setErr(e.message || "Failed to load user");
+        if (!cancelled) {
+          setAlertModal({
+            open: true,
+            title: "Error",
+            message: e?.message || "Failed to load user",
+            onOk: () => setAlertModal({ open: false, title: "", message: "", onOk: null }),
+          });
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [id, seeded]);
 
   // save
   const onSave = async (e) => {
     e.preventDefault();
-    setErr("");
-    setMsg("");
     setSaving(true);
     try {
-      const res = await api.admin.updateUser(id, {
-        fullName,
-        email,
-        phone,
-        role,
-        status,
-      });
+      const res = await api.admin.updateUser(id, { fullName, email, phone, role, status });
       const u = res?.user || res;
-      // reflect saved time
-      setUpdatedAt(u.updatedAt || new Date().toISOString());
-      setMsg("User updated");
-    } catch (e) {
-      setErr(e.message || "Failed to update");
+      setUpdatedAt(u?.updatedAt || new Date().toISOString());
+      setAlertModal({
+        open: true,
+        title: "Success",
+        message: "User updated successfully.",
+        onOk: () => setAlertModal({ open: false, title: "", message: "", onOk: null }),
+      });
+    } catch (e2) {
+      setAlertModal({
+        open: true,
+        title: "Error",
+        message: e2?.message || "Failed to update user",
+        onOk: () => setAlertModal({ open: false, title: "", message: "", onOk: null }),
+      });
     } finally {
       setSaving(false);
     }
   };
 
-  // delete
-  const onDelete = async () => {
-    const ok = window.confirm(
-      "Delete this user? This uses your current /admin/users/:id DELETE endpoint."
-    );
-    if (!ok) return;
-    setErr("");
-    setMsg("");
+  // delete (opens confirm modal)
+  const onDelete = () => {
+    setConfirmModal({ open: true, id, text: "Delete this user?" });
+  };
+
+  // confirmed delete
+  const actuallyDelete = async () => {
+    const delId = confirmModal.id;
+    setConfirmModal({ open: false, id: null, text: "" });
+    if (!delId) return;
+
     setDeleting(true);
     try {
-      await api.admin.deleteUser(id);
-      navigate("/admin/users", { replace: true });
+      await api.admin.deleteUser(delId);
+      setAlertModal({
+        open: true,
+        title: "Deleted",
+        message: "User has been deleted.",
+        onOk: () => {
+          setAlertModal({ open: false, title: "", message: "", onOk: null });
+          navigate("/admin/users", { replace: true });
+        },
+      });
     } catch (e) {
-      setErr(e.message || "Failed to delete user");
+      setAlertModal({
+        open: true,
+        title: "Error",
+        message: e?.message || "Failed to delete user",
+        onOk: () => setAlertModal({ open: false, title: "", message: "", onOk: null }),
+      });
       setDeleting(false);
     }
   };
@@ -175,11 +195,7 @@ export default function AdminUserDetailPage() {
           <div className="dashboard-header" style={{ alignItems: "center" }}>
             <h2 className="dashboard-title">User Details</h2>
             <div style={{ marginLeft: "auto" }}>
-              <Link
-                to="/admin/users"
-                className="btn"
-                style={{ marginRight: 8 }}
-              >
+              <Link to="/admin/users" className="btn" style={{ marginRight: 8 }}>
                 ← Back to Users
               </Link>
               <button className="btn" onClick={onDelete} disabled={deleting}>
@@ -187,35 +203,6 @@ export default function AdminUserDetailPage() {
               </button>
             </div>
           </div>
-
-          {err && (
-            <div
-              style={{
-                background: "rgba(231,76,60,0.15)",
-                border: "1px solid rgba(231,76,60,0.35)",
-                color: "#ff6b6b",
-                padding: 12,
-                borderRadius: 8,
-                marginBottom: 16,
-              }}
-            >
-              {err}
-            </div>
-          )}
-          {msg && (
-            <div
-              style={{
-                background: "rgba(46,204,113,0.15)",
-                border: "1px solid rgba(46,204,113,0.35)",
-                color: "#2ecc71",
-                padding: 12,
-                borderRadius: 8,
-                marginBottom: 16,
-              }}
-            >
-              {msg}
-            </div>
-          )}
 
           <div className="dashboard-section">
             {loading ? (
@@ -288,9 +275,7 @@ export default function AdminUserDetailPage() {
                     <input
                       className="form-input"
                       type="text"
-                      value={
-                        createdAt ? new Date(createdAt).toLocaleString() : "—"
-                      }
+                      value={createdAt ? new Date(createdAt).toLocaleString() : "—"}
                       disabled
                     />
                   </div>
@@ -300,9 +285,7 @@ export default function AdminUserDetailPage() {
                     <input
                       className="form-input"
                       type="text"
-                      value={
-                        updatedAt ? new Date(updatedAt).toLocaleString() : "—"
-                      }
+                      value={updatedAt ? new Date(updatedAt).toLocaleString() : "—"}
                       disabled
                     />
                   </div>
@@ -317,6 +300,68 @@ export default function AdminUserDetailPage() {
             )}
           </div>
         </main>
+      </div>
+
+      {/* ---------- Modals ---------- */}
+      {/* Confirm Modal */}
+      <div className={`modal-overlay ${confirmModal.open ? "active" : ""}`}>
+        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+          <div className="modal-header">
+            <div className="modal-title" id="confirm-title">Confirm</div>
+            <button
+              className="modal-close"
+              aria-label="Close"
+              onClick={() => setConfirmModal({ open: false, text: "", id: null })}
+            >
+              &times;
+            </button>
+          </div>
+          <div className="modal-body">
+            {confirmModal.text || "Are you sure?"}
+          </div>
+          <div className="modal-actions">
+            <button className="action-btn btn-delete" onClick={actuallyDelete}>Delete</button>
+            <button
+              className="action-btn btn-view"
+              onClick={() => setConfirmModal({ open: false, text: "", id: null })}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Alert Modal */}
+      <div className={`modal-overlay ${alertModal.open ? "active" : ""}`}>
+        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="alert-title">
+          <div className="modal-header">
+            <div className="modal-title" id="alert-title">{alertModal.title || "Message"}</div>
+            <button
+              className="modal-close"
+              aria-label="Close"
+              onClick={() => {
+                const cb = alertModal.onOk;
+                setAlertModal({ open: false, title: "", message: "", onOk: null });
+                cb && cb();
+              }}
+            >
+              &times;
+            </button>
+          </div>
+          <div className="modal-body">{alertModal.message}</div>
+          <div className="modal-actions">
+            <button
+              className="action-btn btn-view"
+              onClick={() => {
+                const cb = alertModal.onOk;
+                setAlertModal({ open: false, title: "", message: "", onOk: null });
+                cb && cb();
+              }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
       </div>
     </>
   );
