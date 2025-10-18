@@ -1,0 +1,10 @@
+# Backend-only ignores
+node_modules/
+.env
+.env.*
+uploads/
+dist/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
