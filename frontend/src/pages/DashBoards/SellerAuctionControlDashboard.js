@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Header";
 import SellerSidebar from "../../Components/SellerSidebar";
+import { exportSellerAuctionReport } from "../../utils/auctionReport";
 import "../DashBoards/SellerAuctionControlDashboard.css";
 import { request } from "../../api";
 
@@ -95,6 +96,12 @@ export default function SellerAuctionControlDashboard() {
   const [drawerMode, setDrawerMode] = useState("live"); // live | upcoming | ended
   const [createOpen, setCreateOpen] = useState(false);
   const [editForm, setEditForm] = useState(null);
+
+  //report export handler
+  const [reportMode, setReportMode] = useState("monthly"); // 'monthly' | 'weekly'
+  const [reportMonth, setReportMonth] = useState(() => new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [reportWeekStart, setReportWeekStart] = useState(() => new Date().toISOString().slice(0, 10)); // YYYY-MM-DD
+
 
   // --- initial load + poll overview ---
   async function load() {
@@ -505,6 +512,105 @@ export default function SellerAuctionControlDashboard() {
                   </tbody>
                 </table>
               </div>
+
+             {/* === Report generator (bottom of history table) === */}
+<div
+  className="sac-reportbar"
+  style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}
+>
+  {/* Mode select (Monthly / Weekly) */}
+  <div className="sac-select" style={{ minWidth: 140 }}>
+    <button type="button" className="sac-select__btn">
+      <span>{reportMode === "monthly" ? "Monthly" : "Weekly"}</span>
+      <i className="fa-solid fa-chevron-down" />
+    </button>
+    <select
+      value={reportMode}
+      onChange={(e) => setReportMode(e.target.value)}
+      aria-label="Report Mode"
+    >
+      <option value="monthly">Monthly</option>
+      <option value="weekly">Weekly</option>
+    </select>
+  </div>
+
+  {/* Period input: month or week-start date */}
+  {reportMode === "monthly" ? (
+    <input
+      type="month"
+      value={reportMonth}
+      onChange={(e) => setReportMonth(e.target.value)}
+      style={{
+        height: 44,
+        padding: "0 12px",
+        background: "rgba(255,255,255,.04)",
+        border: "1px solid rgba(255,255,255,.1)",
+        borderRadius: 10,
+        color: "var(--bd-text)",
+        outline: "none",
+      }}
+      aria-label="Report Month"
+    />
+  ) : (
+    <input
+      type="date"
+      value={reportWeekStart}
+      onChange={(e) => setReportWeekStart(e.target.value)}
+      style={{
+        height: 44,
+        padding: "0 12px",
+        background: "rgba(255,255,255,.04)",
+        border: "1px solid rgba(255,255,255,.1)",
+        borderRadius: 10,
+        color: "var(--bd-text)",
+        outline: "none",
+      }}
+      aria-label="Week Start"
+      title="Week start date"
+    />
+  )}
+
+  {/* Download button (gold theme) */}
+  <button
+    className="sac-btn"
+    onClick={async () => {
+      const siteName = "GemZyne"; // your web name
+      const args = {
+        overview,
+        siteName,
+        mode: reportMode,
+        currency: "USD",
+        winMap: winStatusMap, // <-- ensures Paid detection + paymentId
+      };
+
+      if (reportMode === "monthly") {
+        const [yStr, mStr] = String(reportMonth || "").split("-");
+        const y = parseInt(yStr, 10);
+        const m = parseInt(mStr, 10);
+        if (Number.isFinite(y) && Number.isFinite(m)) {
+          args.year = y;
+          args.month = m;
+        }
+        // else: util will default to current month
+      } else {
+        args.weekStartDate = reportWeekStart; // util defaults to current week if empty/invalid
+      }
+
+      // Optional: embed your revenue chart image
+      // args.chartCanvas = chartRefs?.revenue?.current || null;
+
+      const res = await exportSellerAuctionReport(args);
+      if (!res?.ok) {
+        alert(`Could not generate the report.\n\nReason: ${res?.error || "Unknown"}`);
+      }
+    }}
+    title="Download Winner Summary"
+  >
+    <i className="fa-solid fa-file-arrow-down" /> Download Report
+  </button>
+</div>
+
+
             </Section>
           )}
         </main>
