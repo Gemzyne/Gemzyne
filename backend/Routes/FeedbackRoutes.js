@@ -25,6 +25,8 @@ const {
    addReply,
    emailComplaint, 
 
+   exportFeedbackReportPdf,
+
 } = require("../Controllers/FeedbackController");
 
 // ✅ reuse your existing auth middleware
@@ -81,5 +83,14 @@ router.patch("/:id/restore", requireAuth, restoreFeedback);
 
 // Send an email to the complainant
 router.post("/:id/email", requireAuth, requireRoles("admin", "seller"), emailComplaint);
+
+// PDF report (admin/seller only)
+router.get(
+  "/report.pdf",
+  requireAuth,
+  requireRoles("admin", "seller"),
+  exportFeedbackReportPdf
+);
+
 
 module.exports = router;

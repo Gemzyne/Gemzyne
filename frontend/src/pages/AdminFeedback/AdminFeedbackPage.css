@@ -73,7 +73,7 @@
   margin-bottom: 30px;
   background:
     linear-gradient(to bottom, rgba(10,10,10,.9), rgba(26,26,26,.75)),
-    url('https://images.unsplash.com/photo-1599643478517-a313f52cc3c3?auto=format&fit=crop&w=1074&q=80');
+    url('../../Assets/feedback/gembg.jpg');
   background-size: cover;
   background-position: center;
   border-radius: 12px;
@@ -310,4 +310,65 @@
   .adfb-toggle { margin-left: 0; }
   .adfb-page-header { padding: 28px 14px; }
   .adfb-page-header h1 { font-size: 32px; }
+}
+.adfb-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000; /* above page UI */
+}
+
+.adfb-modal {
+  width: min(520px, 90vw);
+  background: #1b1b1b;      /* match your dark theme */
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  padding: 18px 18px 14px;
+}
+
+.adfb-modal h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.adfb-modal p {
+  margin: 0 0 16px;
+  line-height: 1.55;
+}
+
+.adfb-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+/* Scope to AdminFeedbackPage only */
+.adfb-root .adfb-filter input[type="date"] {
+  padding-right: 36px;
+  background: rgba(26,26,26,.7);
+  border: 1px solid rgba(212,175,55,.3);
+  color: #f5f5f5;
+}
+
+/* White calendar icon (Chromium/WebKit) */
+.adfb-root .adfb-filter input[type="date"]::-webkit-calendar-picker-indicator {
+  background: center / 18px 18px no-repeat
+    url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'>\
+<path d='M7 2a1 1 0 0 0-1 1v1H5a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-1V3a1 1 0 1 0-2 0v1H8V3a1 1 0 0 0-1-1Zm12 7H5v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9Z'/>\
+</svg>");
+  color: transparent;
+  opacity: 1;
+  cursor: pointer;
+}
+
+/* Optional hover tint */
+.adfb-root .adfb-filter input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: brightness(130%);
 }

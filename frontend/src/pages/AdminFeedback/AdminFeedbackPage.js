@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { apiRequest } from "../../lib/api";
+import { apiRequest, API_URL } from "../../lib/api";
 
 // Shared chrome
 import Header from "../../Components/Header";
@@ -57,6 +57,17 @@ export default function AdminFeedbackPage() {
   const [view, setView] = useState("reviews");       // "reviews" | "complaints"
   const [category, setCategory] = useState("all");   // category filter
   const [statusFilter, setStatusFilter] = useState("all"); // complaints: all|pending|resolved
+
+
+// Report export controls
+const [rStart, setRStart]   = useState("");   // "YYYY-MM-DD"
+const [rEnd, setREnd]       = useState("");
+const [rType, setRType]     = useState("all");      // all | review | complaint
+
+
+
+
+
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
@@ -69,6 +80,12 @@ export default function AdminFeedbackPage() {
 const [emailOpenId, setEmailOpenId] = useState(null);
 const [emailSubject, setEmailSubject] = useState("");
 const [emailBody, setEmailBody] = useState("");
+
+// Modal state
+const [modal, setModal] = useState({ open: false, title: "", message: "" });
+const openModal = (title, message) => setModal({ open: true, title, message });
+const closeModal = () => setModal({ open: false, title: "", message: "" });
+
 
   // Particles
   // Particles (unique ID)
@@ -173,11 +190,62 @@ const [emailBody, setEmailBody] = useState("");
     setEmailOpenId(null);
     setEmailSubject("");
     setEmailBody("");
-    alert("Email sent successfully.");
+    openModal("Email sent", "Email sent successfully.");
   } catch (e) {
-    alert(e.message || "Failed to send email");
+  openModal("Email failed", e.message || "Failed to send email");
+}
+};
+const downloadReport = async () => {
+  try {
+    const params = new URLSearchParams();
+
+    // dates (optional)
+    if (rStart) params.set("start", rStart);
+    if (rEnd)   params.set("end", rEnd);
+
+    // TYPE —— only send when not "all"
+    // rType is your export type selector; if it's "all", omit the param entirely
+    if (rType && rType !== "all") {
+      params.set("type", rType); // "review" | "complaint"
+    }
+
+    // category (optional)
+    if (category && category !== "all") params.set("category", category);
+
+    // status (optional) — only include when exporting complaints specifically
+    if ((rType === "complaint") && statusFilter !== "all") {
+      params.set("status", statusFilter);
+    }
+
+    const token = localStorage.getItem("accessToken");
+    const res = await fetch(`${API_URL}/api/feedback/report.pdf?${params.toString()}`, {
+      method: "GET",
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      credentials: "include",
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || `Download failed (${res.status})`);
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const labelType = rType || "all";
+    a.href = url;
+    a.download = `feedback_report_${labelType}_${Date.now()}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (e) {
+    alert(e.message || "Failed to download report");
   }
 };
+
+
+
 
 
   // Derived lists
@@ -242,6 +310,20 @@ const [emailBody, setEmailBody] = useState("");
       {/* Shared sticky header */}
       <Header />
 
+      {/* Modal */}
+{modal.open && (
+  <div className="adfb-modal-backdrop" onClick={closeModal}>
+    <div className="adfb-modal" onClick={(e) => e.stopPropagation()}>
+      <h3>{modal.title}</h3>
+      <p style={{ whiteSpace: "pre-line" }}>{modal.message}</p>
+      <div className="adfb-modal-actions">
+        <button className="adfb-action" onClick={closeModal}>OK</button>
+      </div>
+    </div>
+  </div>
+)}
+
+
       {/* Sidebar + main shell */}
       <div className="adfb-shell">
         <SellerSidebar />
@@ -301,6 +383,37 @@ const [emailBody, setEmailBody] = useState("");
                 Complaints
               </button>
             </div>
+
+
+{/* Report controls (right-aligned) */}
+<div className="adfb-filter-group" style={{ marginLeft: "auto", flexWrap: "wrap", gap: 10 }}>
+  <span className="adfb-filter-label">Report:</span>
+
+  <input
+    type="date"
+    className="adfb-select"
+    value={rStart}
+    onChange={(e) => setRStart(e.target.value)}
+  />
+  <input
+    type="date"
+    className="adfb-select"
+    value={rEnd}
+    onChange={(e) => setREnd(e.target.value)}
+  />
+
+  <select className="adfb-select" value={rType} onChange={(e) => setRType(e.target.value)}>
+    <option value="all">All Types</option>
+    <option value="review">Reviews</option>
+    <option value="complaint">Complaints</option>
+  </select>
+
+  <button className="adfb-action" onClick={downloadReport}>
+    <i className="fas fa-download" /> Export PDF
+  </button>
+</div>
+
+
           </div>
 
           {/* Content grid */}
@@ -461,7 +574,7 @@ const [emailBody, setEmailBody] = useState("");
             resize: "vertical",
           }}
         />
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8 , justifyContent: "flex-end" }}>
           <button
             className="adfb-action"
             onClick={() => sendEmailToComplaint(f._id)}
