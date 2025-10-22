@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "../../lib/api";
+import { exportFeedbackReport } from "../../utils/feedbackReport";
+
 
 // Shared chrome
 import Header from "../../Components/Header";
@@ -314,6 +316,24 @@ const [emailBody, setEmailBody] = useState("");
                     Showing {shown.length} of {view === "reviews" ? reviews.length : complaints.length} {view}
                   </span>
                 )}
+                {!loading && !error && (
+  <button
+    className="adfb-action"
+    onClick={() =>
+      exportFeedbackReport(shown, {
+        type: view === "reviews" ? "review" : "complaint",
+        category,
+        status: view === "complaints" ? statusFilter : "all",
+        includeHidden: true,
+      })
+    }
+    title="Download PDF report for the currently shown list"
+    style={{ marginLeft: 8 }}
+  >
+    Download PDF
+  </button>
+)}
+
               </div>
 
               {loading && <div className="adfb-item"><p>Loading…</p></div>}
