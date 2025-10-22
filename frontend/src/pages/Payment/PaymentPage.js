@@ -372,6 +372,15 @@ export default function PaymentPage() {
   const [city, setCity] = useState("");
   const [zipCode, setZipCode] = useState("");
 
+  // inline error states for customer info (NEW)
+  const [fullNameErr, setFullNameErr] = useState("");
+  const [emailErr, setEmailErr] = useState("");
+  const [phoneErr, setPhoneErr] = useState("");
+  const [countryErr, setCountryErr] = useState("");
+  const [addressErr, setAddressErr] = useState("");
+  const [cityErr, setCityErr] = useState("");
+  const [zipErr, setZipErr] = useState("");
+
   // card
   const [cardNumber, setCardNumber] = useState("");
   const [cardName, setCardName] = useState("");
@@ -462,6 +471,23 @@ export default function PaymentPage() {
     setCardNameError("");
   };
 
+  // ---- Phone input sanitizer (NEW): allow only digits and one leading '+', cap at 15 digits ----
+  const onPhoneChange = (v) => {
+    // keep only digits and plus
+    let s = (v || "").replace(/[^\d+]/g, "");
+    // ensure plus only at start and at most one
+    if (s.includes("+")) {
+      // keep first '+' if it's at index 0
+      s = (s[0] === "+" ? "+" : "") + s.replace(/\+/g, "").replace(/^\+/, "");
+    }
+    // limit to 15 digits (not counting the optional '+')
+    const digits = s.replace(/\D/g, "");
+    const limitedDigits = digits.slice(0, 15);
+    s = (s[0] === "+" ? "+" : "") + limitedDigits;
+
+    setPhone(s);
+  };
+
   // upload simulate
   const onChooseFile = (e) => {
     const f = e.target.files?.[0];
@@ -483,19 +509,105 @@ export default function PaymentPage() {
     setProgress(0);
   };
 
-  // validation
+  // ---------- Customer validators (ONLY the rules you requested) ----------
+  function validateFullName(v) {
+    const s = (v || "").trim();
+    if (!s) return "Full name is required.";
+    if (s.length < 2) return "Full name is too short.";
+    if (s.length > 60) return "Full name is too long.";
+    if (!/^[A-Za-z ]+$/.test(s)) return "Use letters and spaces only.";
+    if (/\d/.test(s)) return "Name cannot contain numbers.";
+    return "";
+  }
+  function validateEmail(v) {
+    const s = (v || "").trim();
+    if (!s) return "Email is required.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) return "Enter a valid email address.";
+    return "";
+  }
+  function validatePhone(v) {
+    const digits = (v || "").replace(/\D/g, "");
+    if (!digits) return "Phone number is required.";
+    if (digits.length < 7 || digits.length > 15) return "Phone must be 7–15 digits.";
+    return "";
+  }
+  function validateZip(v) {
+    const s = (v || "").trim();
+    if (!s) return "ZIP / Postal code is required.";
+    if (!/^[A-Za-z0-9]{3,10}$/.test(s)) return "Use 3–10 letters or numbers.";
+    return "";
+  }
+  // keep country/address/city as required (no extra strictness)
+  function validateCountry(v) {
+    if (!v) return "Please select a country.";
+    return "";
+  }
+  function validateAddress(v) {
+    const s = (v || "").trim();
+    if (!s) return "Address is required.";
+    return "";
+  }
+  function validateCity(v) {
+    const s = (v || "").trim();
+    if (!s) return "City is required.";
+    return "";
+  }
+
+  // blur handlers for inline errors
+  const onBlurFullName = () => setFullNameErr(validateFullName(fullName));
+  const onBlurEmail = () => setEmailErr(validateEmail(email));
+  const onBlurPhone = () => setPhoneErr(validatePhone(phone));
+  const onBlurCountry = () => setCountryErr(validateCountry(country));
+  const onBlurAddress = () => setAddressErr(validateAddress(address));
+  const onBlurCity = () => setCityErr(validateCity(city));
+  const onBlurZip = () => setZipErr(validateZip(zipCode));
+
+  // clear error on change for soft UX
+  useEffect(() => { if (fullNameErr) setFullNameErr(""); }, [fullName]);
+  useEffect(() => { if (emailErr) setEmailErr(""); }, [email]);
+  useEffect(() => { if (phoneErr) setPhoneErr(""); }, [phone]);
+  useEffect(() => { if (countryErr) setCountryErr(""); }, [country]);
+  useEffect(() => { if (addressErr) setAddressErr(""); }, [address]);
+  useEffect(() => { if (cityErr) setCityErr(""); }, [city]);
+  useEffect(() => { if (zipErr) setZipErr(""); }, [zipCode]);
+
+  // validation (updated to set inline errors and focus first invalid)
   const validateCustomer = () => {
-    if (!fullName.trim()) return false;
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      return false;
-    if (!phone.trim()) return false;
-    if (!country) return false;
-    if (!address.trim()) return false;
-    if (!city.trim()) return false;
-    if (!zipCode.trim()) return false;
-    return true;
+    const e1 = validateFullName(fullName);
+    const e2 = validateEmail(email);
+    const e3 = validatePhone(phone);
+    const e4 = validateCountry(country);
+    const e5 = validateAddress(address);
+    const e6 = validateCity(city);
+    const e7 = validateZip(zipCode);
+
+    setFullNameErr(e1);
+    setEmailErr(e2);
+    setPhoneErr(e3);
+    setCountryErr(e4);
+    setAddressErr(e5);
+    setCityErr(e6);
+    setZipErr(e7);
+
+    const errors = [
+      { id: "fullName", err: e1 },
+      { id: "email", err: e2 },
+      { id: "phone", err: e3 },
+      { id: "country", err: e4 },
+      { id: "address", err: e5 },
+      { id: "city", err: e6 },
+      { id: "zipCode", err: e7 },
+    ];
+    const first = errors.find((x) => x.err);
+    if (first) {
+      const el = document.getElementById(first.id);
+      if (el && typeof el.focus === "function") el.focus();
+    }
+
+    return !(e1 || e2 || e3 || e4 || e5 || e6 || e7);
   };
-  // UPDATED: include future-or-current month rule + inline message
+
+  // UPDATED: include future-or-current month rule + inline message (existing)
   const validateCard = () => {
     const num = cardNumber.replace(/\s/g, "");
     if (!num || num.length !== 16) return false;
@@ -748,9 +860,14 @@ export default function PaymentPage() {
                       className="form-control"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
+                      onBlur={onBlurFullName}
                       placeholder="John Doe"
                       autoComplete="off"
+                      aria-invalid={!!fullNameErr}
                     />
+                    {fullNameErr && (
+                      <div className="field-error" role="alert">{fullNameErr}</div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label htmlFor="email">Email Address</label>
@@ -760,9 +877,14 @@ export default function PaymentPage() {
                       className="form-control"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onBlur={onBlurEmail}
                       placeholder="john@example.com"
                       autoComplete="off"
+                      aria-invalid={!!emailErr}
                     />
+                    {emailErr && (
+                      <div className="field-error" role="alert">{emailErr}</div>
+                    )}
                   </div>
                 </div>
 
@@ -772,11 +894,19 @@ export default function PaymentPage() {
                     <input
                       id="phone"
                       className="form-control"
+                      type="tel"
+                      inputMode="tel"
+                      pattern="[+0-9]*"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+1 234 567 8900"
+                      onChange={(e) => onPhoneChange(e.target.value)}
+                      onBlur={onBlurPhone}
+                      placeholder="+1234567890"
                       autoComplete="off"
+                      aria-invalid={!!phoneErr}
                     />
+                    {phoneErr && (
+                      <div className="field-error" role="alert">{phoneErr}</div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label htmlFor="country">Country</label>
@@ -785,6 +915,8 @@ export default function PaymentPage() {
                       className="form-control"
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
+                      onBlur={onBlurCountry}
+                      aria-invalid={!!countryErr}
                     >
                       <option value="" disabled>
                         Select Country
@@ -795,6 +927,9 @@ export default function PaymentPage() {
                       <option value="UK">United Kingdom</option>
                       <option value="JP">Japan</option>
                     </select>
+                    {countryErr && (
+                      <div className="field-error" role="alert">{countryErr}</div>
+                    )}
                   </div>
                 </div>
 
@@ -806,9 +941,14 @@ export default function PaymentPage() {
                     className="form-control"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
+                    onBlur={onBlurAddress}
                     placeholder={"123 Main St\nColombo"}
                     autoComplete="off"
+                    aria-invalid={!!addressErr}
                   />
+                  {addressErr && (
+                    <div className="field-error" role="alert">{addressErr}</div>
+                  )}
                 </div>
 
                 <div className="form-row">
@@ -819,9 +959,14 @@ export default function PaymentPage() {
                       className="form-control"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
+                      onBlur={onBlurCity}
                       placeholder="Colombo"
                       autoComplete="off"
+                      aria-invalid={!!cityErr}
                     />
+                    {cityErr && (
+                      <div className="field-error" role="alert">{cityErr}</div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label htmlFor="zipCode">ZIP / Postal Code</label>
@@ -830,9 +975,14 @@ export default function PaymentPage() {
                       className="form-control"
                       value={zipCode}
                       onChange={(e) => setZipCode(e.target.value)}
+                      onBlur={onBlurZip}
                       placeholder="10000"
                       autoComplete="off"
+                      aria-invalid={!!zipErr}
                     />
+                    {zipErr && (
+                      <div className="field-error" role="alert">{zipErr}</div>
+                    )}
                   </div>
                 </div>
               </div>
