@@ -298,8 +298,9 @@ body {
 
 .sac-widget h3 {
     color: var(--sac-sub);
-    font-size: 14px;
+    font-size: 25px;
     margin: 6px 0;
+    color: rgba(212, 175, 55, 0.1);;
 }
 
 .sac-widget-value {
