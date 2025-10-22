@@ -20,6 +20,69 @@ const SellerInventory = () => {
 
   const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, name: "" });
 
+  // === Month report state & helpers (no on-page table; used only for PDF) ===
+  const [reportMonth, setReportMonth] = useState(new Date().getMonth()); // 0–11
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  const gemsInSelectedMonth = useMemo(() => {
+    return (items || []).filter(g => {
+      if (!g?.createdAt) return false;
+      const m = new Date(g.createdAt).getMonth();
+      return m === Number(reportMonth);
+    });
+  }, [items, reportMonth]);
+
+  // Lazy-load jsPDF + autotable from CDN (no npm change)
+  async function ensureJsPDF() {
+    if (window.jspdf?.jsPDF) return;
+    await new Promise((resolve) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      s.onload = resolve;
+      document.head.appendChild(s);
+    });
+    await new Promise((resolve) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js";
+      s.onload = resolve;
+      document.head.appendChild(s);
+    });
+  }
+
+  async function downloadMonthPdf() {
+    try {
+      await ensureJsPDF();
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      const title = `Added Gems - ${MONTHS[reportMonth]}`;
+      doc.setFontSize(16);
+      doc.text(title, 14, 16);
+
+      const rows = gemsInSelectedMonth.map(g => ([
+        g.name || g.gemId || "-",
+        g.type || "-",
+        typeof g.priceUSD === "number" ? `$${g.priceUSD.toLocaleString("en-US")}` : "-",
+        g.createdAt ? new Date(g.createdAt).toLocaleDateString() : "-",
+        (g.status || "-").replace(/_/g, " ")
+      ]));
+
+      // @ts-ignore plugin attaches globally
+      doc.autoTable({
+        startY: 22,
+        head: [["Name/ID", "Type", "Price (USD)", "Added Date", "Status"]],
+        body: rows.length ? rows : [["—", "—", "—", "—", "—"]],
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [212, 175, 55] },
+      });
+
+      doc.save(`gems_${MONTHS[reportMonth]}.pdf`);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to generate PDF.");
+    }
+  }
+
   // Particles
   useEffect(() => {
     const initParticles = () => {
@@ -55,7 +118,7 @@ const SellerInventory = () => {
     }
   }, []);
 
-  // Fetch gems
+  // Fetch gems (general)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -73,7 +136,7 @@ const SellerInventory = () => {
     return () => { cancelled = true; };
   }, []);
 
-  // Fetch *my* gems (show all statuses to seller)
+  // Fetch *my* gems (seller’s own, all statuses)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -172,7 +235,7 @@ const SellerInventory = () => {
               <p>Manage your precious gem collection with our intuitive inventory system.</p>
             </div>
 
-            {/* Moved: Only the Add New Gem button sits to the right side */}
+            {/* Only the Add New Gem button on the right */}
             <button
               className="btn add-gem-btn"
               onClick={() => {
@@ -302,6 +365,29 @@ const SellerInventory = () => {
             </table>
           </div>
 
+          {/* --- NEW: Compact month selector + PDF button (no table shown) --- */}
+          <div className="month-report-container">
+            <div className="month-report-header">
+              <h3>Added Gems Report</h3>
+              <div className="month-report-controls">
+                <label htmlFor="monthSelect" className="sr-only">Month</label>
+                <select
+                  id="monthSelect"
+                  className="month-select"
+                  value={reportMonth}
+                  onChange={(e) => setReportMonth(Number(e.target.value))}
+                >
+                  {MONTHS.map((m, i) => (
+                    <option key={m} value={i}>{m}</option>
+                  ))}
+                </select>
+                <button className="btn month-download-btn" onClick={downloadMonthPdf}>
+                  <i className="fas fa-file-download"></i> Download PDF
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Pagination (visual only) */}
           <div className="pagination">
             <button className={`pagination-btn ${page === 1 ? "active" : ""}`} onClick={() => setPage(1)}>
@@ -315,8 +401,6 @@ const SellerInventory = () => {
               Next <i className="fas fa-chevron-right"></i>
             </button>
           </div>
-
-          {/* Removed the old "Add New Gem to Inventory" container content (kept only the button, now in header) */}
         </main>
       </div>
 
