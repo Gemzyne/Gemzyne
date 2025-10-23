@@ -177,7 +177,7 @@ const UserDashboard = () => {
     loadDashboard();
   }, []);
 
-  /* =================== Payment Methods (existing) =================== */
+  /* =================== Payment Methods  =================== */
   const [savedCards, setSavedCards] = useState([]);
   const [cardsLoading, setCardsLoading] = useState(true);
   const [cardsError, setCardsError] = useState("");
