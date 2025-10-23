@@ -416,7 +416,7 @@ export default function PaymentPage() {
       .slice(0, 19);
     setCardNumber(formatted);
   };
-  // UPDATED: live validate expiry; allow current month, reject past
+  //live validate expiry; allow current month, reject past
   const onExpiry = (v) => {
     const digits = v
       .replace(/\s+/g, "")
@@ -471,9 +471,8 @@ export default function PaymentPage() {
     setCardNameError("");
   };
 
-  // ---- Phone input sanitizer (NEW): allow only digits and one leading '+', cap at 15 digits ----
+  // ---- Phone input sanitizer: allow only digits and one leading '+', cap at 15 digits ----
   const onPhoneChange = (v) => {
-    // keep only digits and plus
     let s = (v || "").replace(/[^\d+]/g, "");
     // ensure plus only at start and at most one
     if (s.includes("+")) {
@@ -509,7 +508,7 @@ export default function PaymentPage() {
     setProgress(0);
   };
 
-  // ---------- Customer validators (ONLY the rules you requested) ----------
+  // ---------- Customer validators ----------
   function validateFullName(v) {
     const s = (v || "").trim();
     if (!s) return "Full name is required.";
@@ -607,7 +606,7 @@ export default function PaymentPage() {
     return !(e1 || e2 || e3 || e4 || e5 || e6 || e7);
   };
 
-  // UPDATED: include future-or-current month rule + inline message (existing)
+  // include future-or-current month rule + inline message (existing)
   const validateCard = () => {
     const num = cardNumber.replace(/\s/g, "");
     if (!num || num.length !== 16) return false;
