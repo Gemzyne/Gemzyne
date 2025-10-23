@@ -550,7 +550,7 @@ export default function AdminDashboard() {
         </main>
       </div>
 
-      {/* ---------- Modals (use your CSS classes) ---------- */}
+      {/* ---------- Modals  ---------- */}
       {/* Confirm Modal */}
       <div className={`modal-overlay ${confirmModal.open ? "active" : ""}`}>
         <div className="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">

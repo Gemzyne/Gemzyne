@@ -26,7 +26,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
 
-  // NEW: modal states
+  //  modal states
   const [confirmModal, setConfirmModal] = useState({ open: false, id: null, text: "" });
   const [alertModal, setAlertModal] = useState({ open: false, title: "", message: "" });
 
