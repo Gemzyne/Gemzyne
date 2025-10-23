@@ -36,9 +36,9 @@ import GemDetail from "./pages/Inventory/GemDetail";
 // Seller inventory page
 import SellerInventory from "./pages/SellerAddGem/SellerInventory";
 
-// ✅ Add these
+//  Add these
 import AddGem from "./pages/SellerAddGem/AddGem";
-import EditGem from "./pages/SellerAddGem/EditGem"; // <--- NEW
+import EditGem from "./pages/SellerAddGem/EditGem"; 
 // === AUCTION: add at top with others ===
 import AuctionCentre from "./pages/Auction/AuctionCentre";
 import AuctionBuyerDashboard from "./pages/Auction/AuctionBuyerDashboard";
