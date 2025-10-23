@@ -311,3 +311,62 @@
   .adfb-page-header { padding: 28px 14px; }
   .adfb-page-header h1 { font-size: 32px; }
 }
+/* AdminFeedbackPage.css */
+.adfb-filter{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap: wrap;            /* allow next line */
+}
+
+.adfb-report-controls{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-basis: 100%;           /* force to next line */
+  margin-top: 6px;
+}
+/* Base input already dark; these tighten for date fields */
+.adfb-input.adfb-date{
+  background:#141414;
+  color:#eee;
+  border:1px solid #333;
+  border-radius:10px;
+  padding:8px 12px;
+  height:40px;
+  min-width: 170px;           /* space for dd/mm/yyyy */
+  font: inherit;
+  color-scheme: dark;          /* helps Firefox & Edge pick dark popups */
+}
+
+/* Focus ring in your gold */
+.adfb-input.adfb-date:focus{
+  outline: none;
+  border-color:#d4af37;
+  box-shadow:0 0 0 2px rgba(212,175,55,.25);
+}
+
+/* Chrome/Edge date parts */
+.adfb-input.adfb-date::-webkit-datetime-edit-fields-wrapper{ background:transparent; }
+.adfb-input.adfb-date::-webkit-datetime-edit{ color:#eee; }
+.adfb-input.adfb-date::-webkit-datetime-edit-year-field,
+.adfb-input.adfb-date::-webkit-datetime-edit-month-field,
+.adfb-input.adfb-date::-webkit-datetime-edit-day-field{
+  color:#eee;
+  padding:0 1px;
+}
+
+/* Calendar icon: make it light and clickable */
+.adfb-input.adfb-date::-webkit-calendar-picker-indicator{
+  filter: invert(1) opacity(.85);
+  cursor: pointer;
+}
+
+/* Hide clear/spin buttons where present */
+.adfb-input.adfb-date::-webkit-clear-button,
+.adfb-input.adfb-date::-webkit-inner-spin-button{
+  display:none;
+}
+
+/* Keep spacing consistent in the filter row */
+.adfb-report-controls .adfb-date{ margin-right:8px; }

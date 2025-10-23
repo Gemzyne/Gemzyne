@@ -72,6 +72,12 @@ const [emailOpenId, setEmailOpenId] = useState(null);
 const [emailSubject, setEmailSubject] = useState("");
 const [emailBody, setEmailBody] = useState("");
 
+// ↓ add with your other useState hooks
+const [repFrom, setRepFrom] = useState("");           // "YYYY-MM-DD"
+const [repTo, setRepTo] = useState("");               // "YYYY-MM-DD"
+const [repType, setRepType] = useState("all");        // "all" | "review" | "complaint"
+
+
   // Particles
   // Particles (unique ID)
   const particlesLoaded = useRef(false);
@@ -186,6 +192,29 @@ const [emailBody, setEmailBody] = useState("");
   // Derivations
   const reviews = useMemo(() => items.filter((i) => i.type === "review"), [items]);
   const complaints = useMemo(() => items.filter((i) => i.type === "complaint"), [items]);
+
+
+  /* ===== Helpers + computed list ONLY for the PDF export ===== */
+const startOfDay = (s) => (s ? new Date(`${s}T00:00:00`) : null);
+const endOfDay   = (s) => (s ? new Date(`${s}T23:59:59.999`) : null);
+
+const reportItems = useMemo(() => {
+  let arr = Array.isArray(items) ? [...items] : [];
+
+  // Type filter just for the report (does NOT change on-page list)
+  if (repType !== "all") {
+    arr = arr.filter((i) => i.type === repType); // "review" or "complaint"
+  }
+
+  // Inclusive date range
+  const f = startOfDay(repFrom);
+  const t = endOfDay(repTo);
+  if (f) arr = arr.filter((i) => new Date(i.createdAt) >= f);
+  if (t) arr = arr.filter((i) => new Date(i.createdAt) <= t);
+
+  return arr;
+}, [items, repFrom, repTo, repType]);
+
 
   const { responseRate, resolutionRate } = useMemo(() => {
     const total = complaints.length;
@@ -303,6 +332,57 @@ const [emailBody, setEmailBody] = useState("");
                 Complaints
               </button>
             </div>
+           {/* ===== Report controls (PDF only) ===== */}
+<div className="adfb-report-controls">
+  <span className="adfb-filter-label">Report:</span>
+
+<input
+  type="date"
+  className="adfb-input adfb-date"
+  value={repFrom}
+  onChange={(e) => setRepFrom(e.target.value)}
+/>
+<input
+  type="date"
+  className="adfb-input adfb-date"
+  value={repTo}
+  onChange={(e) => setRepTo(e.target.value)}
+/>
+
+
+  <select
+    className="adfb-select"
+    value={repType}
+    onChange={(e) => setRepType(e.target.value)}
+    aria-label="Report type"
+  >
+    <option value="all">All Types</option>
+    <option value="review">Reviews</option>
+    <option value="complaint">Complaints</option>
+  </select>
+
+  <button
+    className="adfb-action"
+    onClick={() =>
+      exportFeedbackReport(reportItems, {
+        type: repType, // "all" | "review" | "complaint"
+        category,      // keep your current category chip shown in header
+        status: view === "complaints" ? statusFilter : "all",
+        includeHidden: true,
+        includeText: false,
+        period: {
+          from: repFrom ? startOfDay(repFrom) : undefined,
+          to: repTo ? endOfDay(repTo) : undefined,
+        },
+      })
+    }
+    title="Export filtered PDF"
+  >
+    Export PDF
+  </button>
+</div>
+
+
           </div>
 
           {/* Content grid */}
